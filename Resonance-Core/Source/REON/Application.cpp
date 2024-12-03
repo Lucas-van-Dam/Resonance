@@ -6,6 +6,7 @@
 #include "glad/glad.h"
 #include "REON/GameHierarchy/SceneManager.h"
 
+
 namespace REON {
 
 	Application* Application::s_Instance = nullptr;

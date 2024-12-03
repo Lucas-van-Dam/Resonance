@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <typeindex>
+
 namespace REON {
 
     class GameObject;
@@ -9,7 +12,7 @@ namespace REON {
         virtual ~Component() = default;
         virtual void Update(float deltaTime) = 0;
         //virtual void Initialize() = 0;
-
+        
         std::shared_ptr<GameObject> GetOwner() const {
             return m_GameObject.lock();
         }
@@ -21,8 +24,25 @@ namespace REON {
         virtual void OnGameObjectAddedToScene() = 0;
         virtual void OnComponentDetach() = 0;
 
+        virtual std::string GetTypeName() const = 0;
+        virtual std::type_index GetTypeIndex() const = 0;
     private:
         std::weak_ptr<GameObject> m_GameObject;
+    };
+
+    template <typename T>
+    class ComponentBase : public Component {
+    public:
+        std::string GetTypeName() const override 
+        { 
+            std::string mangledName = typeid(T).name();
+            size_t pos = mangledName.find_last_of("::");
+            if (pos != std::string::npos) {
+                return mangledName.substr(pos + 1); // Skip "::"
+            }
+            return mangledName;
+        }
+        std::type_index GetTypeIndex() const override { return typeid(T); }
     };
 }
 

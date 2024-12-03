@@ -41,10 +41,15 @@ set headerList=temp_headers.txt
 
 :: Find all header files and output them to the temporary file
 echo Searching for header files...
-(dir /b /s *.h > %headerList%) || (
+(dir /b /s *.h > "..\..\Reflection\%headerList%") || (
     echo No header files found. Creating an empty header file list.
-    echo. > %headerList%
+    echo. > "..\..\Reflection\%headerList%"
 )
+
+:: Move back to core directory
+cd ..\..\Reflection
+
+echo Reflection Directory %cd%
 
 :: Check if the header list file was created
 if not exist %headerList% (
@@ -79,26 +84,24 @@ if "%args%"=="" (
 :: Debug: Output the collected arguments
 echo Collected arguments for ReflectionGenerator.exe: %args%
 
-if not exist "..\..\..\Vendor\ReflectionGenerator\ReflectionGenerator.exe" (
+if not exist "..\..\Vendor\ReflectionGenerator\ReflectionGenerator.exe" (
     echo Could not find ReflectionGenerator.exe. Please check the path.
     popd
     pause
     exit /b
 )
 
-if exist "C:\Projects\Cuttlefish\Resonance\compile_commands.json" (
+if exist "..\..\compile_commands.json" (
     echo File found
 ) else (
     echo File not found
     exit /b 1
 )
 
-cd ..\..\Reflection
-
 :: Run the reflection tool with the list of header files
 echo Running ReflectionGenerator.exe with the following arguments: %args%
 
-..\..\Vendor\ReflectionGenerator\ReflectionGenerator.exe --compile-commands=C:\\Projects\\Cuttlefish\\Resonance\\compile_commands.json %args%
+..\..\Vendor\ReflectionGenerator\ReflectionGenerator.exe --compile-commands=..\\..\\compile_commands.json %args%
 
 :: Check if ReflectionTool executed successfully
 if errorlevel 1 (

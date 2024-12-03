@@ -9,6 +9,14 @@
 
 namespace REON {
 
+	struct WindowData {
+		std::string Title;
+		unsigned int Width = 0, Height = 0;
+		bool VSync = false;
+
+		std::function<void(Event&)> EventCallBack;
+	};
+
 	class  WindowsWindow : public Window {
 	public:
 		WindowsWindow(const WindowProperties& properties);
@@ -32,13 +40,7 @@ namespace REON {
 
 		RenderContext* m_Context;
 
-		struct WindowData {
-			std::string Title;
-			unsigned int Width = 0, Height = 0;
-			bool VSync = false;
 
-			EventCallBackFn EventCallBack;
-		};
 
 		WindowData m_Data;
 	};

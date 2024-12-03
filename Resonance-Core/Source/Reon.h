@@ -10,6 +10,7 @@
 #include "REON/KeyCodes.h"
 #include "REON/MouseButtonCodes.h"
 
-#include "REON/EntryPoint.h"
+#include "REON/Events/Event.h"
+
 #include "REON/ImGui/ImGuiLayer.h"
 #include "REON/Rendering/RenderLayer.h"

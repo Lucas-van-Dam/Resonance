@@ -12,6 +12,7 @@ project "Core"
    { 
     "Source/**.h", 
     "Source/**.cpp",
+    "Reflection/**.cpp",
     "Reflection/**.h",
     "vendor/glm/glm/**.hpp",
     "vendor/glm/glm/**.inl",
@@ -41,6 +42,24 @@ project "Core"
       "assimp",
       "opengl32.lib"
    }
+
+   local function generateRegistrationHeader()
+    local output_file = path.join("Reflection", "ReflectionRegistry_Registration.h")
+    local reflections = os.matchfiles("Reflection/*.cpp")
+
+    local file = io.open(output_file, "w")
+    file:write("#pragma once\n\n")
+
+    -- Write includes for each generated reflection file
+    for _, reflection_file in ipairs(reflections) do
+        file:write('#include "' .. path.getname(reflection_file) .. '"\n')
+    end
+
+    file:close()
+   end
+
+-- Call the function to generate the header
+    generateRegistrationHeader()
 
    targetdir ("../Binaries/" .. OutputDir .. "/%{prj.name}")
    objdir ("../Binaries/Intermediates/" .. OutputDir .. "/%{prj.name}")

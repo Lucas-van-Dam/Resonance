@@ -112,14 +112,84 @@ vec3(0.355, - 0.355, 0.0),
 vec3(- 0.355, - 0.355, 0.0)
 };
 
+float FindBlockerDistanceGrid(vec3 fragPos, Light light, int index, int gridResolution, float diskRadius) {
+    vec3 fragToLight = fragPos - light.position.xyz;
+    float currentDepth = length(fragToLight);
+    float avgBlockerDepth = 0.0;
+    int blockerCount = 0;
+
+    // Grid-based sampling for the blocker search
+    for (int x = -gridResolution; x <= gridResolution; ++x) {
+        for (int y = -gridResolution; y <= gridResolution; ++y) {
+            vec3 offset = vec3(float(x), float(y), 0.0) * (diskRadius / float(gridResolution));
+            float closestDepth = texture(shadowCubes[index], fragToLight + offset).r * far_plane;
+
+            if (closestDepth < currentDepth) {
+                avgBlockerDepth += closestDepth;
+                blockerCount++;
+            }
+        }
+    }
+
+    if (blockerCount > 0) {
+        avgBlockerDepth /= float(blockerCount);
+    }
+
+    return avgBlockerDepth;
+}
+
+float ComputePenumbraSize(float lightToFragmentDist, float avgBlockerDepth, float lightRadius) {
+    return (lightToFragmentDist - avgBlockerDepth) / avgBlockerDepth * lightRadius;
+}
+
+float PCSSShadowCalculationGrid(vec3 normal, vec3 fragPos, Light light, int index) {
+    vec3 fragToLight = fragPos - light.position.xyz;
+    float currentDepth = length(fragToLight);
+    float bias = max((0.05 + 0.005 * currentDepth) * (1.0 - abs(dot(normalize(normal), normalize(fragToLight)))), 0.005);
+    
+    // Blocker Search
+    int blockerGridRes = 4; // Adjust grid resolution for accuracy
+    float diskRadius = 0.05;
+    float avgBlockerDepth = FindBlockerDistanceGrid(fragPos, light, index, blockerGridRes, diskRadius);
+
+    if (avgBlockerDepth == 0.0) {
+        return 1.0; // No blockers found, fully lit
+    }
+
+    // Calculate Penumbra Size
+    float lightToFragmentDist = currentDepth;
+    float lightRadius = 0.3; // Light radius for softness control
+    float penumbraSize = ComputePenumbraSize(lightToFragmentDist, avgBlockerDepth, lightRadius);
+
+    // Shadow calculation with PCF and variable radius
+    float shadow = 0.0;
+    int pcfGridRes = 4; // PCF grid resolution for smoother shadows
+
+    for (int x = -pcfGridRes; x <= pcfGridRes; ++x) {
+        for (int y = -pcfGridRes; y <= pcfGridRes; ++y) {
+            vec3 offset = vec3(float(x), float(y), 0.0) * (penumbraSize / float(pcfGridRes));
+            float closestDepth = texture(shadowCubes[index], fragToLight + offset).r * far_plane;
+
+            shadow += currentDepth - bias > closestDepth ? 1.0 : 0.0;
+        }
+    }
+
+    // Normalize by the total number of samples
+    int totalSamples = (2 * pcfGridRes + 1) * (2 * pcfGridRes + 1);
+    shadow /= float(totalSamples);
+
+    return shadow;
+}
+
+
 float AdditionalShadowCalculation(vec3 normal, vec3 fragPos, Light light, int index) {
     // get vector between fragment position and light position
     vec3 fragToLight = fragPos - light.position.xyz;
     // use the light to fragment vector to sample from the depth map
     float currentDepth = length(fragToLight);
-    // float bias = max((0.005 + 0.0005 * currentDepth) * (1.0 - abs(dot(normalize(normal), normalize(fragToLight)))), 0.0005);
-    float angleFactor = 1.0 - abs(dot(normalize(normal), normalize(-fragToLight)));
-    float bias = max((0.0005 * exp(5.0 * angleFactor)) * (1.0 - angleFactor), 0.00005);
+     float bias = max((0.005 + 0.0005 * currentDepth) * (1.0 - abs(dot(normalize(normal), normalize(fragToLight)))), 0.0005);
+    //float angleFactor = 1.0 - abs(dot(normalize(normal), normalize(-fragToLight)));
+    //float bias = max((0.0005 * exp(5.0 * angleFactor)) * (1.0 - angleFactor), 0.00005);
     float shadow = 0.0;
     int samples = 4; // Number of samples for PCF
     float diskRadius = 0.05; // Radius of the sampling disk
@@ -214,7 +284,7 @@ void main()
             float distance = length(lights[i].position.xyz - fragPosition);
             float attenuation = 1.0 / (distance * distance);
             radiance = lights[i].lightColor.xyz * attenuation;
-            shadow = AdditionalShadowCalculation(N, fragPosition, lights[i], pointLightCount++);
+            shadow = PCSSShadowCalculationGrid(N, fragPosition, lights[i], pointLightCount++);
 
             // FragColor = vec4(shadow,0,0,1);
             // return;

@@ -57,4 +57,8 @@ namespace REON {
         return nullptr;
     }
 
+    std::vector<std::shared_ptr<GameObject>> Scene::GetRootObjects() {
+        return m_GameObjects;
+    }
+
 }

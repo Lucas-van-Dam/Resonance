@@ -1,6 +1,9 @@
 #pragma once
 
 #include <any>
+#include <string>
+#include <memory>
+#include <unordered_map>
 
 #include "Asset.h"
 

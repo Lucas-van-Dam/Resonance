@@ -11,22 +11,16 @@ namespace REON {
 	class RenderLayer : public Layer
 	{
 	public:
-		RenderLayer();
-		~RenderLayer();
+		RenderLayer() : Layer("RenderLayer") {}
+		~RenderLayer() {}
 
-		void OnDetach() override;
-		void OnAttach() override;
+		//void OnDetach() override;
+		//void OnAttach() override;
 		void OnUpdate() override;
-		void OnImGuiRender() override;
-		void OnEvent(Event& event) override;
-
-		bool ProcessKeyPress(KeyPressedEvent& event);
-		void ProcessMouseMove();
+		//void OnImGuiRender() override;
+		//void OnEvent(Event& event) override;
 
 	private:
-		bool m_SceneHovered = false;
-		double m_SavedX = 0, m_SavedY = 0;
-		bool m_CursorLocked = false;
 	};
 
 }

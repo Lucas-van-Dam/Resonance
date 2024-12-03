@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../Reflection/ReflectionRegistry_Registration.h"
+
 #ifdef REON_PLATFORM_WINDOWS
 
 extern REON::Application* REON::CreateApplication();

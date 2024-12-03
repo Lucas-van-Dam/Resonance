@@ -64,6 +64,7 @@ namespace REON {
 		//std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 
 		std::shared_ptr<GameObject> backPack = std::make_shared<GameObject>();
+		backPack->SetName("BackPack");
 
 		std::shared_ptr<Scene> m_Scene = SceneManager::Get()->GetCurrentScene();
 
@@ -88,6 +89,7 @@ namespace REON {
 		m_Scene->AddGameObject(light);
 		light->AddComponent<Light>(lightComponent);
 		light->GetTransform()->localPosition = glm::vec3(-7, 3, 3);
+		light->SetName("light1");
 		m_Scene->lightManager->AddLight(lightComponent);
 
 		std::shared_ptr<GameObject> light2 = std::make_shared<GameObject>();
@@ -95,13 +97,15 @@ namespace REON {
 		m_Scene->AddGameObject(light2);
 		light2->AddComponent<Light>(lightComponent2);
 		light2->GetTransform()->localPosition = glm::vec3(-5, 4, 3);
+		light2->SetName("light2");
 		m_Scene->lightManager->AddLight(lightComponent2);
 
-		std::shared_ptr<GameObject> light4 = std::make_shared<GameObject>();
+		std::shared_ptr<GameObject> light3 = std::make_shared<GameObject>();
 		std::shared_ptr<Light> lightComponent4 = std::make_shared<Light>(LightType::Directional, 3, glm::vec3(1, 1, 1));
-		m_Scene->AddGameObject(light4);
-		light4->AddComponent<Light>(lightComponent4);
-		light4->GetTransform()->localRotation.setFromEulerAngles(110, 0, 0);
+		m_Scene->AddGameObject(light3);
+		light3->AddComponent<Light>(lightComponent4);
+		light3->GetTransform()->localRotation.setFromEulerAngles(110, 0, 0);
+		light3->SetName("light3");
 		m_Scene->lightManager->AddLight(lightComponent4);
 	}
 

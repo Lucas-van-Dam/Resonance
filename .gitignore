@@ -449,3 +449,4 @@ Binaries/
 !Vendor/Binaries/Premake/
 *.sln
 *.ini
+/Resonance-Core/Reflection

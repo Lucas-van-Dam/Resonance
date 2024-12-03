@@ -8,7 +8,7 @@ class GameObject;
 
 namespace REON {
 
-    class Transform : public Component {
+    class Transform : public ComponentBase<Transform> {
     public:
         Transform()
             : localPosition(glm::vec3(0.0f)), localRotation(1.0f, 0.0f, 0.0f, 0.0f), localScale(glm::vec3(1.0f)), m_LocalMatrix(1.0f) {}

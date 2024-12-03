@@ -1,27 +1,12 @@
 #include "Reon.h"
+#include "EditorLayer.h"
+
+#include "REON/EntryPoint.h"
 
 #include "imgui/imgui.h"
+#include "EditorLayer.h"
 
-class EditorLayer : public REON::Layer {
-public:
-	EditorLayer()
-		: Layer("Editor") {}
-
-	void OnUpdate() override {
-		//TEK_INFO("EDITOR UPDATE");
-	}
-
-	void OnImGuiRender() override
-	{
-		ImGui::Begin("Test"); 
-		ImGui::Text("Hello World");
-		ImGui::End();
-	}
-
-	void OnEvent(REON::Event& event) override {
-		//TEK_TRACE("{0}", event);
-	}
-};
+//#define _CRTDBG_MAP_ALLOC
 
 class Editor : public REON::Application
 {
@@ -36,5 +21,6 @@ public:
 };
 
 REON::Application* REON::CreateApplication() {
+	//_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	return new Editor();
 }

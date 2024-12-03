@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include "REON/Rendering/Shader.h"
 #include "REON/Rendering/Mesh.h"
@@ -16,7 +17,7 @@ namespace REON {
     class Transform;
     class GameObject;
 
-    class Renderer : public Component, public std::enable_shared_from_this<Renderer> {
+    class Renderer : public ComponentBase<Renderer>, public std::enable_shared_from_this<Renderer> {
     public:
         Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material);
         ~Renderer();

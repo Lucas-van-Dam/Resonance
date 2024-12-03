@@ -54,8 +54,11 @@ namespace REON {
 
     // processes a node in a recursive fashion. Processes each individual mesh located at the node and repeats this process on its children nodes (if any).
     void Model::processNode(aiNode* node, const aiScene* scene, const std::shared_ptr<GameObject>& parent) {
+        static int nodeNumber = 1;
         auto gameObject = std::make_shared<GameObject>();
         gameObject->SetName(node->mName.C_Str());
+        if (gameObject->GetName() == "")
+            gameObject->SetName("Node " + std::to_string(nodeNumber++));
         parent->AddChild(gameObject);
 
         // Extract and apply the node's transformation

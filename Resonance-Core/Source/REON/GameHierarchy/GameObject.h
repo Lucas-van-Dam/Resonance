@@ -2,6 +2,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 #include "REON/GameHierarchy/Components/Component.h"
 
 namespace REON {
@@ -12,6 +13,7 @@ namespace REON {
     class GameObject : public std::enable_shared_from_this<GameObject> {
     public:
         GameObject();
+        void PrintMemory(void* data, size_t size);
         ~GameObject();
         GameObject(const GameObject&);
 
@@ -32,8 +34,13 @@ namespace REON {
             return nullptr;
         }
 
+        const std::vector<std::shared_ptr<Component>>& GetComponents() const;
+
+        const std::vector<std::shared_ptr<GameObject>>& GetChildren() const;
 
         void Update(float deltaTime);
+
+        void RemoveChild(std::shared_ptr<GameObject> child);
 
         void AddChild(std::shared_ptr<GameObject>);
 
@@ -50,6 +57,8 @@ namespace REON {
         void SetScene(std::shared_ptr<Scene> newScene);
 
         void OnGameObjectDeleted();
+
+        bool IsDescendantOf(std::shared_ptr<GameObject> other) const;
 
     public:
         bool enabled = true;

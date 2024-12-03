@@ -13,7 +13,7 @@ namespace REON {
         Point = 3
     };
 
-    class Light : public Component {
+    class Light : public ComponentBase<Light> {
     public:
         explicit Light(LightType type = LightType::Spot, float intensity = 1, glm::vec3 color = glm::vec3(1, 1, 1), float innerCutOff = -1, float outerCutOff = -1);
 
