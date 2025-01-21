@@ -450,3 +450,5 @@ Binaries/
 *.sln
 *.ini
 /Resonance-Core/Reflection
+Resonance-Core/Source/temp_headers.txt
+compile_commands.json

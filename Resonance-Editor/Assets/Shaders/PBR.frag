@@ -80,7 +80,7 @@ float GeometrySchlickGGX(float NdotV, float roughness)
     float nom   = NdotV;
     float denom = NdotV * (1.0 - k) + k;
 
-    
+    FragColor = vec4(NdotV, 0,0,1.0);
 
     return nom / denom;
 }
@@ -241,23 +241,23 @@ void main()
     vec3 N = normalize(Normal);
     vec3 R = reflect(-V, N);
 
-    vec3 fragTangent = normalize(T);
-    fragTangent = normalize(fragTangent - dot(fragTangent, N) * N);
-    vec3 fragBiTangent = cross(N, fragTangent);
-
-    mat3 TBN = mat3(fragTangent, fragBiTangent, N);
-
     vec4 diffuseColor = useAlbedoTexture ? texture(texture_albedo, TexCoords).xyzw : albedo;
 
     roughnessInternal = useRoughnessTexture ? texture(texture_roughness, TexCoords).g : roughness;
     //roughnessInternal = useMetallicTexture ? texture(texture_metallic, TexCoords).g : roughness;
     metallicInternal = useRoughnessTexture ? texture(texture_roughness, TexCoords).b : metallic;
 
-    N = useNormalTexture ? texture(texture_normal, TexCoords).rgb : N;
+    if(useNormalTexture){
+        vec3 fragTangent = normalize(T);
+        fragTangent = normalize(fragTangent - dot(fragTangent, N) * N);
+        vec3 fragBiTangent = cross(N, fragTangent);
 
-    //N.y * -1;
-    N = normalize(N * 2.0 - 1.0);
-    N = normalize((TBN) * N);
+        mat3 TBN = mat3(fragTangent, fragBiTangent, N);
+        N = texture(texture_normal, TexCoords).rgb;
+        N = normalize(N * 2.0 - 1.0);
+        N = normalize((TBN) * N);
+    }
+
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
     vec3 F0 = vec3(0.04);
@@ -299,10 +299,14 @@ void main()
         float G   = GeometrySmith(N, V, L, roughnessInternal);
         vec3 F    = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
 
-                //return;
+        
+
+                
         vec3 numerator    = NDF * G * F;
         float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
         vec3 specular = numerator / denominator;
+
+        //FragColor = vec4(specular, 1);
 
         // kS is equal to Fresnel
         vec3 kS = F;
@@ -338,7 +342,7 @@ void main()
 
     vec3 ambient = (kD * diffuse + specular);
 
-    vec3 color = ambient + Lo;
+    vec3 color = Lo;
 
     // HDR tonemapping
     color = color / (color + vec3(1.0));

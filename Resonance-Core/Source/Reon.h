@@ -12,5 +12,9 @@
 
 #include "REON/Events/Event.h"
 
+#include "REON/Math/Quaternion.h"
+
 #include "REON/ImGui/ImGuiLayer.h"
 #include "REON/Rendering/RenderLayer.h"
+
+#include "REON/AssetManagement/AssetRegistry.h"

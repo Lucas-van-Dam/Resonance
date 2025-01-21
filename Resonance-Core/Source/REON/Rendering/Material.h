@@ -2,13 +2,19 @@
 
 #include "REON/Rendering/Shader.h"
 #include "REON/Rendering/Structs/Texture.h"
+#include "REON/ResourceManagement/Resource.h"
 
 namespace REON {
 
-    class Material {
+    class Material : public Resource {
     public:
         Material(std::shared_ptr<Shader> shader);
         Material();
+        ~Material() override { Unload(); }
+
+        virtual void Load(const std::string& filePath, std::any metadata = {}) override;
+
+        virtual void Unload() override;
 
     public:
         std::shared_ptr<Texture> albedoTexture;

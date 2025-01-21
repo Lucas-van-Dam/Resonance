@@ -2,10 +2,11 @@
 
 #include <any>
 #include <string>
+#include "REON/Object.h"
 
 namespace REON {
 
-	class Asset
+	class Asset : public Object
 	{
     public:
         virtual ~Asset() = default;
@@ -16,6 +17,5 @@ namespace REON {
     protected:
         std::string m_Path;
 	};
-
 }
 

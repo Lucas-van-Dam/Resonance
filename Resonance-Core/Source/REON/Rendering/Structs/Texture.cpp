@@ -30,7 +30,7 @@ namespace REON {
 
             stbi_image_free(data);
 
-            m_Id = textureID;
+            m_TextureId = textureID;
             m_Path = filePath;
         }
         else {
@@ -41,15 +41,15 @@ namespace REON {
 
 	void Texture::Unload()
 	{
-        if (m_Id) {
-            glDeleteTextures(1, &m_Id);
-            m_Id = 0;
+        if (m_TextureId != 0) {
+            glDeleteTextures(1, &m_TextureId);
+            m_TextureId = 0;
         }
 	}
 
-    unsigned int Texture::GetId()
+    unsigned int Texture::GetTextureId()
     {
-        return m_Id;
+        return m_TextureId;
     }
 
 }

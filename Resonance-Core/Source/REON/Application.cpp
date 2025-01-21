@@ -60,7 +60,6 @@ namespace REON {
 
 	void Application::Run() {
 
-
 		while (m_Running) {
 			glClear(GL_COLOR_BUFFER_BIT);
 			for (Layer* layer : m_LayerStack)

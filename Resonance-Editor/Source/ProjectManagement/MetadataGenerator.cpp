@@ -1,0 +1,1 @@
+#include "MetadataGenerator.h"

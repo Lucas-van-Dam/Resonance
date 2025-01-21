@@ -9,7 +9,17 @@ namespace REON {
 		WindowClose, WindowResize, WindowFocus, WindowLostFocus, WindowMoved,
 		AppTick, AppUpdate, AppRender,
 		KeyPressed, KeyReleased, KeyTyped,
-		MouseButtonPressed, MouseButtonReleased, MouseMoved, MouseScrolled
+		MouseButtonPressed, MouseButtonReleased, MouseMoved, MouseScrolled,
+
+#ifdef REON_EDITOR
+		ButtonClicked, MenuItemSelected, TextboxEdited, /*DropdownSelectionChanged, SliderValueChanged, CheckboxToggled,*/
+		ViewportResized, /*ViewportFocusGained, ViewportFocusLost, DockingLayoutChanged, EditorWindowClosed,*/
+		/*AssetImported, AssetDeleted, AssetRenamed, AssetModified, AssetOpened,*/
+		GameObjectAdded, GameObjectDeleted, GameObjectRenamed, GameObjectSelected, GameObjectDeselected, /*TransformChanged,*/
+		ProjectOpened, ProjectSaved, /*FileOpened, FileSaved,*/
+		GizmoManipulated, ToolActivated, ToolDeactivated,
+		EditorInitialized, EditorShutdown
+#endif
 	};
 
 	enum EventCategory {
@@ -18,11 +28,22 @@ namespace REON {
 		EventCategoryInput = BIT(1),
 		EventCategoryKeyboard = BIT(2),
 		EventCategoryMouse = BIT(3),
-		EventCategoryMouseButton = BIT(4)
+		EventCategoryMouseButton = BIT(4),
+
+#ifdef REON_EDITOR
+		EventCategoryEditor = BIT(5),
+		EventCategoryEditorUI = BIT(6),
+		EventCategoryEditorViewportAndWindow = BIT(7),
+		EventCategoryEditorAssetManagement = BIT(8),
+		EventCategoryEditorObjectManagement = BIT(9),
+		EventCategoryEditorProjectManagement = BIT(10),
+		EventCategoryEditorTools = BIT(11),
+		EventCategoryEditorLifecycle = BIT(12)
+#endif
 	};
 
-#define EVENT_CLASS_TYPE(type) static EventType GetStaticType() { return EventType::type; }\
-								virtual EventType GetEventType() const override { return GetStaticType(); }\
+#define EVENT_CLASS_TYPE(type) static REON::EventType GetStaticType() { return REON::EventType::type; }\
+								virtual REON::EventType GetEventType() const override { return GetStaticType(); }\
 								virtual const char* GetName() const override {	return #type; }
 
 #define EVENT_CLASS_CATEGORY(category) virtual int GetCategoryFlags() const override {return category; }

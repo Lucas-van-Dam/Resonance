@@ -1,0 +1,11 @@
+Model Information:
+* title:	Nissan GT-R R35 GT V2
+* source:	https://sketchfab.com/3d-models/nissan-gt-r-r35-gt-v2-2749e883ce5443d680c0fe104a6f37c4
+* author:	blakebella (https://sketchfab.com/blakebella)
+
+Model License:
+* license type:	CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions can not be distributed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Nissan GT-R R35 GT V2" (https://sketchfab.com/3d-models/nissan-gt-r-r35-gt-v2-2749e883ce5443d680c0fe104a6f37c4) by blakebella (https://sketchfab.com/blakebella) licensed under CC-BY-NC-ND-4.0 (http://creativecommons.org/licenses/by-nc-nd/4.0/)

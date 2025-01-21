@@ -35,7 +35,7 @@ namespace REON {
         return camera;
     }
 
-    Scene::Scene() {
+    Scene::Scene(const std::string& name) : Object(name) {
         this->camera = EditorCamera::GetInstance();
         lightManager = std::make_unique<LightManager>(5);
         renderManager = std::make_unique<RenderManager>(lightManager, camera);

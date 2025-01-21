@@ -1,6 +1,6 @@
 #pragma once
 
-#include "REON/AssetManagement/Asset.h"
+#include "REON/ResourceManagement/Resource.h"
 
 #include "stb_image_wrapper.h"
 #include "assimp/Importer.hpp"
@@ -9,19 +9,19 @@
 #include "GLFW/glfw3.h"
 
 namespace REON {
-    class Texture : public Asset {
+    class Texture : public Resource {
     public:
-        Texture() : m_Id(0) {}
+        Texture() : m_TextureId(0) {}
         ~Texture() override { Unload(); }
 
-        // Inherited via Asset
+        // Inherited via Resource
         virtual void Load(const std::string& filePath, std::any metadata = {}) override;
 
-        void Unload() override;
+        virtual void Unload() override;
 
-        unsigned int GetId();
+        unsigned int GetTextureId();
 
     private:
-        unsigned int m_Id;
+        unsigned int m_TextureId;
     };
 }

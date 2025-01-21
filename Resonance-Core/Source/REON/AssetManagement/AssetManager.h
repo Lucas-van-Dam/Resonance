@@ -44,7 +44,7 @@ namespace REON {
 		auto asset = std::make_shared<AssetType>();
 
 		asset->Load(path, metadata);
-		m_Assets[assetID] = asset;
+		//m_Assets[assetID] = asset;
 
 		return asset;
 	}

@@ -35,11 +35,11 @@ namespace REON {
 
 	void GameLogicLayer::OnUpdate()
 	{
+		CheckKeyPressed();
+		SceneManager::Get()->GetCurrentScene()->UpdateScene(deltaTime);
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 		lastTime = currentTime;
-		CheckKeyPressed();
-		SceneManager::Get()->GetCurrentScene()->UpdateScene(deltaTime);
 	}
 
 	void GameLogicLayer::OnImGuiRender()
@@ -57,14 +57,14 @@ namespace REON {
 
 	void GameLogicLayer::InitializeTestScene()
 	{
-		char path[] = "Assets/Models/test/GoldStarBake2.gltf";
+		char path[] = "Assets/Models/nissan_gt-r_r35_gt_v2/scene.gltf";
 
 		// PBR_Textures_ORCA
 
 		//std::cout << "Current working directory: " << std::filesystem::current_path() << std::endl;
 
 		std::shared_ptr<GameObject> backPack = std::make_shared<GameObject>();
-		backPack->SetName("BackPack");
+		backPack->SetName("Television");
 
 		std::shared_ptr<Scene> m_Scene = SceneManager::Get()->GetCurrentScene();
 

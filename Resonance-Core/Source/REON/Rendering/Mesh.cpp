@@ -3,18 +3,81 @@
 
 namespace REON {
 
-    Mesh::Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices) {
-        this->m_Vertices = vertices;
-        this->m_Indices = indices;
+    
+    void Mesh::Load(const std::string& name, std::any metadata)
+    {
+        m_Path = name;
+        auto data = std::any_cast<std::tuple<std::vector<Vertex>, std::vector<unsigned int>>>(metadata);
+        this->m_Vertices = std::get<0>(data);
+        this->m_Indices = std::get<1>(data);
 
         setupMesh();
     }
 
-    void Mesh::Destroy()
+    void Mesh::Unload()
     {
+        m_Vertices.clear();
+        m_Indices.clear();
+
         glDeleteVertexArrays(1, &m_VAO);
         glDeleteBuffers(1, &m_VBO);
         glDeleteBuffers(1, &m_EBO);
+    }
+
+    void Mesh::Serialize(const std::string& path)
+    {
+        std::ofstream outFile(path, std::ios::binary);
+        if (!outFile.is_open()) {
+            throw std::runtime_error("Failed to open file for writing: " + path);
+        }
+
+        // Save vertex data
+        size_t vertexCount = m_Vertices.size();
+        outFile.write(reinterpret_cast<const char*>(&vertexCount), sizeof(size_t));
+        outFile.write(reinterpret_cast<const char*>(m_Vertices.data()), vertexCount * sizeof(Vertex));
+
+        // Save index data
+        size_t indexCount = m_Indices.size();
+        outFile.write(reinterpret_cast<const char*>(&indexCount), sizeof(size_t));
+        outFile.write(reinterpret_cast<const char*>(m_Indices.data()), indexCount * sizeof(unsigned int));
+
+        //// Save material ID
+        //size_t materialIdLength = m_MaterialId.size();
+        //outFile.write(reinterpret_cast<const char*>(&materialIdLength), sizeof(size_t));
+        //outFile.write(m_MaterialId.data(), materialIdLength);
+
+        outFile.close();
+    }
+
+    void Mesh::DeSerialize(const std::string& path)
+    {
+        std::ifstream inFile(path, std::ios::binary);
+        if (!inFile.is_open()) {
+            throw std::runtime_error("Failed to open file for reading: " + path);
+        }
+
+        // Load vertex data
+        size_t vertexCount;
+        inFile.read(reinterpret_cast<char*>(&vertexCount), sizeof(size_t));
+        m_Vertices.resize(vertexCount);
+        inFile.read(reinterpret_cast<char*>(m_Vertices.data()), vertexCount * sizeof(Vertex));
+
+        // Load index data
+        size_t indexCount;
+        inFile.read(reinterpret_cast<char*>(&indexCount), sizeof(size_t));
+        m_Indices.resize(indexCount);
+        inFile.read(reinterpret_cast<char*>(m_Indices.data()), indexCount * sizeof(unsigned int));
+
+        //// Load material ID
+        //size_t materialIdLength;
+        //inFile.read(reinterpret_cast<char*>(&materialIdLength), sizeof(size_t));
+        //m_MaterialId.resize(materialIdLength);
+        //inFile.read(&m_MaterialId[0], materialIdLength);
+
+        inFile.close();
+
+        // Recreate OpenGL buffers
+        setupMesh();
     }
 
     // initializes all the buffer objects/arrays
@@ -75,18 +138,20 @@ namespace REON {
             material.shader->setVec4("albedo", material.albedoColor);
         }
         else {
+            material.shader->setBool("useAlbedoTexture", true);
             glActiveTexture(GL_TEXTURE0);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_albedo"), 0);
-            glBindTexture(GL_TEXTURE_2D, material.albedoTexture->GetId());
+            glBindTexture(GL_TEXTURE_2D, material.albedoTexture->GetTextureId());
         }
         //normal
         if (material.normalTexture == nullptr) {
             material.shader->setBool("useNormalTexture", false);
         }
         else {
+            material.shader->setBool("useNormalTexture", true);
             glActiveTexture(GL_TEXTURE1);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_normal"), 1);
-            glBindTexture(GL_TEXTURE_2D, material.normalTexture->GetId());
+            glBindTexture(GL_TEXTURE_2D, material.normalTexture->GetTextureId());
         }
         //roughness
         if (material.roughnessTexture == nullptr) {
@@ -94,9 +159,10 @@ namespace REON {
             material.shader->setFloat("roughness", material.roughness);
         }
         else {
+            material.shader->setBool("useRoughnessTexture", true);
             glActiveTexture(GL_TEXTURE2);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_roughness"), 2);
-            glBindTexture(GL_TEXTURE_2D, material.roughnessTexture->GetId());
+            glBindTexture(GL_TEXTURE_2D, material.roughnessTexture->GetTextureId());
         }
         //metallic
         if (material.metallicTexture == nullptr) {
@@ -104,8 +170,9 @@ namespace REON {
             material.shader->setFloat("metallic", material.metallic);
         }
         else {
+            material.shader->setBool("useMetallicTexture", true);
             glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, material.metallicTexture->GetId());
+            glBindTexture(GL_TEXTURE_2D, material.metallicTexture->GetTextureId());
         }
 
         if (!lightData.empty()) {

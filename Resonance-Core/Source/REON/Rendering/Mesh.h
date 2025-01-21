@@ -6,14 +6,21 @@
 
 namespace REON {
 
-    class Mesh {
+    class Mesh : public Resource {
     public:
-        Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices);
+        Mesh() {}
+        ~Mesh() override { Unload(); }
 
         void Draw(Material& material, std::vector<LightData> lightData) const;
-        void Destroy();
 
+        virtual void Load(const std::string& name, std::any metadata = {}) override;
+
+        virtual void Unload() override;
+
+        void Serialize(const std::string& path);
+        void DeSerialize(const std::string& path);
     private:
+        // initializes all the buffer objects/arrays
         void setupMesh();
 
     private:
@@ -24,6 +31,5 @@ namespace REON {
         std::vector<Vertex> m_Vertices;
         std::vector<unsigned int> m_Indices;
         unsigned int m_VAO, m_SSBO;
-
     };
 }

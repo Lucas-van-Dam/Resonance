@@ -1,5 +1,6 @@
 #pragma once
 
+#include "REON/Application.h"
 #include "../../Reflection/ReflectionRegistry_Registration.h"
 
 #ifdef REON_PLATFORM_WINDOWS

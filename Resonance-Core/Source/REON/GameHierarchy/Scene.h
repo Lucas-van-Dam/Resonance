@@ -9,9 +9,10 @@
 
 namespace REON {
 
-    class Scene : public std::enable_shared_from_this<Scene> {
+    class Scene : public Object, public std::enable_shared_from_this<Scene> {
     public:
-        Scene();
+        Scene(const std::string& name);
+        Scene() {}
         ~Scene();
         void AddGameObject(std::shared_ptr<GameObject> gameObject);
         void DeleteGameObject(std::shared_ptr<GameObject> gameObject);

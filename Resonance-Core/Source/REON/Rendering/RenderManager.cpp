@@ -24,8 +24,6 @@ namespace REON {
 
     void RenderManager::RemoveRenderer(std::shared_ptr<Renderer> renderer)
     {
-        if (renderer->GetOwner()->GetName() == "Sphere.216")
-            auto i = 0;
         REON_CORE_WARN("Removing renderer from object: {0}", renderer->GetOwner()->GetName());
         REON_CORE_WARN("Renderer use count: {0}", renderer.use_count());
         REON_CORE_WARN("Renderers size: {0}", m_Renderers.size());

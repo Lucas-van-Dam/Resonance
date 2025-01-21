@@ -24,17 +24,18 @@ namespace REON {
         explicit Model(const char* path, const std::shared_ptr<GameObject>& parent) {
             Assimp::DefaultLogger::create("", Assimp::Logger::VERBOSE);
             Assimp::LogStream* stderrStream = Assimp::LogStream::createDefaultStream(aiDefaultLogStream_STDERR);
-            Assimp::DefaultLogger::get()->attachStream(stderrStream, Assimp::Logger::VERBOSE | Assimp::Logger::Debugging |
-                Assimp::Logger::VERBOSE);
+            Assimp::DefaultLogger::get()->attachStream(stderrStream, Assimp::Logger::VERBOSE);
             loadModel(path, parent);
             Assimp::DefaultLogger::kill();
         }
+
+        Model() {}
 
         static void LoadModelToGameObject(const char filePath[], const std::shared_ptr<GameObject>& parentObject);
 
     private:
         glm::mat4 ConvertToGLM(const aiMatrix4x4& aiMat);
-        void DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, Quaternion rotation, glm::vec3& scale);
+        void DecomposeTransform(const glm::mat4& transform, glm::vec3& translation, Quaternion& rotation, glm::vec3& scale);
         void loadModel(const std::string& path, const std::shared_ptr<GameObject>& parent);
 
         void processNode(aiNode* node, const aiScene* scene, const std::shared_ptr<GameObject>& parent);

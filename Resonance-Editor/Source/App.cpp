@@ -5,6 +5,7 @@
 
 #include "imgui/imgui.h"
 #include "EditorLayer.h"
+#include "ProjectManagement/ProjectManager.h"
 
 //#define _CRTDBG_MAP_ALLOC
 
@@ -12,7 +13,7 @@ class Editor : public REON::Application
 {
 public:
 	Editor() {
-		PushLayer(new EditorLayer());
+		PushLayer(new REON::EDITOR::EditorLayer());
 	}
 
 	~Editor(){

@@ -4,60 +4,49 @@
 #include <string>
 #include <ReflectionSystem.h>
 #include "REON/Layer.h"
+#include "Inspector.h"
+#include "SceneHierarchy.h"
+
+#include "ImGuiFileDialog.h"
 
 #include "Reon.h"
 //#include "REON/Core.h"
 
-class EditorLayer : public REON::Layer {
-public:
-	EditorLayer();
+#include "Events/ProjectEvent.h"
+#include "ProjectManagement/ProjectManager.h"
 
-	~EditorLayer() override {
-		//REON_INFO("EditorLayer destructor called for address: {}", static_cast<void*>(this));
-		m_SelectedObject.reset();
-		pendingReparentSource.reset();
-		pendingReparentTarget.reset();
-		handlers.clear();
-	}
+namespace REON::EDITOR {
 
-	virtual void OnAttach() {}
-	virtual void OnDetach() {}
-	virtual void OnUpdate() override;
-	virtual void OnImGuiRender() override;
-	virtual void OnEvent(REON::Event & event) override;
+	class EditorLayer : public REON::Layer {
+	public:
+		EditorLayer();
 
-	// Template to register handlers based on type
-	template<typename T>
-	static void RegisterHandler(const std::string& typeName, std::function<void(const FieldInfo&, void*)> handler);
+		~EditorLayer() override {
+			//REON_INFO("EditorLayer destructor called for address: {}", static_cast<void*>(this));
+			m_SelectedObject.reset();
+		}
 
-	// Function to render a field based on the registered handler
-	static void RenderField(const FieldInfo& field, void* instance);
+		virtual void OnAttach() override {}
+		virtual void OnDetach() override {}
+		virtual void OnUpdate() override;
+		virtual void OnImGuiRender() override;
+		virtual void OnEvent(REON::Event& event) override;
 
-	void RenderGameObjectNode(std::shared_ptr<REON::GameObject> gameObject, std::shared_ptr<REON::GameObject>& selectedObject);
+		bool ProcessKeyPress(REON::KeyPressedEvent& event);
 
-	void ProcessReparenting();
+		void ProcessMouseMove();
 
-	void RenderSceneHierarchy(const std::vector<std::shared_ptr<REON::GameObject>>& rootObjects, std::shared_ptr<REON::GameObject>& selectedObject);
+		bool OnProjectLoaded(ProjectOpenedEvent& event);
 
-	// Render fields dynamically based on reflection data
-	static void InspectObject(REON::GameObject& object);
+	private:
+		std::shared_ptr<REON::GameObject> m_SelectedObject;
 
-	bool ProcessKeyPress(REON::KeyPressedEvent& event);
+		bool projectLoaded = false;
 
-	void ProcessMouseMove();
+		bool m_SceneHovered = false;
+		double m_SavedX = 0, m_SavedY = 0;
+		bool m_CursorLocked = false;
+	};
 
-private:
-	// Static registry for handlers, maps type names to handler functions
-	static std::unordered_map<std::string, std::function<void(const FieldInfo&, void*)>> handlers;
-
-	std::shared_ptr<REON::GameObject> m_SelectedObject;
-
-	std::shared_ptr<REON::GameObject> pendingReparentSource = nullptr;
-	std::shared_ptr<REON::GameObject> pendingReparentTarget = nullptr;
-
-	bool m_SceneHovered = false;
-	double m_SavedX = 0, m_SavedY = 0;
-	bool m_CursorLocked = false;
-};
-
+}
 

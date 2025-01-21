@@ -108,15 +108,4 @@ namespace REON {
 	GameObject::GameObject(const GameObject&) {
 
 	}
-
-	void GameObject::SetName(std::string newName) {
-		this->m_Name = std::move(newName);
-	}
-
-	std::string GameObject::GetName() {
-		return m_Name;
-	}
-
-
-
 }

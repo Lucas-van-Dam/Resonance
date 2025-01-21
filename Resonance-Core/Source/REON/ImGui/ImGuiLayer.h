@@ -1,7 +1,6 @@
 #pragma once
 
 #include "REON/Layer.h"
-
 #include "REON/Events/ApplicationEvent.h"
 #include "REON/Events/MouseEvent.h"
 #include "REON/Events/KeyEvent.h"

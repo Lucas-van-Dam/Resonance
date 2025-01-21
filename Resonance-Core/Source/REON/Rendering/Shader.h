@@ -2,13 +2,14 @@
 
 #include "glad/glad.h"
 #include "glm/glm.hpp"
+#include "REON/ResourceManagement/Resource.h"
 
 namespace REON {
 
-    class Shader {
+    class Shader : public Resource {
     public:
         // constructor reads and builds the shader
-        Shader(const std::string& vertexFileName, const std::string& fragmentFileName, const std::string& geometryFileName = "");
+        Shader();
         // use/activate the shader
         void use() const;
         // utility uniform functions
@@ -26,6 +27,10 @@ namespace REON {
         void setMat4(const std::string& name, const glm::mat4& mat) const;
 
         void ReloadShader();
+
+        // Inherited via Resource
+        void Load(const std::string& filePath, std::any metadata) override;
+        void Unload() override;
 
     public:
         // the program ID

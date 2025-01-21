@@ -31,7 +31,7 @@ namespace REON {
 		void SetVSync(bool enabled) override;
 		bool IsVSync() const override;
 
-		inline void* GetNativeWindow() const { return m_Window; }
+		inline void* GetNativeWindow() const override { return m_Window; }
 	private:
 		virtual void Init(const WindowProperties& properties);
 		virtual void ShutDown();
@@ -39,8 +39,6 @@ namespace REON {
 		GLFWwindow* m_Window;
 
 		RenderContext* m_Context;
-
-
 
 		WindowData m_Data;
 	};

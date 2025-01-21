@@ -5,12 +5,16 @@ project "Editor"
    targetdir "Binaries/%{cfg.buildcfg}"
    staticruntime "on"
 
-   files { "Source/**.h", "Source/**.cpp" }
+   files { "Source/**.h", "Source/**.cpp", "vendor/imguifiledialog/ImGuiFileDialog.cpp", "vendor/imguifiledialog/ImGuiFileDialog.h", "vendor/libstud-uuid/**.hxx", "vendor/libstud-uuid/**.cxx"}
 
    includedirs
    {
       "Source",
       "Assets",
+
+      "Vendor/json/include",
+      "Vendor/ImGuiFileDialog",
+      "Vendor/libstud-uuid",
       
 	  -- Include Core
 	  "../Resonance-Core/Source",
@@ -33,7 +37,7 @@ project "Editor"
 
    links
    {
-      "Core",
+      "Core","rpcrt4",
    }
 
    targetdir ("../Binaries/" .. OutputDir .. "/%{prj.name}")

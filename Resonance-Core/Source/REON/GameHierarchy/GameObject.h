@@ -4,16 +4,16 @@
 #include <memory>
 #include <vector>
 #include "REON/GameHierarchy/Components/Component.h"
+#include "REON/Object.h"
 
 namespace REON {
 
     class Scene;
     class Transform;
 
-    class GameObject : public std::enable_shared_from_this<GameObject> {
+    class GameObject : public Object, public std::enable_shared_from_this<GameObject> {
     public:
         GameObject();
-        void PrintMemory(void* data, size_t size);
         ~GameObject();
         GameObject(const GameObject&);
 
@@ -50,10 +50,6 @@ namespace REON {
 
         std::shared_ptr<Scene> GetScene();
 
-        void SetName(std::string newName);
-
-        std::string GetName();
-
         void SetScene(std::shared_ptr<Scene> newScene);
 
         void OnGameObjectDeleted();
@@ -70,7 +66,6 @@ namespace REON {
         std::vector<std::shared_ptr<Component>> m_Components;
         std::vector<std::shared_ptr<GameObject>> m_Children;
         std::weak_ptr<GameObject> m_Parent;
-        std::string m_Name;
 
         std::shared_ptr<Transform> m_Transform;
 

@@ -2,7 +2,7 @@
 
 #include "REON/GameHierarchy/Components/Renderer.h"
 #include "REON/Rendering/LightManager.h"
-
+#include "REON/ResourceManagement/ResourceManager.h"
 
 
 
@@ -52,8 +52,8 @@ namespace REON {
         const unsigned int ADDITIONAL_SHADOW_WIDTH = 1024, ADDITIONAL_SHADOW_HEIGHT = 1024;
         std::vector<int> m_DepthCubeMaps;
         std::vector<unsigned int> m_AdditionalDepthFBOs;
-        std::shared_ptr<Shader> m_DirectionalShadowShader = std::make_shared<Shader>("DirectionalShadow.vert", "DirectionalShadow.frag");
-        std::shared_ptr<Shader> m_AdditionalShadowShader = std::make_shared<Shader>("OmnidirectionalShadow.vert", "OmnidirectionalShadow.frag", "OmnidirectionalShadow.geom");
+        std::shared_ptr<Shader> m_DirectionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("DirectionalShadowShader", std::make_tuple("DirectionalShadow.vert", "DirectionalShadow.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_AdditionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("OmnidirectionalShadowShader", std::make_tuple("OmnidirectionalShadow.vert", "OmnidirectionalShadow.frag", std::optional<std::string>{"OmnidirectionalShadow.geom"}));
 
         //Skybox
         unsigned int m_SkyboxVAO, m_SkyboxVBO;
@@ -62,17 +62,17 @@ namespace REON {
         unsigned int m_IrradianceMap;
         unsigned int m_PrefilterMap;
         unsigned int m_BrdfLUTTexture;
-        std::shared_ptr<Shader> m_IrradianceShader = std::make_shared<Shader>("CubeProjection.vert", "IrradianceMap.frag");
-        std::shared_ptr<Shader> m_SkyboxShader = std::make_shared<Shader>("SkyBox.vert", "SkyBox.frag");
-        std::shared_ptr<Shader> m_SkyboxMappingShader = std::make_shared<Shader>("CubeProjection.vert", "CubeProjection.frag");
-        std::shared_ptr<Shader> m_PreFilterShader = std::make_shared<Shader>("CubeProjection.vert", "PreFilter.frag");
-        std::shared_ptr<Shader> m_BrdfShader = std::make_shared<Shader>("brdf.vert", "brdf.frag");
-        std::string m_SkyboxLocation = "Assets/Textures/Black Outside.jpg";
+        std::shared_ptr<Shader> m_IrradianceShader = ResourceManager::GetInstance().LoadResource<Shader>("IrradianceShader", std::make_tuple("CubeProjection.vert", "IrradianceMap.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_SkyboxShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxShader", std::make_tuple("SkyBox.vert", "SkyBox.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_PreFilterShader = ResourceManager::GetInstance().LoadResource<Shader>("PreFilterShader", std::make_tuple("CubeProjection.vert", "PreFilter.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_BrdfShader = ResourceManager::GetInstance().LoadResource<Shader>("BrdfShader", std::make_tuple("brdf.vert", "brdf.frag", std::optional<std::string>{}));
+        std::string m_SkyboxLocation = "Assets/Textures/Grey Outside.jpg";
 
         //Screen shader
         unsigned int m_Framebuffer, m_TextureColorbuffer, m_Rbo;
         unsigned int m_QuadVAO, m_QuadVBO;
-        std::shared_ptr<Shader> m_ScreenShader = std::make_shared<Shader>("fullScreen.vert", "fullScreen.frag");
+        std::shared_ptr<Shader> m_ScreenShader = ResourceManager::GetInstance().LoadResource<Shader>("ScreenShader", std::make_tuple("fullScreen.vert", "fullScreen.frag", std::optional<std::string>{}));
         float quadVertices[24] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
             // positions   // texCoords
             -1.0f,  1.0f,  0.0f, 1.0f,

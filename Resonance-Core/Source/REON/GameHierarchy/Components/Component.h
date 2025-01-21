@@ -3,6 +3,8 @@
 #include <memory>
 #include <typeindex>
 
+#include "REON/Object.h"
+
 namespace REON {
 
     class GameObject;
@@ -31,8 +33,9 @@ namespace REON {
     };
 
     template <typename T>
-    class ComponentBase : public Component {
+    class ComponentBase : public Component, public Object {
     public:
+        ComponentBase() : Object(GetTypeName()) {}
         std::string GetTypeName() const override 
         { 
             std::string mangledName = typeid(T).name();

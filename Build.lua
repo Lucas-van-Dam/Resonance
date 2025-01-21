@@ -13,11 +13,19 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
       buildoptions
       {
          "-m64",
+         "-Wno-pragma-pack"
       }
       defines
       {
          "_CRT_SECURE_NO_WARNINGS",
-         "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS"
+         "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS",
+         "REON_EDITOR",
+         
+      }
+      disablewarnings
+      {
+         "/Wno-pragma-pack",
+         "/Wno-pragma-once-outside-header"
       }
 
 group "Core"
