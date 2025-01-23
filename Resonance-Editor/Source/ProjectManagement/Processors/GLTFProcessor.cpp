@@ -22,7 +22,7 @@ namespace REON::EDITOR {
 			return;
 		}
 
-		ProcessNode(scene->mRootNode, scene, path);
+		ProcessNode(scene->mRootNode, scene, path.substr(0, path.find_last_of('/')));
 
 		Assimp::DefaultLogger::kill();
 	}
@@ -95,7 +95,7 @@ namespace REON::EDITOR {
 
 		std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier, std::make_tuple(vertices, indices));
 
-		meshObj->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "EngineCache/Meshes/" + meshObj->GetID() + ".mesh");
+		meshObj->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\EngineCache\\Meshes");
 
 		AssetRegistry::Instance().RegisterAsset({ meshObj->GetID(), "Mesh", "EngineCache/Meshes/" + meshObj->GetID() + ".mesh" });
 	}

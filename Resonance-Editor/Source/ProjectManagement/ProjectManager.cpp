@@ -227,8 +227,6 @@ namespace REON::EDITOR {
             catch (std::exception ex) {
                 REON_CORE_ERROR("Exception while trying to serialize field type {0}: {1}.", fieldType, ex.what());
             }
-            //auto object = static_cast<const Object*>(data);
-            //return std::to_string(object->GetID());
         }
     }
 

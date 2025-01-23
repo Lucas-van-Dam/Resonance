@@ -26,7 +26,10 @@ namespace REON {
 
     void Mesh::Serialize(const std::string& path)
     {
-        std::ofstream outFile(path, std::ios::binary);
+        if (!std::filesystem::exists(path)) {
+            std::filesystem::create_directories(path);
+        }
+        std::ofstream outFile(path + "\\" + GetID() + ".mesh", std::ios::binary);
         if (!outFile.is_open()) {
             throw std::runtime_error("Failed to open file for writing: " + path);
         }

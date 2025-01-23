@@ -3,6 +3,7 @@
 #include "REON/Rendering/Material.h"
 #include "REON/Rendering/Structs/LightData.h"
 #include "REON/Rendering/Structs/Vertex.h"
+#include <filesystem>
 
 namespace REON {
 

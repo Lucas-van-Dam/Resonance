@@ -7,13 +7,13 @@
 #include "Events/EditorUIEvent.h"
 #include "ProjectManagement/AssetScanner.h"
 #include "ProjectManagement/MetadataGenerator.h"
-#include <REON/AssetManagement/Processors/GLTFProcessor.h>
+#include "ProjectManagement/Processors/GLTFProcessor.h"
 
 namespace REON::EDITOR {
 
 	EditorLayer::EditorLayer() : Layer("Inspector")
 	{
-		REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<REON::GLTFProcessor>());
+		REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
 	}
 
 	void EditorLayer::OnUpdate()
@@ -47,6 +47,11 @@ namespace REON::EDITOR {
 			if (ImGui::BeginMenu("File"))
 			{
 				if (ImGui::MenuItem("New Project")) {
+					ImGuiFileDialog::Instance()->OpenDialog(
+						"ChooseProjectFolder",         // Key to identify the dialog
+						"Select Project Folder",    // Title
+						nullptr                     // File filter (nullptr for folders)
+					);
 					ProjectManager::GetInstance().CreateNewProject("VisualizerProject", "C:/Projects/Cuttlefish/TestProjects");
 				}
 				else if (ImGui::MenuItem("Open Project")) {
@@ -76,6 +81,17 @@ namespace REON::EDITOR {
 
 				// Call your project loading function
 				ProjectManager::GetInstance().OpenProject(selectedPath);
+			}
+			// Close the dialog after processing the results
+			ImGuiFileDialog::Instance()->Close();
+		}
+		if (ImGuiFileDialog::Instance()->Display("ChooseProjectFolder")) {
+			if (ImGuiFileDialog::Instance()->IsOk()) {
+				// The user selected a valid folder
+				std::string selectedPath = ImGuiFileDialog::Instance()->GetCurrentPath();
+
+				// Call your project loading function
+				ProjectManager::GetInstance().CreateNewProject("TestProject", selectedPath);
 			}
 			// Close the dialog after processing the results
 			ImGuiFileDialog::Instance()->Close();
