@@ -73,13 +73,17 @@ namespace REON {
     }
 
     void RenderManager::RenderPostProcessing() {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_Framebuffer);
         glDisable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT);
         m_ScreenShader->use();
         glBindVertexArray(m_QuadVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(glGetUniformLocation(m_ScreenShader->ID, "screenTexture"), 0);
         glBindTexture(GL_TEXTURE_2D, m_TextureColorbuffer);	// use the color attachment texture as the texture of the quad plane
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glEnable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void RenderManager::GenerateShadows() {

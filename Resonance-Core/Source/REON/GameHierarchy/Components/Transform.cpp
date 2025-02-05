@@ -1,4 +1,3 @@
-
 #include "reonpch.h"
 #include "Transform.h"
 
@@ -74,6 +73,7 @@ namespace REON {
     }
 
     glm::mat4 Transform::GetWorldTransform() const {
+        PROFILE_SCOPE("GetWorldTransform");
         glm::mat4 translation = glm::translate(glm::mat4(1.0f), localPosition);
         glm::mat4 rotation = glm::toMat4(localRotation); // Convert quaternion to matrix
         glm::mat4 scale = glm::scale(glm::mat4(1.0f), localScale);

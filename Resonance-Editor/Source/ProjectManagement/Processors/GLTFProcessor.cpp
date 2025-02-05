@@ -1,8 +1,9 @@
 #include "reonpch.h"
 #include "GLTFProcessor.h"
 #include <ProjectManagement/ProjectManager.h>
+#include <REON/ResourceManagement/ResourceInfo.h>
 
-
+using json = nlohmann::json;
 
 namespace REON::EDITOR {
 
@@ -21,8 +22,10 @@ namespace REON::EDITOR {
 			REON_CORE_WARN("Assimp scene not valid: {}", importer.GetErrorString());
 			return;
 		}
+		uid = assetInfo.id;
+		localIdentifier = 0;
 
-		ProcessNode(scene->mRootNode, scene, path.substr(0, path.find_last_of('/')));
+		ProcessNode(scene->mRootNode, scene, path);
 
 		Assimp::DefaultLogger::kill();
 	}
@@ -42,7 +45,7 @@ namespace REON::EDITOR {
 	void GLTFProcessor::ProcessMesh(aiMesh* mesh, const aiScene* scene, std::string path) {
 		std::vector<Vertex> vertices;
 		std::vector<unsigned int> indices;
-		std::string meshIdentifier = path + "/" + mesh->mName.C_Str();
+		std::string meshIdentifier = path.substr(0, path.find_last_of('/')) + "/" + mesh->mName.C_Str();
 
 		// walk through each of the mesh's vertices
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
@@ -96,6 +99,22 @@ namespace REON::EDITOR {
 		std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier, std::make_tuple(vertices, indices));
 
 		meshObj->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\EngineCache\\Meshes");
+
+		ResourceInfo info;
+		info.path = path;
+		info.UID = uid;
+		info.localIdentifier = localIdentifier++;
+
+		json infoData;
+		infoData["UID"] = info.UID;
+		infoData["Path"] = info.path;
+		infoData["localIdentifier"] = info.localIdentifier;
+
+		std::ofstream infoFile((ProjectManager::GetInstance().GetCurrentProjectPath() + "\\EngineCache\\Meshes\\" + meshObj->GetID() + ".mesh.info"));
+		if (infoFile.is_open()) {
+			infoFile << infoData.dump(4);
+			infoFile.close();
+		}
 
 		AssetRegistry::Instance().RegisterAsset({ meshObj->GetID(), "Mesh", "EngineCache/Meshes/" + meshObj->GetID() + ".mesh" });
 	}

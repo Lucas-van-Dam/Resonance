@@ -329,7 +329,7 @@ void main()
     vec3 F = fresnelSchlickRoughness(max(dot(N, V), 0.0), F0, roughnessInternal);
 
     vec3 kS = F;
-    vec3 kD = 1.0 - kS;
+    vec3 kD = vec3(1.0) - kS;
     kD *= 1.0 - metallicInternal;
 
     vec3 irradiance = texture(irradianceMap, N).rgb;
@@ -342,13 +342,13 @@ void main()
 
     vec3 ambient = (kD * diffuse + specular);
 
-    vec3 color = Lo;
+    vec3 color = Lo + ambient;
 
     // HDR tonemapping
-    color = color / (color + vec3(1.0));
+    //color = color / (color + vec3(1.0));
 
     // gamma correct
-    color = pow(color, vec3(1.0/2.2));
+    //color = pow(color, vec3(1.0/2.2));
 
     FragColor = vec4(color, 1.0);
 }

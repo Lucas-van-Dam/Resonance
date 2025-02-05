@@ -61,18 +61,22 @@ namespace REON {
 	void Application::Run() {
 
 		while (m_Running) {
-			glClear(GL_COLOR_BUFFER_BIT);
-			for (Layer* layer : m_LayerStack)
-				layer->OnUpdate();
+			{
+				PROFILE_SCOPE("ApplicationLoop");
+				glClear(GL_COLOR_BUFFER_BIT);
+				for (Layer* layer : m_LayerStack)
+					layer->OnUpdate();
 
-			m_ImGuiLayer->Begin();
-			for (Layer* layer : m_LayerStack)
-				layer->OnImGuiRender();
-			m_ImGuiLayer->End();
+				m_ImGuiLayer->Begin();
+				for (Layer* layer : m_LayerStack)
+					layer->OnImGuiRender();
+				m_ImGuiLayer->End();
 
-			m_Window->OnUpdate();
+				m_Window->OnUpdate();
 
-			SceneManager::Get()->GetCurrentScene()->ProcessGameObjectDeletion();
+				SceneManager::Get()->GetCurrentScene()->ProcessGameObjectDeletion();
+			}
+			Profiler::Get().Clear();
 		}
 	}
 

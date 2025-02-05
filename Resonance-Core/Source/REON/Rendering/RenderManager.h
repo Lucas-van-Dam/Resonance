@@ -67,7 +67,7 @@ namespace REON {
         std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
         std::shared_ptr<Shader> m_PreFilterShader = ResourceManager::GetInstance().LoadResource<Shader>("PreFilterShader", std::make_tuple("CubeProjection.vert", "PreFilter.frag", std::optional<std::string>{}));
         std::shared_ptr<Shader> m_BrdfShader = ResourceManager::GetInstance().LoadResource<Shader>("BrdfShader", std::make_tuple("brdf.vert", "brdf.frag", std::optional<std::string>{}));
-        std::string m_SkyboxLocation = "Assets/Textures/Grey Outside.jpg";
+        std::string m_SkyboxLocation = "Assets/Textures/brown_photostudio_02_4k.hdr";
 
         //Screen shader
         unsigned int m_Framebuffer, m_TextureColorbuffer, m_Rbo;

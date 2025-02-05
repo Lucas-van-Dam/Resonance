@@ -1,5 +1,6 @@
 #include "reonpch.h"
 #include "Mesh.h"
+#include <REON/ResourceManagement/ResourceInfo.h>
 
 namespace REON {
 

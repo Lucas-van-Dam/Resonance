@@ -9,6 +9,7 @@
 #include <chrono>
 #include <any>
 
+#include <stdint.h>
 #include <string>
 #include <sstream>
 #include <vector>
@@ -16,6 +17,8 @@
 #include <unordered_set>
 
 #include "REON/Logger.h"
+#include "REON/Profiler/ProfilerTimer.h"
+#include "REON/Profiler/Profiler.h"
 
 #ifdef REON_PLATFORM_WINDOWS
 	#include <Windows.h>
