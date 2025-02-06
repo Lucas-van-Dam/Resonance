@@ -5,7 +5,7 @@ project "Editor"
    targetdir "Binaries/%{cfg.buildcfg}"
    staticruntime "on"
 
-   files { "Source/**.h", "Source/**.cpp", "vendor/imguifiledialog/ImGuiFileDialog.cpp", "vendor/imguifiledialog/ImGuiFileDialog.h", "vendor/libstud-uuid/**.hxx", "vendor/libstud-uuid/**.cxx"}
+   files { "Source/**.h", "Source/**.cpp", "vendor/imguifiledialog/ImGuiFileDialog.cpp", "vendor/imguifiledialog/ImGuiFileDialog.h", "vendor/tinygltf/tiny_gltf.h"}
 
    includedirs
    {
@@ -15,6 +15,7 @@ project "Editor"
       "Vendor/json/include",
       "Vendor/ImGuiFileDialog",
       "Vendor/libstud-uuid",
+      "Vendor/tinygltf",
       
 	  -- Include Core
 	  "../Resonance-Core/Source",
