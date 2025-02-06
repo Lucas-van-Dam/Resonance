@@ -1,12 +1,26 @@
 #pragma once
 
+#include "REON/Events/EventBus.h"
+#include "REON/Events/ApplicationEvent.h"
+
 namespace REON {
+
+	class ProfilerBuffer;
+
+	class ProfileBufferRegistry {
+	public:
+		static std::mutex RingBufferRegistryMutex;
+		static std::vector<ProfilerBuffer*>& GetRingBufferRegistry() {
+			static std::vector<ProfilerBuffer*> registry;
+			return registry;
+		}
+	};
 
 	struct ProfileResult {
 		std::string name;
 		uint64_t startTime;
 		uint64_t endTime;
-		uint32_t threadID;
+		uint64_t frameNumber;
 	};
 
 	class Profiler
@@ -17,15 +31,17 @@ namespace REON {
 			return instance;
 		}
 
+		Profiler() {
+			//EventBus::Get().subscribe<FrameEndEvent>([this](const FrameEndEvent& event) {Clear(); });
+		}
+
 		void RecordProfile(const ProfileResult& result);
 
-		void Clear() { 
-			m_ProfileResults.clear(); 
-		}
+		void Clear();
 		
 	private:
 		std::mutex m_Mutex;
-		std::vector<ProfileResult> m_ProfileResults;
+		
 	};
 
 }

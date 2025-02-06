@@ -25,6 +25,18 @@ namespace REON::EDITOR {
 			m_SelectedObject = REON::SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
 	}
 
+	void EditorLayer::OnAttach() 
+	{
+		m_KeyPressedCallbackID = EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
+		m_ProjectOpenedCallbackID = EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
+	}
+
+	void EditorLayer::OnDetach() 
+	{
+		EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
+		EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
+	}
+
 	void EditorLayer::OnImGuiRender()
 	{
 		// Set up the main window as a dockspace
@@ -63,6 +75,12 @@ namespace REON::EDITOR {
 				}
 				else if (ImGui::MenuItem("Save Project")) {
 					ProjectManager::GetInstance().SaveProject();
+				}
+				ImGui::EndMenu();
+			}
+			if (ImGui::BeginMenu("Window")) {
+				if (ImGui::MenuItem("Profiler")) {
+
 				}
 				ImGui::EndMenu();
 			}
@@ -141,19 +159,11 @@ namespace REON::EDITOR {
 		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), m_SelectedObject);
 	}
 
-	void EditorLayer::OnEvent(REON::Event& event)
-	{
-		REON::EventDispatcher dispatcher(event);
-		dispatcher.Dispatch<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
-		dispatcher.Dispatch<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
-	}
-
-	bool EditorLayer::ProcessKeyPress(REON::KeyPressedEvent& event)
+	void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
 	{
 		if (event.GetKeyCode() == REON_KEY_F2 && event.GetRepeatCount() == 0) {
 			REON::SceneManager::Get()->GetCurrentScene()->renderManager->HotReloadShaders();
 		}
-		return false;
 	}
 
 	void EditorLayer::ProcessMouseMove()
@@ -178,7 +188,7 @@ namespace REON::EDITOR {
 		}
 	}
 
-	bool EditorLayer::OnProjectLoaded(ProjectOpenedEvent& event)
+	void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 	{
 		auto assets = AssetScanner::scanAssets(event.GetProjectDirectory());
 		for (const auto& asset : assets) {
@@ -206,6 +216,5 @@ namespace REON::EDITOR {
 		//auto list = REON::AssetRegistry::Instance().GetAllAssets();
 		Inspector::Initialize();
 		projectLoaded = true;
-		return false;
 	}
 }

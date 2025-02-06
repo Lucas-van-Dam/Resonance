@@ -15,8 +15,7 @@ public:
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(ButtonClicked)
-	EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorUI)
+	EVENT_CLASS_NAME(ButtonClicked)
 
 private:
 	std::string m_Id;
@@ -35,8 +34,7 @@ public:
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(MenuItemSelected)
-	EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorUI)
+	EVENT_CLASS_NAME(MenuItemSelected)
 
 private:
 	std::string m_Id;
@@ -56,8 +54,7 @@ public:
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(TextboxEdited)
-	EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorUI)
+	EVENT_CLASS_NAME(TextboxEdited)
 
 private:
 	std::string m_Id;

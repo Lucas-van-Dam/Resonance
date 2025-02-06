@@ -5,6 +5,8 @@
 
 #include "glad/glad.h"
 #include "REON/GameHierarchy/SceneManager.h"
+#include "REON/Events/EventBus.h"
+#include "REON/Events/Event.h"
 
 
 namespace REON {
@@ -15,6 +17,8 @@ namespace REON {
 	{
 		REON_CORE_ASSERT(!s_Instance, "Application already exists")
 		s_Instance = this;
+
+		EventBus::Get().subscribe<WindowCloseEvent>(REON_BIND_EVENT_FN(Application::OnWindowClose));
 
 		m_Window = std::unique_ptr<Window>(Window::Create());
 		m_Window->SetEventCallback(REON_BIND_EVENT_FN(Application::OnEvent));
@@ -30,20 +34,7 @@ namespace REON {
 	}
 
 	Application::~Application() {
-
-	}
-
-	void Application::OnEvent(Event& event) {
-		EventDispatcher dispatcher(event);
-		dispatcher.Dispatch<WindowCloseEvent>(REON_BIND_EVENT_FN(Application::OnWindowClose));
-
-		//REON_CORE_TRACE("{0}", event);
-
-		for (auto it = m_LayerStack.end(); it != m_LayerStack.begin(); ) {
-			(*--it)->OnEvent(event);
-			if (event.Handled)
-				break;
-		}
+		
 	}
 
 	void Application::PushLayer(Layer* layer)
@@ -59,8 +50,11 @@ namespace REON {
 	}
 
 	void Application::Run() {
-
+		m_FrameNumber = 0;
 		while (m_Running) {
+			m_FrameNumber++;
+			FrameStartEvent frameStartEvent;
+			EventBus::Get().publish(frameStartEvent);
 			{
 				PROFILE_SCOPE("ApplicationLoop");
 				glClear(GL_COLOR_BUFFER_BIT);
@@ -76,14 +70,19 @@ namespace REON {
 
 				SceneManager::Get()->GetCurrentScene()->ProcessGameObjectDeletion();
 			}
-			Profiler::Get().Clear();
+			FrameEndEvent frameEndEvent;
+			EventBus::Get().publish(frameEndEvent);
 		}
 	}
 
-	bool Application::OnWindowClose(WindowCloseEvent& event)
+	void Application::OnWindowClose(const WindowCloseEvent& event)
 	{
 		m_Running = false;
-		return true;
+	}
+
+	void Application::OnEvent(const Event& event)
+	{
+		EventBus::Get().publishDynamic(event);
 	}
 
 }

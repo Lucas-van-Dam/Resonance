@@ -4,8 +4,8 @@
 #include <string>
 #include <ReflectionSystem.h>
 #include "REON/Layer.h"
-#include "Inspector.h"
-#include "SceneHierarchy.h"
+#include "Windows/Inspector.h"
+#include "Windows/SceneHierarchy.h"
 
 #include "ImGuiFileDialog.h"
 
@@ -14,6 +14,7 @@
 
 #include "Events/ProjectEvent.h"
 #include "ProjectManagement/ProjectManager.h"
+#include "REON/Events/EventBus.h"
 
 namespace REON::EDITOR {
 
@@ -26,17 +27,16 @@ namespace REON::EDITOR {
 			m_SelectedObject.reset();
 		}
 
-		virtual void OnAttach() override {}
-		virtual void OnDetach() override {}
+		virtual void OnAttach() override;
+		virtual void OnDetach() override;
 		virtual void OnUpdate() override;
 		virtual void OnImGuiRender() override;
-		virtual void OnEvent(REON::Event& event) override;
 
-		bool ProcessKeyPress(REON::KeyPressedEvent& event);
+		void ProcessKeyPress(const REON::KeyPressedEvent& event);
 
 		void ProcessMouseMove();
 
-		bool OnProjectLoaded(ProjectOpenedEvent& event);
+		void OnProjectLoaded(const ProjectOpenedEvent& event);
 
 	private:
 		std::shared_ptr<REON::GameObject> m_SelectedObject;
@@ -46,6 +46,9 @@ namespace REON::EDITOR {
 		bool m_SceneHovered = false;
 		double m_SavedX = 0, m_SavedY = 0;
 		bool m_CursorLocked = false;
+
+		CallbackID m_KeyPressedCallbackID;
+		CallbackID m_ProjectOpenedCallbackID;
 	};
 
 }

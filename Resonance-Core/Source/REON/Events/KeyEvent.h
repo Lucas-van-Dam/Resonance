@@ -8,7 +8,6 @@ namespace REON {
 	public:
 		inline int GetKeyCode() const { return m_KeyCode; }
 
-		EVENT_CLASS_CATEGORY(EventCategoryInput | EventCategoryKeyboard)
 	protected:
 		KeyEvent(int keycode)
 			: m_KeyCode(keycode) {}
@@ -29,7 +28,7 @@ namespace REON {
 			return ss.str();
 		}
 
-		EVENT_CLASS_TYPE(KeyPressed)
+		EVENT_CLASS_NAME(KeyPressed)
 	private:
 		int m_RepeatCount;
 	};
@@ -45,7 +44,7 @@ namespace REON {
 			return ss.str();
 		}
 
-		EVENT_CLASS_TYPE(KeyReleased)
+		EVENT_CLASS_NAME(KeyReleased)
 	};
 
 	class  KeyTypedEvent : public KeyEvent {
@@ -59,6 +58,6 @@ namespace REON {
 			return ss.str();
 		}
 
-		EVENT_CLASS_TYPE(KeyTyped)
+		EVENT_CLASS_NAME(KeyTyped)
 	};
 }

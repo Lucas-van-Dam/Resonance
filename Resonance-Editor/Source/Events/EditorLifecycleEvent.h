@@ -10,8 +10,7 @@ public:
         return "EditorInitializedEvent";
     }
 
-    EVENT_CLASS_TYPE(EditorInitialized)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorLifecycle)
+    EVENT_CLASS_NAME(EditorInitialized)
 };
 
 class EditorShutdownEvent : public REON::Event {
@@ -22,6 +21,5 @@ public:
         return "EditorShutdownEvent";
     }
 
-    EVENT_CLASS_TYPE(EditorShutdown)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorLifecycle)
+    EVENT_CLASS_NAME(EditorShutdown)
 };

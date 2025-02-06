@@ -16,8 +16,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(ProjectOpened)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorProjectManagement)
+    EVENT_CLASS_NAME(ProjectOpened)
 
 private:
     std::filesystem::path m_ProjectDirectory;
@@ -36,8 +35,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(ProjectSaved)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorProjectManagement)
+    EVENT_CLASS_NAME(ProjectSaved)
 
 private:
     std::string m_ProjectName;

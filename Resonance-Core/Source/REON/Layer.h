@@ -1,10 +1,8 @@
 #pragma once
 
 #include "REON/Core.h"
-#include "REON/Events/Event.h"
 
 namespace REON {
-
 	class  Layer {
 	public:
 		Layer(const std::string& name = "Layer");
@@ -14,7 +12,6 @@ namespace REON {
 		virtual void OnDetach() {}
 		virtual void OnUpdate() {}
 		virtual void OnImGuiRender() {}
-		virtual void OnEvent(Event& event) {}
 
 		inline const std::string& GetName() const { return m_DebugName; }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+#include <sstream>
 #include "Event.h"
 
 namespace REON {
@@ -19,8 +21,7 @@ namespace REON {
 			return ss.str();
 		}
 
-		EVENT_CLASS_TYPE(WindowResize)
-		EVENT_CLASS_CATEGORY(EventCategoryApplication)
+		EVENT_CLASS_NAME(WindowResize)
 
 	private:
 		unsigned int m_Width, m_Height;
@@ -30,32 +31,43 @@ namespace REON {
 	public:
 		WindowCloseEvent() {}
 
-		EVENT_CLASS_TYPE(WindowClose)
-		EVENT_CLASS_CATEGORY(EventCategoryApplication)
+		EVENT_CLASS_NAME(WindowClose)
 	};
 
 	class  AppTickEvent : public Event {
 	public:
 		AppTickEvent() {}
 
-		EVENT_CLASS_TYPE(AppTick)
-		EVENT_CLASS_CATEGORY(EventCategoryApplication)
+		EVENT_CLASS_NAME(AppTick)
 	};
 
 	class AppUpdateEvent : public Event {
 	public:
 		AppUpdateEvent() {}
 
-		EVENT_CLASS_TYPE(AppUpdate)
-		EVENT_CLASS_CATEGORY(EventCategoryApplication)
+		EVENT_CLASS_NAME(AppUpdate)
 	};
 
 	class AppRenderEvent : public Event {
 	public:
 		AppRenderEvent() {}
 
-		EVENT_CLASS_TYPE(AppRender)
-		EVENT_CLASS_CATEGORY(EventCategoryApplication)
+		EVENT_CLASS_NAME(AppRender)
+	};
+
+
+	class FrameStartEvent : public Event {
+	public:
+		FrameStartEvent() {}
+
+		EVENT_CLASS_NAME(FrameStart)
+	};
+
+	class FrameEndEvent : public Event {
+	public:
+		FrameEndEvent() {}
+
+		EVENT_CLASS_NAME(FrameEnd)
 	};
 
 }

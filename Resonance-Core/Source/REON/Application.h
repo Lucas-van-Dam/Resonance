@@ -1,6 +1,5 @@
 #pragma once
 #include "REON/Core.h"
-#include "REON/Events/Event.h"
 #include "REON/Window.h"
 
 #include "REON/Events/ApplicationEvent.h"
@@ -12,6 +11,8 @@
 
 namespace REON {
 
+	class Event;
+
 	class  Application
 	{
 	public:
@@ -20,16 +21,16 @@ namespace REON {
 
 		void Run();
 
-		void OnEvent(Event& event);
-
 		void PushLayer(Layer* layer);
 		void PushOverLay(Layer* overlay);
 
 		inline Window& GetWindow() { return *m_Window; }
 		inline static Application& Get() { return *s_Instance; }
 
+		uint64_t GetFrameNumber() { return m_FrameNumber; }
+
 	private:
-		bool OnWindowClose(WindowCloseEvent& event);
+		void OnWindowClose(const WindowCloseEvent& event);
 
 	private:
 		bool m_Running = true;
@@ -41,6 +42,10 @@ namespace REON {
 		LayerStack m_LayerStack;
 
 		static Application* s_Instance;
+
+		uint64_t m_FrameNumber;
+
+		void OnEvent(const Event& event);
 	};
 
 	Application* CreateApplication();

@@ -7,6 +7,7 @@
 
 #include "REON/Events/KeyEvent.h"
 #include "REON/Events/MouseEvent.h"
+#include <REON/Events/EventBus.h>
 
 namespace REON {
 
@@ -20,18 +21,16 @@ namespace REON {
 		void OnAttach() override;
 		void OnUpdate() override;
 		void OnImGuiRender() override;
-		void OnEvent(Event& event) override;
 
 		void InitializeTestScene();
 
 		void CheckKeyPressed();
-		bool OnMouseMoved(MouseMovedEvent& event);
-		bool OnKeyPressed(KeyPressedEvent& event);
+		void OnKeyPressed(const KeyPressedEvent& event);
 
 	private:
 		float deltaTime = 0.0f;
 		std::chrono::high_resolution_clock::time_point lastTime;
-		
+		CallbackID m_KeyPressedCallbackID;
 	};
 
 }

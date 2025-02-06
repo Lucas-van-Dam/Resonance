@@ -24,11 +24,13 @@ namespace REON {
 
 	void GameLogicLayer::OnDetach()
 	{
+		EventBus::Get().unsubscribe<KeyPressedEvent>(m_KeyPressedCallbackID);
 
 	}
 
 	void GameLogicLayer::OnAttach()
 	{
+		m_KeyPressedCallbackID = EventBus::Get().subscribe<KeyPressedEvent>(REON_BIND_EVENT_FN(GameLogicLayer::OnKeyPressed));
 		InitializeTestScene();
 		lastTime = std::chrono::high_resolution_clock::now();
 	}
@@ -46,14 +48,6 @@ namespace REON {
 	{
 
 	}
-
-	void GameLogicLayer::OnEvent(Event& event)
-	{
-		EventDispatcher dispatcher(event);
-		//dispatcher.Dispatch<MouseMovedEvent>(REON_BIND_EVENT_FN(GameLogicLayer::OnMouseMoved));
-		dispatcher.Dispatch<KeyPressedEvent>(REON_BIND_EVENT_FN(GameLogicLayer::OnKeyPressed));
-	}
-
 
 	void GameLogicLayer::InitializeTestScene()
 	{
@@ -137,11 +131,7 @@ namespace REON {
 		camera->ProcessShiftKey(Input::IsKeyPressed(REON_KEY_LEFT_SHIFT));
 	}
 
-	bool GameLogicLayer::OnMouseMoved(MouseMovedEvent& event)
-	{
-		return false;
-	}
-	bool GameLogicLayer::OnKeyPressed(KeyPressedEvent& event)
+	void GameLogicLayer::OnKeyPressed(const KeyPressedEvent& event)
 	{
 		if (event.GetKeyCode() == REON_KEY_DELETE && event.GetRepeatCount() == 0) {
 			auto obj = SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
@@ -149,6 +139,5 @@ namespace REON {
 				SceneManager::Get()->GetCurrentScene()->DeleteGameObject(obj);
 			}
 		}
-		return false;
 	}
 }

@@ -1,6 +1,6 @@
 #pragma once
 #include <chrono>
-#include "Profiler.h"
+#include "REON/Application.h"
 
 namespace REON {
 
@@ -17,21 +17,9 @@ namespace REON {
 				Stop();
 		}
 
-		void Stop() {
-			auto endTime = std::chrono::high_resolution_clock::now();
-			auto start = std::chrono::duration_cast<std::chrono::microseconds>(m_StartTime.time_since_epoch()).count();
-			auto end = std::chrono::duration_cast<std::chrono::microseconds>(endTime.time_since_epoch()).count();
-
-			// Record the profiling result
-			Profiler::Get().RecordProfile({ m_Name, static_cast<uint64_t>(start), static_cast<uint64_t>(end), GetThreadID() });
-			m_Stopped = true;
-		}
+		void Stop();
 
 	private:
-		uint32_t GetThreadID() {
-			return static_cast<uint32_t>(GetCurrentThreadId());
-		}
-
 		const char* m_Name;
 		std::chrono::time_point<std::chrono::high_resolution_clock> m_StartTime;
 		bool m_Stopped;

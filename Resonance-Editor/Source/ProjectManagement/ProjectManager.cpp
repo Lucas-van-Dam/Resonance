@@ -1,6 +1,7 @@
 #include "reonpch.h"
 #include "ProjectManager.h"
 
+#include "REON/Events/EventBus.h"
 
 namespace REON::EDITOR {
 
@@ -37,7 +38,7 @@ namespace REON::EDITOR {
             InitializeDefaultFiles(projectName);
             isProjectOpen = true;
             ProjectOpenedEvent event(m_CurrentProjectPath);
-            REON::Application::Get().OnEvent(event);
+            EventBus::Get().publish(event);
             return true;
         }
         else {
@@ -62,7 +63,7 @@ namespace REON::EDITOR {
         SettingsManager::GetInstance().LoadSettings(m_CurrentProjectPath);
 
         ProjectOpenedEvent event(projectPath);
-        REON::Application::Get().OnEvent(event);
+        EventBus::Get().publish(event);
 
         return true;
     }

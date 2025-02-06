@@ -16,8 +16,7 @@ public:
 		return ss.str();
 	}
 
-	EVENT_CLASS_TYPE(ViewportResized)
-	EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorViewportAndWindow)
+	EVENT_CLASS_NAME(ViewportResized)
 
 private:
 	int m_Width, m_Height;

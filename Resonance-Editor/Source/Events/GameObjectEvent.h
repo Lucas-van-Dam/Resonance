@@ -15,8 +15,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GameObjectAdded)
-    EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorObjectManagement)
+    EVENT_CLASS_NAME(GameObjectAdded)
 
 private:
     std::string m_GameObjectName;
@@ -35,8 +34,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GameObjectDeleted)
-    EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorObjectManagement)
+    EVENT_CLASS_NAME(GameObjectDeleted)
 
 private:
     std::string m_GameObjectName;
@@ -56,8 +54,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GameObjectRenamed)
-    EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorObjectManagement)
+    EVENT_CLASS_NAME(GameObjectRenamed)
 
 private:
     std::string m_OldName, m_NewName;
@@ -76,8 +73,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GameObjectSelected)
-    EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorObjectManagement)
+    EVENT_CLASS_NAME(GameObjectSelected)
 
 private:
     std::string m_GameObjectName;
@@ -96,8 +92,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GameObjectDeselected)
-    EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorObjectManagement)
+    EVENT_CLASS_NAME(GameObjectDeselected)
 
 private:
     std::string m_GameObjectName;

@@ -15,8 +15,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(GizmoManipulated)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorTools)
+    EVENT_CLASS_NAME(GizmoManipulated)
 
 private:
     std::string m_Action;
@@ -35,8 +34,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(ToolActivated)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorTools)
+    EVENT_CLASS_NAME(ToolActivated)
 
 private:
     std::string m_ToolName;
@@ -55,8 +53,7 @@ public:
         return ss.str();
     }
 
-    EVENT_CLASS_TYPE(ToolDeactivated)
-        EVENT_CLASS_CATEGORY(REON::EventCategoryEditor | REON::EventCategoryEditorTools)
+    EVENT_CLASS_NAME(ToolDeactivated)
 
 private:
     std::string m_ToolName;

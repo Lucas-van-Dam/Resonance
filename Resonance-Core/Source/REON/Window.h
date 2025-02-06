@@ -2,9 +2,12 @@
 
 #include "REON/Core.h"
 
-#include "REON/Events/Event.h"
+#include <string>
+#include <functional>
 
 namespace REON {
+
+	class Event;
 
 	struct WindowProperties {
 		std::string Title;
@@ -19,7 +22,7 @@ namespace REON {
 
 	class Window {
 	public:
-		using EventCallBackFn = std::function<void(Event&)>;
+		using EventCallBackFn = std::function<void(const Event&)>;
 
 		virtual ~Window() {};
 
