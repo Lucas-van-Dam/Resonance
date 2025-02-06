@@ -17,7 +17,8 @@ Resonance is an engine focussed towards real-time audiovisualisation written in 
 - OpenGL
 - GLM
 - GLAD
-- Assimp
+- Assimp (being depricated)
+- tinyGLTF
 - ImGui
 - ImGuizmo
 - stb_image
