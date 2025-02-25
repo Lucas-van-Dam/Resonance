@@ -19,6 +19,17 @@ namespace REON {
             glm::quat::operator*=(other);
             return *this;
         }
+
+        void Normalize() {
+            float length = std::sqrt(x * x + y * y + z * z + w * w);
+            if (length > 0.0f) {
+                float invLength = 1.0f / length;
+                x *= invLength;
+                y *= invLength;
+                z *= invLength;
+                w *= invLength;
+            }
+        }
     };
 
 }

@@ -21,6 +21,10 @@ namespace REON {
         template <typename ResourceType>
         std::shared_ptr<ResourceType> LoadResource(const std::string& filePath, std::any metadata = {});
 
+        // Add an existing resource to the cache
+        template <typename ResourceType>
+        void AddResource(std::shared_ptr<ResourceType> resource);
+
         // Unload a resource by UID
         void UnloadResource(std::string uid);
 
@@ -61,6 +65,19 @@ namespace REON {
         // Cache and return the resource using its UID
         resourceCache[newResource->GetID()] = newResource;
         return newResource;
+    }
+
+    template<typename ResourceType>
+    void ResourceManager::AddResource(std::shared_ptr<ResourceType> resource)
+    {
+        if (resourceCache.find(resource->GetID()) != resourceCache.end()) {
+            REON_CORE_ERROR("Already found resource with UID {}", resource->GetID());
+            return;
+        }
+
+        resource->Load();
+
+        resourceCache[resource->GetID()] = resource;
     }
 
 }

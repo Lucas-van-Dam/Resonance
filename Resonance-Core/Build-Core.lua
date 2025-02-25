@@ -26,6 +26,7 @@ project "Core"
    {
       "Source",
       "vendor/spdlog/include",
+      "%{IncludeDir.json}",
       "%{IncludeDir.GLFW}",
       "%{IncludeDir.GLAD}",
       "%{IncludeDir.ImGui}",

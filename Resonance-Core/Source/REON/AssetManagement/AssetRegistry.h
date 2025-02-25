@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include "nlohmann/json.hpp"
 
 namespace fs = std::filesystem;
 namespace REON {
@@ -10,13 +11,12 @@ namespace REON {
         std::string id;
         std::string type;
         fs::path path;
+        nlohmann::json extraInformation;
     };
 
     class AssetRegistry
     {
     public:
-
-
         static AssetRegistry& Instance();
 
         void RegisterAsset(const AssetInfo& assetInfo);
@@ -33,7 +33,7 @@ namespace REON {
 
         static void RegisterProcessor(const std::string& extension, std::unique_ptr<IAssetProcessor> processor);
 
-        static void ProcessAsset(const AssetInfo& metaData);
+        static void ProcessAsset(AssetInfo& metaData);
 
     private:
         std::unordered_map<std::string, AssetInfo> assetMap;   // Maps asset IDs to AssetInfo

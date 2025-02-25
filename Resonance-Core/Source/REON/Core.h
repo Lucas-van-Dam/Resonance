@@ -22,3 +22,5 @@
 #else
 #define PROFILE_SCOPE(name)
 #endif
+
+typedef unsigned int uint;

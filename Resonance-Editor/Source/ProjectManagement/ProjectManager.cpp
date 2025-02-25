@@ -24,9 +24,9 @@ namespace REON::EDITOR {
             return "(" + std::to_string(quat.x) + ", " + std::to_string(quat.y) + ", " + std::to_string(quat.z) + ", " + std::to_string(quat.w) + ")";
             };
 
-        //serializers["std::string"] = [](const void* data) {
-        //    return *static_cast<const std::string*>(data);
-        //    };
+        serializers["std::string"] = [](const void* data) {
+            return fmt::format("\"{}\"",*static_cast<const std::string*>(data));
+            };
     }
 
     bool ProjectManager::CreateNewProject(const std::string& projectName, const std::string& targetDirectory) {
@@ -76,7 +76,7 @@ namespace REON::EDITOR {
         }
 
         if (!std::filesystem::exists(m_CurrentProjectPath)) {
-            REON_ERROR("Project does not exist at: {0}", m_CurrentProjectPath);
+            REON_ERROR("Project does not exist at: {}", m_CurrentProjectPath);
             return false;
         }
 

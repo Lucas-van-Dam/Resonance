@@ -7,6 +7,12 @@
 
 namespace REON {
 
+    struct SubMesh {
+        int indexCount;
+        int indexOffset;
+        int materialIndex;
+    };
+
     class Mesh : public Resource {
     public:
         Mesh() {}
@@ -16,10 +22,22 @@ namespace REON {
 
         virtual void Load(const std::string& name, std::any metadata = {}) override;
 
+        //virtual void Load() override;
+
         virtual void Unload() override;
 
         void Serialize(const std::string& path);
         void DeSerialize(const std::string& path);
+
+        std::vector<glm::vec3> vertices;
+        std::vector<glm::vec4> colors;
+        std::vector<glm::vec3> normals;
+        std::vector<glm::vec2> uvs;
+        std::vector<glm::vec3> tangents;
+        std::vector<uint> indices;
+
+        std::vector<SubMesh> subMeshes;
+
     private:
         // initializes all the buffer objects/arrays
         void setupMesh();
@@ -28,9 +46,8 @@ namespace REON {
         //  render data
         unsigned int m_VBO, m_EBO;
         unsigned int m_DepthMap;
-        // mesh data
         std::vector<Vertex> m_Vertices;
-        std::vector<unsigned int> m_Indices;
+        // mesh data
         unsigned int m_VAO, m_SSBO;
     };
 }

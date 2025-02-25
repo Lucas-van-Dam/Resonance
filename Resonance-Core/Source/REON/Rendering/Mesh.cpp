@@ -10,7 +10,7 @@ namespace REON {
         m_Path = name;
         auto data = std::any_cast<std::tuple<std::vector<Vertex>, std::vector<unsigned int>>>(metadata);
         this->m_Vertices = std::get<0>(data);
-        this->m_Indices = std::get<1>(data);
+        this->indices = std::get<1>(data);
 
         setupMesh();
     }
@@ -18,7 +18,7 @@ namespace REON {
     void Mesh::Unload()
     {
         m_Vertices.clear();
-        m_Indices.clear();
+        indices.clear();
 
         glDeleteVertexArrays(1, &m_VAO);
         glDeleteBuffers(1, &m_VBO);
@@ -41,9 +41,9 @@ namespace REON {
         outFile.write(reinterpret_cast<const char*>(m_Vertices.data()), vertexCount * sizeof(Vertex));
 
         // Save index data
-        size_t indexCount = m_Indices.size();
+        size_t indexCount = indices.size();
         outFile.write(reinterpret_cast<const char*>(&indexCount), sizeof(size_t));
-        outFile.write(reinterpret_cast<const char*>(m_Indices.data()), indexCount * sizeof(unsigned int));
+        outFile.write(reinterpret_cast<const char*>(indices.data()), indexCount * sizeof(unsigned int));
 
         //// Save material ID
         //size_t materialIdLength = m_MaterialId.size();
@@ -69,8 +69,8 @@ namespace REON {
         // Load index data
         size_t indexCount;
         inFile.read(reinterpret_cast<char*>(&indexCount), sizeof(size_t));
-        m_Indices.resize(indexCount);
-        inFile.read(reinterpret_cast<char*>(m_Indices.data()), indexCount * sizeof(unsigned int));
+        indices.resize(indexCount);
+        inFile.read(reinterpret_cast<char*>(indices.data()), indexCount * sizeof(unsigned int));
 
         //// Load material ID
         //size_t materialIdLength;
@@ -102,7 +102,7 @@ namespace REON {
         glBufferData(GL_ARRAY_BUFFER, m_Vertices.size() * sizeof(Vertex), &m_Vertices[0], GL_STATIC_DRAW);
 
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, m_Indices.size() * sizeof(unsigned int), &m_Indices[0], GL_STATIC_DRAW);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
 
         // set the vertex attribute pointers
         // vertex Positions
@@ -192,7 +192,7 @@ namespace REON {
 
         // draw mesh
         glBindVertexArray(m_VAO);
-        glDrawElements(GL_TRIANGLES, static_cast<unsigned int>(m_Indices.size()), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<unsigned int>(indices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
         // always good practice to set everything back to defaults once configured.

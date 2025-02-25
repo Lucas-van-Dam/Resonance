@@ -2,6 +2,7 @@
 #include "imgui/imgui.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include "ImGuizmo.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 #include "Events/EditorUIEvent.h"
@@ -11,14 +12,16 @@
 
 namespace REON::EDITOR {
 
-	EditorLayer::EditorLayer() : Layer("Inspector")
+	EditorLayer::EditorLayer() : Layer("EditorLayer")
 	{
 		REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
+		REON::AssetRegistry::RegisterProcessor(".glb", std::make_unique<GLTFProcessor>());
+		m_Gizmotype = GizmoType::Translate;
 	}
 
 	void EditorLayer::OnUpdate()
 	{
-		if (!projectLoaded)
+		if (!m_ProjectLoaded)
 			return;
 		ProcessMouseMove();
 		if (!m_SelectedObject)
@@ -115,7 +118,7 @@ namespace REON::EDITOR {
 			ImGuiFileDialog::Instance()->Close();
 		}
 
-		if (!projectLoaded)
+		if (!m_ProjectLoaded)
 			return;
 
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
@@ -141,13 +144,27 @@ namespace REON::EDITOR {
 				auto camera = scene->GetEditorCamera();
 				glm::mat4 viewMatrix = camera->GetViewMatrix();
 				glm::mat4 projMatrix = camera->GetProjectionMatrix();
-				glm::mat4 objectMatrix = m_SelectedObject->GetTransform()->GetTransformationMatrix();
+				glm::mat4 worldMatrix = m_SelectedObject->GetTransform()->GetWorldTransform();
+
+				ImGuizmo::OPERATION operation;
+				switch (m_Gizmotype) {
+				case GizmoType::Translate:
+					operation = ImGuizmo::TRANSLATE;
+					break;
+				case GizmoType::Rotate:
+					operation = ImGuizmo::ROTATE;
+					break;
+				case GizmoType::Scale:
+					operation = ImGuizmo::SCALE;
+					break;
+				}
 
 				if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-					ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(objectMatrix)))
+					operation, ImGuizmo::LOCAL, glm::value_ptr(worldMatrix)))
 				{
-					m_SelectedObject->GetTransform()->SetWorldTransform(objectMatrix);
+					m_SelectedObject->GetTransform()->SetWorldTransform(worldMatrix);
 				}
+
 			}
 		}
 		ImGui::End();
@@ -157,12 +174,23 @@ namespace REON::EDITOR {
 			Inspector::InspectObject(*m_SelectedObject);
 		}
 		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), m_SelectedObject);
+		m_AssetBrowser.RenderAssetBrowser();
 	}
 
 	void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
 	{
 		if (event.GetKeyCode() == REON_KEY_F2 && event.GetRepeatCount() == 0) {
 			REON::SceneManager::Get()->GetCurrentScene()->renderManager->HotReloadShaders();
+		}
+
+		if(event.GetKeyCode() == REON_KEY_1){
+			m_Gizmotype = GizmoType::Translate;
+		}
+		if (event.GetKeyCode() == REON_KEY_2) {
+			m_Gizmotype = GizmoType::Rotate;
+		}
+		if (event.GetKeyCode() == REON_KEY_3) {
+			m_Gizmotype = GizmoType::Scale;
 		}
 	}
 
@@ -208,13 +236,12 @@ namespace REON::EDITOR {
 
 					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
 					REON::AssetRegistry::ProcessAsset(assetInfo);
-
 				}
 			}
-
 		}
 		//auto list = REON::AssetRegistry::Instance().GetAllAssets();
 		Inspector::Initialize();
-		projectLoaded = true;
+		m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
+		m_ProjectLoaded = true;
 	}
 }

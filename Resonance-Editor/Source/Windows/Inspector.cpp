@@ -22,6 +22,11 @@ namespace REON::EDITOR {
 			ImGui::InputInt(field.name, ptr);
 			});
 
+		Inspector::RegisterHandler<float>("float", [](const FieldInfo& field, void* instance) {
+			float* ptr = reinterpret_cast<float*>(reinterpret_cast<char*>(instance) + field.offset);
+			ImGui::DragFloat(field.name, ptr, 0.1f);
+			});
+
 		Inspector::RegisterHandler<bool>("_Bool", [](const FieldInfo& field, void* instance) {
 			bool* ptr = reinterpret_cast<bool*>(reinterpret_cast<char*>(instance) + field.offset);
 			ImGui::Checkbox(field.name, ptr);
@@ -55,7 +60,10 @@ namespace REON::EDITOR {
 			// Use ImGui::DragFloat3 for editing glm::vec3
 			//static glm::vec3 testVec(1.0f, 2.0f, 3.0f);
 			if (ImGui::DragFloat3(field.name, glm::value_ptr(angles), 0.01f)) {
-				ptr->setFromEulerAngles(angles.x, angles.y, angles.z);
+				Quaternion quat;
+				quat.setFromEulerAngles(angles.x, angles.y, angles.z);
+				quat.Normalize();
+				*ptr = quat;
 			}
 			});
 	}
@@ -65,6 +73,9 @@ namespace REON::EDITOR {
 		auto it = handlers.find(field.type);
 		if (it != handlers.end()) {
 			it->second(field, instance);
+		}
+		else {
+			ImGui::Text(field.name);
 		}
 	}
 

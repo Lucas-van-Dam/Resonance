@@ -10,11 +10,12 @@
 #include "ImGuiFileDialog.h"
 
 #include "Reon.h"
-//#include "REON/Core.h"
 
 #include "Events/ProjectEvent.h"
 #include "ProjectManagement/ProjectManager.h"
 #include "REON/Events/EventBus.h"
+#include "Windows/AssetBrowser.h"
+
 
 namespace REON::EDITOR {
 
@@ -41,7 +42,15 @@ namespace REON::EDITOR {
 	private:
 		std::shared_ptr<REON::GameObject> m_SelectedObject;
 
-		bool projectLoaded = false;
+		enum class GizmoType {
+			Translate,
+			Rotate,
+			Scale
+		};
+
+		GizmoType m_Gizmotype;
+
+		bool m_ProjectLoaded = false;
 
 		bool m_SceneHovered = false;
 		double m_SavedX = 0, m_SavedY = 0;
@@ -49,6 +58,8 @@ namespace REON::EDITOR {
 
 		CallbackID m_KeyPressedCallbackID;
 		CallbackID m_ProjectOpenedCallbackID;
+
+		AssetBrowser m_AssetBrowser;
 	};
 
 }

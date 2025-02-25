@@ -12,7 +12,6 @@ project "Editor"
       "Source",
       "Assets",
 
-      "Vendor/json/include",
       "Vendor/ImGuiFileDialog",
       "Vendor/libstud-uuid",
       "Vendor/tinygltf",
@@ -22,6 +21,7 @@ project "Editor"
       "../Resonance-Core/vendor/spdlog/include",
       "../Resonance-Core/vendor",
 
+      "../Resonance-Core/%{IncludeDir.json}",
       "../Resonance-Core/%{IncludeDir.GLFW}",
       "../Resonance-Core/%{IncludeDir.GLAD}",
       "../Resonance-Core/%{IncludeDir.ImGui}",

@@ -10,6 +10,7 @@ namespace REON {
 	public:
         virtual ~Resource() = default;
         virtual void Load(const std::string& name, std::any metadata = {}) = 0; // Pure virtual function for loading resources
+        //virtual void Load() = 0;
         virtual void Unload() = 0;
         const std::string& GetPath() const { return m_Path; }
 

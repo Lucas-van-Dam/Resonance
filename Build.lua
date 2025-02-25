@@ -43,6 +43,7 @@ IncludeDir["glm"] = "vendor/glm"
 IncludeDir["stb_image"] = "vendor/stb_image"
 IncludeDir["assimp"] = "vendor/assimp/include"
 IncludeDir["ImGuizmo"] = "vendor/ImGuizmo"
+IncludeDir["json"] = "vendor/json/include"
 
 include "Resonance-Core/vendor/GLFW/premake5.lua"
 include "Resonance-Core/vendor/GLAD/premake5.lua"
