@@ -18,7 +18,7 @@ namespace REON {
 	}
 
 	void RenderManager::AddRenderer(const std::shared_ptr<Renderer>& renderer) {
-		m_ShaderToRenderer[renderer->material->shader].push_back(renderer);
+		m_ShaderToRenderer[renderer->materials[0]->shader].push_back(renderer);
 		m_Renderers.push_back(renderer);
 	}
 
@@ -63,7 +63,7 @@ namespace REON {
 		//}
 
 		for (const auto& renderer : m_Renderers) {
-			renderer->material->shader->use();
+			renderer->materials[0]->shader->use();
 			renderer->Draw(m_MainLightView, m_MainLightProj, m_SkyboxTexture, m_IrradianceMap, m_PrefilterMap, m_BrdfLUTTexture, m_DepthCubeMaps, m_DepthMap);
 		}
 	}
@@ -454,7 +454,7 @@ namespace REON {
 
 	void RenderManager::HotReloadShaders() {
 		for (std::shared_ptr<Renderer> renderer : m_Renderers) {
-			renderer->material->shader->ReloadShader();
+			renderer->materials[0]->shader->ReloadShader(); //TODO: reload every shader once, instead of every material to save performance
 		}
 		m_DirectionalShadowShader->ReloadShader();
 		m_AdditionalShadowShader->ReloadShader();

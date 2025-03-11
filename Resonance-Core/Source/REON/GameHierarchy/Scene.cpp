@@ -4,7 +4,7 @@
 namespace REON {
 
     void Scene::AddGameObject(std::shared_ptr<GameObject> gameObject) {
-        m_GameObjects.push_back(gameObject);
+        m_GameObjectsToAdd.push_back(gameObject);
         gameObject->SetScene(shared_from_this());
     }
 
@@ -19,7 +19,12 @@ namespace REON {
         }
     }
 
-    void Scene::ProcessGameObjectDeletion() {
+    void Scene::ProcessGameObjectAddingAndDeletion() {
+        for (const auto gameObject : m_GameObjectsToAdd) {
+            if (gameObject) {
+                m_GameObjects.push_back(gameObject);
+            }
+        }
         for (const auto& gameObject : m_GameObjectsToDelete) {
             auto obj = gameObject.lock();
             if (obj) {
@@ -27,6 +32,7 @@ namespace REON {
                 m_GameObjects.erase(std::remove(m_GameObjects.begin(), m_GameObjects.end(), obj), m_GameObjects.end());
             }
         }
+        m_GameObjectsToAdd.clear();
         m_GameObjectsToDelete.clear();
     }
 

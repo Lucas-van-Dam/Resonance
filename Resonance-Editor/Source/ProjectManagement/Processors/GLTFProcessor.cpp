@@ -5,6 +5,7 @@
 #include <ProjectManagement/ProjectManager.h>
 #include <REON/ResourceManagement/ResourceInfo.h>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 using json = nlohmann::json;
 
@@ -42,11 +43,58 @@ namespace REON::EDITOR {
 		}
 
 		uid = assetInfo.id;
-		localIdentifier = 0;
+		basePath = assetInfo.path;
+
+		MetaFileData metaData;
+		metaData.modelUID = assetInfo.id;
 
 		//std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
 
 		//ResourceManager::GetInstance().AddResource(mesh);
+
+		materialIDs.clear();
+
+		for (auto& srcMat : model.materials) {
+			auto litShader = ResourceManager::GetInstance().LoadResource<Shader>("DefaultLit", std::make_tuple("PBR.vert", "PBR.frag", std::optional<std::string>{}));
+
+			std::shared_ptr<Material> mat = std::make_shared<Material>();
+			mat->shader = litShader;
+
+			mat->SetName(srcMat.name);
+
+			materialIDs.push_back(mat->GetID());
+
+			if (srcMat.alphaMode != "OPAQUE")
+				REON_WARN("Transparent materials are not supported yet, material: {}", srcMat.name);
+
+			auto pbrData = srcMat.pbrMetallicRoughness;
+
+			mat->albedoColor = glm::vec4(
+				static_cast<float>(pbrData.baseColorFactor[0]),
+				static_cast<float>(pbrData.baseColorFactor[1]),
+				static_cast<float>(pbrData.baseColorFactor[2]),
+				static_cast<float>(pbrData.baseColorFactor[3]));
+			
+			if (pbrData.baseColorTexture.index >= 0) {
+				REON_ERROR("HAVENT IMPLEMENTED COLOR TEXTURES YET, WILL IN A BIT");
+			}
+
+			if (pbrData.metallicRoughnessTexture.index >= 0) {
+				REON_ERROR("HAVENT IMPLEMENTED METALLICROUGHNESS TEXTURES YET, WILL IN A BIT");
+			}
+			else {
+				mat->roughness = pbrData.roughnessFactor;
+				mat->metallic = pbrData.metallicFactor;
+			}
+
+			if (srcMat.normalTexture.index >= 0) {
+				REON_ERROR("HAVENT IMPLEMENTED NORMAL TEXTURES YET, WILL IN A BIT");
+			}
+
+			AssetRegistry::Instance().RegisterAsset({mat->GetID(), "Material", mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + (basePath.parent_path().string())).string()});
+
+			ResourceManager::GetInstance().AddResource(mat);
+		}
 
 		const int sceneToLoad = model.defaultScene < 0 ? 0 : model.defaultScene;
 
@@ -54,57 +102,83 @@ namespace REON::EDITOR {
 			if (nodeId < 0)
 				return;
 
-			HandleGLTFNode(model, model.nodes[nodeId], glm::mat4(1.0f));
+			metaData.rootNode = HandleGLTFNode(model, model.nodes[nodeId], glm::mat4(1.0f), metaData);
 		}
 
 		assetInfo.extraInformation["Importer"] = "GLTFImporter";
+
+		std::string metaDataPath = ProjectManager::GetInstance().GetCurrentProjectPath() + "\\"
+			+ assetInfo.path.parent_path().string() + "\\" + assetInfo.path.stem().string() + ".model";
+
+		SerializeCompanionFile(metaData, metaDataPath);
 	}
 
-	void GLTFProcessor::HandleGLTFNode(const tg::Model& model, const tg::Node& node, const glm::mat4& parentTransform)
+	SceneNodeData GLTFProcessor::HandleGLTFNode(const tg::Model& model, const tg::Node& node, const glm::mat4& parentTransform, MetaFileData& modelFileData)
 	{
+		SceneNodeData data;
+		data.name = node.name;
+
 		glm::mat4 transform = parentTransform * GetTransformFromGLTFNode(node);
+
+		data.transform = transform;
 
 		int meshId = node.mesh;
 
 		if (meshId >= 0 && meshId < model.meshes.size()) {
-			HandleGLTFMesh(model, model.meshes[meshId], transform);
+			auto meshID = HandleGLTFMesh(model, model.meshes[meshId], transform, data);
+			data.meshIDs.push_back(meshID);
+			modelFileData.meshes.push_back(ResourceManager::GetInstance().GetResource<Mesh>(meshID));
 		}
 
 		for (auto& nodeId : node.children) {
 			if (nodeId < 0 || nodeId > model.nodes.size())
 				continue;
-
-			HandleGLTFNode(model, model.nodes[nodeId], transform);
+			
+			data.children.push_back(HandleGLTFNode(model, model.nodes[nodeId], transform, modelFileData));
 		}
+
+		return data;
 	}
 
-	void GLTFProcessor::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, const glm::mat4& transform)
+	std::string GLTFProcessor::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, const glm::mat4& transform, SceneNodeData& sceneNode)
 	{
-		Mesh meshData;
-		meshData.SetName(mesh.name);
+		std::shared_ptr<Mesh> meshData = std::make_shared<Mesh>();
+		meshData->SetName(mesh.name);
+
+		std::vector<std::string> matIDsPerMesh;
 
 		int primitiveIndex = 0;
 		for (auto primitive : mesh.primitives) {
 			SubMesh subMesh;
-			subMesh.indexOffset = meshData.indices.size();
-			subMesh.materialIndex = primitive.material;
+			subMesh.indexOffset = meshData->indices.size();
 
-			const int vertexOffset = meshData.vertices.size();
+			auto matID = materialIDs[primitive.material];
+			auto it = std::find(matIDsPerMesh.begin(), matIDsPerMesh.end(), matID);
+			if (it != matIDsPerMesh.end()) {
+				subMesh.materialIndex = std::distance(matIDsPerMesh.begin(), it);
+			}
+			else {
+				subMesh.materialIndex = matIDsPerMesh.size();
+				matIDsPerMesh.push_back(matID);
+			}
+			sceneNode.materials.push_back(matID);
+
+			const int vertexOffset = meshData->vertices.size();
 
 			for (auto& attribute : primitive.attributes)
 			{
 				const tinygltf::Accessor& accessor = model.accessors.at(attribute.second);
 				if (attribute.first.compare("POSITION") == 0)
 				{
-					HandleGLTFBuffer(model, accessor, meshData.vertices, transform);
+					HandleGLTFBuffer(model, accessor, meshData->vertices, transform);
 				}
 				else if (attribute.first.compare("NORMAL") == 0)
 				{
-					HandleGLTFBuffer(model, accessor, meshData.normals, transform, true);
+					HandleGLTFBuffer(model, accessor, meshData->normals, transform, true);
 				}
 				else if (attribute.first.compare("TEXCOORD_0") == 0)
 				{
-					HandleGLTFBuffer(model, accessor, meshData.uvs);
+					HandleGLTFBuffer(model, accessor, meshData->uvs);
 				}
 				else if (attribute.first.compare("COLOR_0") == 0)
 				{
@@ -117,22 +191,22 @@ namespace REON::EDITOR {
 				}
 			}
 
-			const int smallestBufferSize = std::min(meshData.normals.size(), std::min(meshData.uvs.size(), meshData.colors.size()));
-			const int vertexCount = meshData.vertices.size();
-			meshData.normals.reserve(vertexCount);
-			meshData.uvs.reserve(vertexCount);
-			meshData.colors.reserve(vertexCount);
+			const int smallestBufferSize = std::min(meshData->normals.size(), std::min(meshData->uvs.size(), meshData->colors.size()));
+			const int vertexCount = meshData->vertices.size();
+			meshData->normals.reserve(vertexCount);
+			meshData->uvs.reserve(vertexCount);
+			meshData->colors.reserve(vertexCount);
 
 			for (int i = smallestBufferSize; i < vertexCount; ++i)
 			{
-				if (meshData.normals.size() == i)
-					meshData.normals.push_back(glm::vec3(0,1,0));
+				if (meshData->normals.size() == i)
+					meshData->normals.push_back(glm::vec3(0,1,0));
 
-				if (meshData.uvs.size() == i)
-					meshData.uvs.push_back(glm::vec2(0, 0));
+				if (meshData->uvs.size() == i)
+					meshData->uvs.push_back(glm::vec2(0, 0));
 
-				if (meshData.colors.size() == i)
-					meshData.colors.push_back(glm::vec4(1,1,1,1));
+				if (meshData->colors.size() == i)
+					meshData->colors.push_back(glm::vec4(1,1,1,1));
 			}
 
 			const int index = primitive.indices;
@@ -140,25 +214,30 @@ namespace REON::EDITOR {
 			if (index > model.accessors.size())
 			{
 				REON_WARN("Invalid index accessor index in primitive: {}", std::to_string(primitiveIndex));
-				return;
+				return "";
 			}
 
 			if (primitive.indices >= 0)
 			{
 				const tg::Accessor& indexAccessor = model.accessors.at(index);
-				HandleGLTFIndices(model, indexAccessor, vertexOffset, meshData.indices);
+				HandleGLTFIndices(model, indexAccessor, vertexOffset, meshData->indices);
 			}
 			else
 			{
-				for (uint i = static_cast<uint>(vertexOffset); i < meshData.vertices.size(); i++)
-					meshData.indices.push_back(i);
+				for (uint i = static_cast<uint>(vertexOffset); i < meshData->vertices.size(); i++)
+					meshData->indices.push_back(i);
 			}
+			subMesh.indexCount = meshData->indices.size() - subMesh.indexOffset;
+
 			primitiveIndex++;
 
-			meshData.subMeshes.push_back(subMesh);
+			meshData->subMeshes.push_back(subMesh);
 		}
 
-		AssetRegistry::Instance().RegisterAsset({ meshData.GetID(), "Mesh", "EngineCache/Meshes/" + meshData.GetID() + ".mesh" });
+		ResourceManager::GetInstance().AddResource(meshData);
+		AssetRegistry::Instance().RegisterAsset({ meshData->GetID(), "Mesh", basePath.string() + ".meta"});
+
+		return meshData->GetID();
 	}
 
 	glm::mat4 GLTFProcessor::GetTransformFromGLTFNode(const tg::Node& node)
@@ -280,6 +359,57 @@ namespace REON::EDITOR {
 		if (accessor.sparse.isSparse)
 			REON_WARN("Sparse accessors are not supported yet (while processing indices)");
 	}
+
+	nlohmann::ordered_json GLTFProcessor::SerializeSceneNode(const SceneNodeData& node)
+	{
+		nlohmann::ordered_json j;
+		j["name"] = node.name;
+		// Serialize the transform matrix as a flat array (16 floats)
+		std::vector<float> transformData(16);
+		const float* ptr = glm::value_ptr(node.transform);
+		std::copy(ptr, ptr + 16, transformData.begin());
+		j["transform"] = transformData;
+		j["meshIDs"] = node.meshIDs;
+		j["materials"] = node.materials;
+
+		// Process children recursively.
+		nlohmann::ordered_json children = nlohmann::ordered_json::array();
+		for (const auto& child : node.children)
+		{
+			children.push_back(SerializeSceneNode(child));
+		}
+		j["children"] = children;
+		return j;
+	}
+
+	void GLTFProcessor::SerializeCompanionFile(const MetaFileData& data, const std::string& outPath)
+	{
+		nlohmann::ordered_json j;
+		j["GUID"] = data.modelUID;
+		j["rootNode"] = SerializeSceneNode(data.rootNode);
+		
+		// Convert mesh data to JSON
+		nlohmann::ordered_json meshArray = nlohmann::ordered_json::array();
+		for (auto mesh : data.meshes) // Assuming `data.meshes` is a list of Mesh objects
+		{
+			meshArray.push_back(mesh->Serialize());
+		}
+
+		j["meshes"] = meshArray;
+
+		std::ofstream file(outPath);
+		if (file.is_open())
+		{
+			file << j.dump(4); // Pretty print with an indent of 4 spaces.
+			file.close();
+		}
+		else
+		{
+			REON_ERROR("Failed to open companion file for writing: {}", outPath);
+		}
+	}
+
+
 
 	//void GLTFProcessor::ProcessNode(aiNode* node, const aiScene* scene, std::string path) {
 	//	if (node->mNumMeshes > 0) {

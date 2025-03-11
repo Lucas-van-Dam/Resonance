@@ -17,6 +17,8 @@ namespace REON {
         // Inherited via Resource
         virtual void Load(const std::string& filePath, std::any metadata = {}) override;
 
+        virtual void Load() override {};
+
         virtual void Unload() override;
 
         unsigned int GetTextureId();

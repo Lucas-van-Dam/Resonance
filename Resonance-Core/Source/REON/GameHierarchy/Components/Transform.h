@@ -3,6 +3,7 @@
 #include "glm/glm.hpp"
 #include "REON/Math/Quaternion.h"
 #include "REON/GameHierarchy/Components/Component.h"
+#include <glm/gtc/type_ptr.hpp>
 
 class GameObject;
 
@@ -30,6 +31,8 @@ namespace REON {
 
         void SetWorldTransform(const glm::mat4& matrix);
 
+        void SetFromMatrix(const std::vector<float>& matrixData);
+
         void UpdateLocalMatrix();
 
     public:
@@ -46,6 +49,8 @@ namespace REON {
         // Inherited via Component
         void OnGameObjectAddedToScene() override;
         void OnComponentDetach() override;
+
+        void DecomposeMatrix(const std::vector<float>& matData, glm::vec3& position, glm::quat& rotation, glm::vec3& scale);
 
     private:
         glm::mat4 m_LocalMatrix;

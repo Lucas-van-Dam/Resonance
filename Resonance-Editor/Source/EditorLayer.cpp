@@ -216,26 +216,44 @@ namespace REON::EDITOR {
 		}
 	}
 
+
+
 	void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 	{
 		auto assets = AssetScanner::scanAssets(event.GetProjectDirectory());
 		for (const auto& asset : assets) {
-			MetadataGenerator::EnsureMetadataExists(asset, event.GetProjectDirectory());
-
-			auto metaPath = asset.string() + ".meta";
-			if (fs::exists(metaPath)) {
-				std::ifstream metaFile(metaPath);
-				if (metaFile.is_open()) {
-					json metaData;
-					metaFile >> metaData;
-
+			if (AssetScanner::primaryAssetExtensions.find(asset.extension().string()) != AssetScanner::primaryAssetExtensions.end()) {
+				std::ifstream primaryFile(asset);
+				if (primaryFile.is_open()) {
+					nlohmann::json j;
+					primaryFile >> j;
 					REON::AssetInfo assetInfo;
-					assetInfo.id = metaData["Id"].get<std::string>();
-					assetInfo.type = metaData["Type"].get<std::string>();
+					assetInfo.id = j["GUID"];
+					auto extension = asset.extension().string();
+					extension.erase(0, 1);
+					assetInfo.type = extension;
 					assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
 
 					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
-					REON::AssetRegistry::ProcessAsset(assetInfo);
+				}
+			}
+			else {
+				MetadataGenerator::EnsureMetadataExists(asset, event.GetProjectDirectory());
+
+				auto metaPath = asset.string() + ".meta";
+				if (fs::exists(metaPath)) {
+					std::ifstream metaFile(metaPath);
+					if (metaFile.is_open()) {
+						json metaData;
+						metaFile >> metaData;
+
+						REON::AssetInfo assetInfo;
+						assetInfo.id = metaData["Id"].get<std::string>();
+						assetInfo.type = metaData["Type"].get<std::string>();
+						assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
+
+						REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+					}
 				}
 			}
 		}

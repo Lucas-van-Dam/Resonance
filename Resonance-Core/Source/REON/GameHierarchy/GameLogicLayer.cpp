@@ -2,7 +2,6 @@
 #include "GameLogicLayer.h"
 
 #include "REON/GameHierarchy/SceneManager.h"
-#include "REON/Rendering/Model.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 #include "REON/GameHierarchy/Components/Light.h"
 #include "REON/Application.h"
@@ -63,7 +62,6 @@ namespace REON {
 		std::shared_ptr<Scene> m_Scene = SceneManager::Get()->GetCurrentScene();
 
 		m_Scene->AddGameObject(backPack);
-		Model::LoadModelToGameObject(path, backPack);
 
 
 

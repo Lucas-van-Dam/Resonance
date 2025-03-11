@@ -13,6 +13,9 @@ enum AccessLevel {
     Private = 2,
 };
 
+using setterFuncType = void (*)(void*, void*);
+using getterFuncType = void* (*)(void*);
+
 struct FieldInfo {
     const char* name;
     const char* type;

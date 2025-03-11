@@ -8,6 +8,19 @@
 #include "REON/Events/EventBus.h"
 #include "REON/Events/Event.h"
 
+#include "public/tracy/Tracy.hpp"
+
+void* operator new(std::size_t count)
+{
+	auto ptr = malloc(count);
+	TracyAlloc(ptr, count);
+	return ptr;
+}
+void operator delete(void* ptr) noexcept
+{
+	TracyFree(ptr);
+	free(ptr);
+}
 
 namespace REON {
 
@@ -56,7 +69,6 @@ namespace REON {
 			FrameStartEvent frameStartEvent;
 			EventBus::Get().publish(frameStartEvent);
 			{
-				PROFILE_SCOPE("ApplicationLoop");
 				glClear(GL_COLOR_BUFFER_BIT);
 				for (Layer* layer : m_LayerStack)
 					layer->OnUpdate();
@@ -68,10 +80,11 @@ namespace REON {
 
 				m_Window->OnUpdate();
 
-				SceneManager::Get()->GetCurrentScene()->ProcessGameObjectDeletion();
+				SceneManager::Get()->GetCurrentScene()->ProcessGameObjectAddingAndDeletion();
 			}
 			FrameEndEvent frameEndEvent;
 			EventBus::Get().publish(frameEndEvent);
+			FrameMark;
 		}
 	}
 

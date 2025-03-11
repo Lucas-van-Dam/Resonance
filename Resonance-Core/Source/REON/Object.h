@@ -14,6 +14,11 @@ namespace REON {
 		virtual ~Object() = default;
 
 		std::string GetID() const { return m_ID; }
+		/// <summary>
+		/// DO NOT USE UNLESS YOU ARE CONSTRUCTING AN OBJECT FROM A FILE, THIS WILL BREAK CONNECTIONS WITH RESOURCE MANAGER AND POTENTIALLY OTHER SYSTEMS
+		/// </summary>
+		/// <param name="id"></param>
+		//void SetID(std::string id) { m_ID = id; }
 		const std::string& GetName() const { return m_Name; }
 		virtual std::string ToString() const { return m_Name + " [" + m_ID + "]"; }
 

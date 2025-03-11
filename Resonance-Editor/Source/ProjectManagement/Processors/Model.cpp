@@ -11,10 +11,11 @@
 #include <assimp/pbrmaterial.h>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <REON/ResourceManagement/ResourceManager.h>
+#include "REON/AssetManagement/AssetRegistry.h"
+#include "ProjectManagement/ProjectManager.h"
 
 
-namespace REON {
-
+namespace REON::EDITOR {
 	// Helper function to convert aiMatrix4x4 to glm::mat4
 	glm::mat4 Model::ConvertToGLM(const aiMatrix4x4& aiMat) {
 		glm::mat4 mat;
@@ -116,7 +117,7 @@ namespace REON {
 			if (mesh->HasNormals()) {
 				vector.x = mesh->mNormals[i].x;
 				vector.y = mesh->mNormals[i].y;
-				vector.z = mesh->mNormals[i].z;
+				vector.z = mesh->mNormals[i].z; 
 				vertex.Normal = vector;
 			}
 			// texture coordinates
@@ -210,8 +211,8 @@ namespace REON {
 
 		std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier, std::make_tuple(vertices, indices));
 
-		std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(meshObj, material);
-		parent->AddComponent(renderer);
+		//std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(meshObj, material);
+		//parent->AddComponent(renderer);
 	}
 
 	std::shared_ptr<Texture> Model::LoadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory) {
@@ -234,5 +235,100 @@ namespace REON {
 
 	void Model::LoadModelToGameObject(const char filePath[], const std::shared_ptr<GameObject>& parentObject) {
 		Model model(filePath, parentObject);
+	}
+
+	std::shared_ptr<GameObject> Model::ConstructGameObjectFromModelFile(const std::filesystem::path modelPath, std::shared_ptr<Scene> scene)
+	{
+		std::ifstream file(modelPath);
+		if (!file.is_open()) {
+			REON_CORE_ERROR("Failed to open companion file for reading: {}", modelPath.string());
+			return nullptr;
+		}
+
+		nlohmann::json j;
+		file >> j;
+		file.close();
+
+		auto nodeObject = std::make_shared<GameObject>();
+
+		scene->AddGameObject(nodeObject);
+
+		return ProcessModelNode(j["rootNode"], j, nodeObject);
+	}
+
+	std::shared_ptr<GameObject> Model::ProcessModelNode(nlohmann::json nodeJson, nlohmann::json fullJson, std::shared_ptr<GameObject> nodeObject)
+	{
+		static int objectCount = 1;
+
+		std::vector<std::shared_ptr<Material>> materials;
+
+		std::string defaultName = "Unnamed" + std::to_string(objectCount++);
+		std::string name = nodeJson.value("name", defaultName);
+		if (name.empty())
+			name = defaultName;
+
+		nodeObject->SetName(name);
+
+		if (nodeJson.contains("transform")) {
+			nodeObject->GetTransform()->SetFromMatrix(nodeJson["transform"]);
+		}
+
+		if (nodeJson.contains("materials")) {
+			for (const auto& materialID : nodeJson["materials"]) {
+				std::shared_ptr<Material> mat;
+
+				if (!(mat = ResourceManager::GetInstance().GetResource<Material>(materialID))) {
+					if (auto matInfo = AssetRegistry::Instance().GetAssetById(materialID)) {
+						mat = std::make_shared<Material>();
+						mat->Deserialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + matInfo->path.string());
+						ResourceManager::GetInstance().AddResource(mat);
+					}
+					else {
+						REON_ERROR("CANT FIND MATERIAL");
+					}
+				}
+				REON_CORE_ASSERT(mat);
+				materials.push_back(mat);
+			}
+		}
+
+		if (nodeJson.contains("meshIDs")) {
+			nlohmann::json meshJson;
+			for (const auto& meshID : nodeJson["meshIDs"]) {
+				meshJson = "";
+				for (const auto& mesh : fullJson["meshes"]) {
+					if (mesh.contains("GUID") && mesh["GUID"] == meshID) {
+						meshJson = mesh;
+					}
+				}
+				if (meshJson.empty()) {
+					REON_ERROR("MESHDATA NOT FOUND IN JSON");
+					continue;
+				}
+
+				std::shared_ptr<Mesh> mesh;
+
+				if (!(mesh = ResourceManager::GetInstance().GetResource<Mesh>(meshID))) {
+					mesh = std::make_shared<Mesh>(meshID);
+
+					mesh->DeSerialize(meshJson);
+
+					ResourceManager::GetInstance().AddResource(mesh);
+				}
+
+				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials);
+				nodeObject->AddComponent(renderer);
+			}
+		}
+
+		if (nodeJson.contains("children")) {
+			for (const auto& childNode : nodeJson["children"]) {
+				std::shared_ptr<GameObject> childObject = std::make_shared<GameObject>();
+				nodeObject->AddChild(childObject);
+				ProcessModelNode(childNode, fullJson, childObject);
+			}
+		}
+
+		return nodeObject;
 	}
 }

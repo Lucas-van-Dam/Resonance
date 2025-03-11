@@ -57,6 +57,10 @@ namespace REON {
             }
         }
 
+        //if (metadata.type() == typeid(ResourceType)) {
+        //    auto newResource = std::make_shared<ResourceType>(std::any_cast<ResourceType>(metadata));
+        //}
+
         REON_CORE_TRACE("Loading Resource from filePath: {}", filePath);
         // Create a new resource and load it
         auto newResource = std::make_shared<ResourceType>();

@@ -7,12 +7,22 @@ namespace REON {
     
     void Mesh::Load(const std::string& name, std::any metadata)
     {
+        try {
+            Mesh mesh = std::any_cast<Mesh>(metadata);
+            return;
+        }
+        catch (const std::bad_any_cast&) {}
         m_Path = name;
         auto data = std::any_cast<std::tuple<std::vector<Vertex>, std::vector<unsigned int>>>(metadata);
         this->m_Vertices = std::get<0>(data);
         this->indices = std::get<1>(data);
 
         setupMesh();
+    }
+
+    void Mesh::Load()
+    {
+        setupMesh2();
     }
 
     void Mesh::Unload()
@@ -25,64 +35,99 @@ namespace REON {
         glDeleteBuffers(1, &m_EBO);
     }
 
-    void Mesh::Serialize(const std::string& path)
+    nlohmann::ordered_json Mesh::Serialize() const
     {
-        if (!std::filesystem::exists(path)) {
-            std::filesystem::create_directories(path);
+        nlohmann::ordered_json meshJson;
+        meshJson["GUID"] = GetID();
+        meshJson["vertices"] = ConvertVec3Array(vertices); // Convert glm::vec3 to JSON
+        meshJson["normals"] = ConvertVec3Array(normals);
+        meshJson["uvs"] = ConvertVec2Array(uvs);
+        meshJson["tangents"] = ConvertVec3Array(tangents);
+        meshJson["colors"] = ConvertVec4Array(colors);
+        meshJson["indices"] = indices;
+
+        // Serialize submeshes
+        nlohmann::ordered_json subMeshArray = nlohmann::ordered_json::array();
+        for (const auto& subMesh : subMeshes)
+        {
+            nlohmann::ordered_json subMeshJson;
+            subMeshJson["indexCount"] = subMesh.indexCount;
+            subMeshJson["indexOffset"] = subMesh.indexOffset;
+            subMeshJson["materialIndex"] = subMesh.materialIndex;
+            subMeshArray.push_back(subMeshJson);
         }
-        std::ofstream outFile(path + "\\" + GetID() + ".mesh", std::ios::binary);
-        if (!outFile.is_open()) {
-            throw std::runtime_error("Failed to open file for writing: " + path);
-        }
-
-        // Save vertex data
-        size_t vertexCount = m_Vertices.size();
-        outFile.write(reinterpret_cast<const char*>(&vertexCount), sizeof(size_t));
-        outFile.write(reinterpret_cast<const char*>(m_Vertices.data()), vertexCount * sizeof(Vertex));
-
-        // Save index data
-        size_t indexCount = indices.size();
-        outFile.write(reinterpret_cast<const char*>(&indexCount), sizeof(size_t));
-        outFile.write(reinterpret_cast<const char*>(indices.data()), indexCount * sizeof(unsigned int));
-
-        //// Save material ID
-        //size_t materialIdLength = m_MaterialId.size();
-        //outFile.write(reinterpret_cast<const char*>(&materialIdLength), sizeof(size_t));
-        //outFile.write(m_MaterialId.data(), materialIdLength);
-
-        outFile.close();
+        meshJson["subMeshes"] = subMeshArray;
+        
+        return meshJson;
     }
 
-    void Mesh::DeSerialize(const std::string& path)
+    void Mesh::DeSerialize(const nlohmann::ordered_json& meshJson)
     {
-        std::ifstream inFile(path, std::ios::binary);
-        if (!inFile.is_open()) {
-            throw std::runtime_error("Failed to open file for reading: " + path);
+        vertices = ConvertJsonToVec3Array(meshJson["vertices"]);
+        normals = ConvertJsonToVec3Array(meshJson["normals"]);
+        uvs = ConvertJsonToVec2Array(meshJson["uvs"]);
+        tangents = ConvertJsonToVec3Array(meshJson["tangents"]);
+        colors = ConvertJsonToVec4Array(meshJson["colors"]);
+        indices = meshJson["indices"].get<std::vector<uint32_t>>();
+
+        // Deserialize subMeshes
+        for (const auto& subMeshJson : meshJson["subMeshes"]) {
+            SubMesh subMesh;
+            subMesh.indexCount = subMeshJson["indexCount"].get<int>();
+            subMesh.indexOffset = subMeshJson["indexOffset"].get<int>();
+            subMesh.materialIndex = subMeshJson["materialIndex"].get<int>();
+            subMeshes.push_back(subMesh);
         }
-
-        // Load vertex data
-        size_t vertexCount;
-        inFile.read(reinterpret_cast<char*>(&vertexCount), sizeof(size_t));
-        m_Vertices.resize(vertexCount);
-        inFile.read(reinterpret_cast<char*>(m_Vertices.data()), vertexCount * sizeof(Vertex));
-
-        // Load index data
-        size_t indexCount;
-        inFile.read(reinterpret_cast<char*>(&indexCount), sizeof(size_t));
-        indices.resize(indexCount);
-        inFile.read(reinterpret_cast<char*>(indices.data()), indexCount * sizeof(unsigned int));
-
-        //// Load material ID
-        //size_t materialIdLength;
-        //inFile.read(reinterpret_cast<char*>(&materialIdLength), sizeof(size_t));
-        //m_MaterialId.resize(materialIdLength);
-        //inFile.read(&m_MaterialId[0], materialIdLength);
-
-        inFile.close();
-
-        // Recreate OpenGL buffers
-        setupMesh();
     }
+
+    nlohmann::ordered_json Mesh::ConvertVec3Array(const std::vector<glm::vec3>& vecs) const{
+        nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+        for (const auto& v : vecs) {
+            arr.push_back({ v.x, v.y, v.z });
+        }
+        return arr;
+    }
+
+    nlohmann::ordered_json Mesh::ConvertVec2Array(const std::vector<glm::vec2>& vecs) const {
+        nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+        for (const auto& v : vecs) {
+            arr.push_back({ v.x, v.y });
+        }
+        return arr;
+    }
+
+    nlohmann::ordered_json Mesh::ConvertVec4Array(const std::vector<glm::vec4>& vecs) const {
+        nlohmann::ordered_json arr = nlohmann::ordered_json::array();
+        for (const auto& v : vecs) {
+            arr.push_back({ v.x, v.y, v.z, v.w });
+        }
+        return arr;
+    }
+
+    std::vector<glm::vec3> Mesh::ConvertJsonToVec3Array(const nlohmann::json& jsonArray) {
+        std::vector<glm::vec3> vec;
+        for (const auto& item : jsonArray) {
+            vec.emplace_back(item[0], item[1], item[2]);
+        }
+        return vec;
+    }
+
+    std::vector<glm::vec2> Mesh::ConvertJsonToVec2Array(const nlohmann::json& jsonArray) {
+        std::vector<glm::vec2> vec;
+        for (const auto& item : jsonArray) {
+            vec.emplace_back(item[0], item[1]);
+        }
+        return vec;
+    }
+
+    std::vector<glm::vec4> Mesh::ConvertJsonToVec4Array(const nlohmann::json& jsonArray) {
+        std::vector<glm::vec4> vec;
+        for (const auto& item : jsonArray) {
+            vec.emplace_back(item[0], item[1], item[2], item[3]);
+        }
+        return vec;
+    }
+
 
     // initializes all the buffer objects/arrays
     void Mesh::setupMesh()
@@ -128,6 +173,78 @@ namespace REON {
         glEnableVertexAttribArray(6);
         glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, m_Weights));
         glBindVertexArray(0);
+    }
+
+    void Mesh::setupMesh2()
+    {
+        glGenVertexArrays(1, &m_VAO);
+        glGenBuffers(1, &m_VBO);
+        glGenBuffers(1, &m_EBO);
+
+        glBindVertexArray(m_VAO);
+
+        // Compute the total size needed for interleaved buffer
+        size_t vertexCount = vertices.size();
+        size_t totalSize = (vertices.size() * sizeof(glm::vec3)) +
+            (normals.size() * sizeof(glm::vec3)) +
+            (uvs.size() * sizeof(glm::vec2)) +
+            (tangents.size() * sizeof(glm::vec3)) +
+            (colors.size() * sizeof(glm::vec4));
+
+        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+        glBufferData(GL_ARRAY_BUFFER, totalSize, nullptr, GL_STATIC_DRAW);
+
+        // Offset tracker for interleaved buffer
+        size_t offset = 0;
+
+        // Upload positions
+        glBufferSubData(GL_ARRAY_BUFFER, offset, vertices.size() * sizeof(glm::vec3), vertices.data());
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
+        offset += vertices.size() * sizeof(glm::vec3);
+
+        // Upload normals (if available)
+        if (!normals.empty()) {
+            glBufferSubData(GL_ARRAY_BUFFER, offset, normals.size() * sizeof(glm::vec3), normals.data());
+            glEnableVertexAttribArray(1);
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
+            offset += normals.size() * sizeof(glm::vec3);
+        }
+
+        // Upload UVs (if available)
+        if (!uvs.empty()) {
+            glBufferSubData(GL_ARRAY_BUFFER, offset, uvs.size() * sizeof(glm::vec2), uvs.data());
+            glEnableVertexAttribArray(2);
+            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)offset);
+            offset += uvs.size() * sizeof(glm::vec2);
+        }
+
+        // Upload tangents (if available)
+        if (!tangents.empty()) {
+            glBufferSubData(GL_ARRAY_BUFFER, offset, tangents.size() * sizeof(glm::vec3), tangents.data());
+            glEnableVertexAttribArray(3);
+            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
+            offset += tangents.size() * sizeof(glm::vec3);
+        }
+
+        // Upload colors (if available)
+        if (!colors.empty()) {
+            glBufferSubData(GL_ARRAY_BUFFER, offset, colors.size() * sizeof(glm::vec4), colors.data());
+            glEnableVertexAttribArray(4);
+            glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)offset);
+            offset += colors.size() * sizeof(glm::vec4);
+        }
+
+        // Upload indices
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint), indices.data(), GL_STATIC_DRAW);
+
+        glBindVertexArray(0);
+    }
+
+    Mesh::Mesh(const Mesh& mesh)
+    {
+        
     }
 
     // render the mesh
