@@ -70,7 +70,7 @@ namespace REON {
         std::string m_SkyboxLocation = "Assets/Textures/brown_photostudio_02_4k.hdr";
 
         //Screen shader
-        unsigned int m_Framebuffer, m_TextureColorbuffer, m_Rbo;
+        unsigned int m_SceneFramebuffer, m_SceneTexture, m_Rbo;
         unsigned int m_QuadVAO, m_QuadVBO;
         std::shared_ptr<Shader> m_ScreenShader = ResourceManager::GetInstance().LoadResource<Shader>("ScreenShader", std::make_tuple("fullScreen.vert", "fullScreen.frag", std::optional<std::string>{}));
         float quadVertices[24] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
@@ -83,6 +83,8 @@ namespace REON {
             1.0f, -1.0f,  1.0f, 0.0f,
             1.0f,  1.0f,  1.0f, 1.0f
         };
+
+        uint m_PostProcessTexture, m_PostProcessFbo;
 
 #pragma region data
         float skyboxVertices[108] = {

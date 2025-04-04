@@ -9,7 +9,7 @@
 
 namespace REON {
 
-    class Scene : public Object, public std::enable_shared_from_this<Scene> {
+    class [[clang::annotate("serialize")]] Scene : public Object, public std::enable_shared_from_this<Scene> {
     public:
         Scene(const std::string& name);
         Scene() {}
@@ -17,7 +17,8 @@ namespace REON {
         void AddGameObject(std::shared_ptr<GameObject> gameObject);
         void DeleteGameObject(std::shared_ptr<GameObject> gameObject);
         void UpdateScene(float deltaTime);
-        void ProcessGameObjectDeletion();
+        void ProcessGameObjectAddingAndDeletion();
+        void InitializeSceneWithObjects();
         std::shared_ptr<GameObject> GetGameObject(int index);
         std::vector<std::shared_ptr<GameObject>> GetRootObjects();
         std::shared_ptr<EditorCamera> GetEditorCamera();
@@ -31,6 +32,10 @@ namespace REON {
     private:
         std::vector<std::shared_ptr<GameObject>> m_GameObjects;
         std::vector<std::weak_ptr<GameObject>> m_GameObjectsToDelete;
+        std::vector<std::shared_ptr<GameObject>> m_GameObjectsToAdd;
+
+        template <typename ClassType, typename FieldType, FieldType ClassType::* field>
+        friend struct ReflectionAccessor;
     };
 
 }

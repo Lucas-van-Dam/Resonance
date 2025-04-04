@@ -29,6 +29,8 @@ namespace REON::EDITOR {
 
         bool SaveProject();
 
+        void LoadScene(const std::filesystem::path& path);
+
         const std::string& GetCurrentProjectPath() const { return m_CurrentProjectPath; }
         bool IsProjectOpen() const { return isProjectOpen; }
 
@@ -44,6 +46,8 @@ namespace REON::EDITOR {
         bool SaveScene(const REON::Scene& scene);
         bool SaveScenes();
 
+        void DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<GameObject> object, const nlohmann::json& sceneJson);
+
         void SerializeGameObjectForScene(nlohmann::json& sceneJson, std::shared_ptr<REON::GameObject> object);
 
         nlohmann::json SerializeGameObject(std::shared_ptr<REON::GameObject> object);
@@ -52,10 +56,43 @@ namespace REON::EDITOR {
 
         std::string ExtractInnerType(const std::string& typeString);
 
+        template <typename T>
+        void RegisterDeserializer(const std::string& name, std::function<T(const std::string&)> func) {
+            deserializers[name] = [func](const std::string& str) -> void* {
+                T result = func(str);  // Deserialize to the desired type
+                return new T(result);  // Allocate and return a pointer to the deserialized object
+                };
+        }
+
+        template <typename T>
+        T Deserialize(const std::string& name, const std::string& str) {
+            auto it = deserializers.find(name);
+            if (it != deserializers.end()) {
+                // Cast the void* to the correct type (T)
+                T* ptr = static_cast<T*>(it->second(str));
+                T result = *ptr;  // Dereference to get the object
+                delete ptr;  // Remember to delete the allocated memory
+                return result;
+            }
+            REON_ERROR("Deserializer not found for type: {}", name);
+            T obj;
+            return obj;
+        }
+
+        void* DeserializeToVoid(const std::string& name, const std::string& str) {
+            auto it = deserializers.find(name);
+            if (it != deserializers.end()) {
+                return it->second(str);
+            }
+            REON_ERROR("Deserializer not found for type: {}", name);
+            return nullptr;
+        }
+
         std::string m_CurrentProjectPath;
         bool isProjectOpen;
 
         std::unordered_map<std::string, std::function<std::string(const void*)>> serializers;
+        std::unordered_map<std::string, std::function<void*(const std::string&)>> deserializers; 
     };
 
 }

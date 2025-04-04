@@ -2,36 +2,39 @@
 #include "imgui/imgui.h"
 #include <glm/ext/matrix_float4x4.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include "ImGuizmo.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 #include "Events/EditorUIEvent.h"
 #include "ProjectManagement/AssetScanner.h"
 #include "ProjectManagement/MetadataGenerator.h"
 #include "ProjectManagement/Processors/GLTFProcessor.h"
+#include "ProjectManagement/Processors/PrimaryProcessors.h"
 
 namespace REON::EDITOR {
 
-	EditorLayer::EditorLayer() : Layer("Inspector")
+	EditorLayer::EditorLayer() : Layer("EditorLayer")
 	{
 		REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
+		REON::AssetRegistry::RegisterProcessor(".glb", std::make_unique<GLTFProcessor>());
+		REON::AssetRegistry::RegisterProcessor("model", std::make_unique<ModelProcessor>());
+		m_Gizmotype = GizmoType::Translate;
 	}
 
 	void EditorLayer::OnUpdate()
 	{
-		if (!projectLoaded)
+		if (!m_ProjectLoaded)
 			return;
 		ProcessMouseMove();
-		if (!m_SelectedObject)
-			m_SelectedObject = REON::SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
 	}
 
-	void EditorLayer::OnAttach() 
+	void EditorLayer::OnAttach()
 	{
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
 		m_ProjectOpenedCallbackID = EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
 	}
 
-	void EditorLayer::OnDetach() 
+	void EditorLayer::OnDetach()
 	{
 		EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
 		EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
@@ -115,22 +118,22 @@ namespace REON::EDITOR {
 			ImGuiFileDialog::Instance()->Close();
 		}
 
-		if (!projectLoaded)
+		if (!m_ProjectLoaded)
 			return;
 
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
+		auto scene = REON::SceneManager::Get()->GetCurrentScene();
+
 		if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse))
 		{
-			auto scene = REON::SceneManager::Get()->GetCurrentScene();
-
 			auto size = ImGui::GetContentRegionAvail();
 			scene->renderManager->SetRenderDimensions(size.x, size.y);
 			m_SceneHovered = ImGui::IsWindowHovered();
 
 			ImGui::Image((void*)(intptr_t)scene->renderManager->GetEndBuffer(), size, ImVec2(0, 1), ImVec2(1, 0));
-			if (m_SelectedObject) {
+			if (scene->selectedObject) {
 				ImVec2 windowSize = ImGui::GetWindowSize();
 				ImVec2 pos = ImGui::GetWindowPos();
 
@@ -141,28 +144,52 @@ namespace REON::EDITOR {
 				auto camera = scene->GetEditorCamera();
 				glm::mat4 viewMatrix = camera->GetViewMatrix();
 				glm::mat4 projMatrix = camera->GetProjectionMatrix();
-				glm::mat4 objectMatrix = m_SelectedObject->GetTransform()->GetTransformationMatrix();
+				glm::mat4 worldMatrix = scene->selectedObject->GetTransform()->GetWorldTransform();
+
+				ImGuizmo::OPERATION operation;
+				switch (m_Gizmotype) {
+				case GizmoType::Translate:
+					operation = ImGuizmo::TRANSLATE;
+					break;
+				case GizmoType::Rotate:
+					operation = ImGuizmo::ROTATE;
+					break;
+				case GizmoType::Scale:
+					operation = ImGuizmo::SCALE;
+					break;
+				}
 
 				if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-					ImGuizmo::TRANSLATE, ImGuizmo::WORLD, glm::value_ptr(objectMatrix)))
+					operation, ImGuizmo::LOCAL, glm::value_ptr(worldMatrix)))
 				{
-					m_SelectedObject->GetTransform()->SetWorldTransform(objectMatrix);
+					scene->selectedObject->GetTransform()->SetWorldTransform(worldMatrix);
 				}
+
 			}
 		}
 		ImGui::End();
 
 		//ImGui::PopStyleVar(2);
-		if (m_SelectedObject) {
-			Inspector::InspectObject(*m_SelectedObject);
-		}
-		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), m_SelectedObject);
+		Inspector::InspectObject(scene->selectedObject);
+
+		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), scene->selectedObject);
+		m_AssetBrowser.RenderAssetBrowser();
 	}
 
 	void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
 	{
 		if (event.GetKeyCode() == REON_KEY_F2 && event.GetRepeatCount() == 0) {
 			REON::SceneManager::Get()->GetCurrentScene()->renderManager->HotReloadShaders();
+		}
+
+		if (event.GetKeyCode() == REON_KEY_1) {
+			m_Gizmotype = GizmoType::Translate;
+		}
+		if (event.GetKeyCode() == REON_KEY_2) {
+			m_Gizmotype = GizmoType::Rotate;
+		}
+		if (event.GetKeyCode() == REON_KEY_3) {
+			m_Gizmotype = GizmoType::Scale;
 		}
 	}
 
@@ -188,33 +215,50 @@ namespace REON::EDITOR {
 		}
 	}
 
+
+
 	void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 	{
 		auto assets = AssetScanner::scanAssets(event.GetProjectDirectory());
 		for (const auto& asset : assets) {
-			MetadataGenerator::EnsureMetadataExists(asset, event.GetProjectDirectory());
-
-			auto metaPath = asset.string() + ".meta";
-			if (fs::exists(metaPath)) {
-				std::ifstream metaFile(metaPath);
-				if (metaFile.is_open()) {
-					json metaData;
-					metaFile >> metaData;
-
+			if (AssetScanner::primaryAssetExtensions.find(asset.extension().string()) != AssetScanner::primaryAssetExtensions.end()) {
+				std::ifstream primaryFile(asset);
+				if (primaryFile.is_open()) {
+					nlohmann::json j;
+					primaryFile >> j;
 					REON::AssetInfo assetInfo;
-					assetInfo.id = metaData["Id"].get<std::string>();
-					assetInfo.type = metaData["Type"].get<std::string>();
+					assetInfo.id = j["GUID"];
+					auto extension = asset.extension().string();
+					extension.erase(0, 1);
+					assetInfo.type = extension;
 					assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
-
-					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
 					REON::AssetRegistry::ProcessAsset(assetInfo);
-
+					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
 				}
 			}
+			else {
+				MetadataGenerator::EnsureMetadataExists(asset, event.GetProjectDirectory());
 
+				auto metaPath = asset.string() + ".meta";
+				if (fs::exists(metaPath)) {
+					std::ifstream metaFile(metaPath);
+					if (metaFile.is_open()) {
+						json metaData;
+						metaFile >> metaData;
+
+						REON::AssetInfo assetInfo;
+						assetInfo.id = metaData["Id"].get<std::string>();
+						assetInfo.type = metaData["Type"].get<std::string>();
+						assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
+
+						REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+					}
+				}
+			}
 		}
 		//auto list = REON::AssetRegistry::Instance().GetAllAssets();
 		Inspector::Initialize();
-		projectLoaded = true;
+		m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
+		m_ProjectLoaded = true;
 	}
 }

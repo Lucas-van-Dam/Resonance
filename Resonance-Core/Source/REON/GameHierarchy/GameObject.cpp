@@ -97,7 +97,9 @@ namespace REON {
 		return false;
 	}
 
-	GameObject::GameObject() : m_Components() {
+	GameObject::GameObject(const std::string& id) : m_Components() {
+		if (!id.empty())
+			m_ID = id;
 		m_Transform = std::make_shared<Transform>();
 	}
 

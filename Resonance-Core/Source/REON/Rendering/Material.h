@@ -3,10 +3,12 @@
 #include "REON/Rendering/Shader.h"
 #include "REON/Rendering/Structs/Texture.h"
 #include "REON/ResourceManagement/Resource.h"
+#include "nlohmann/json.hpp"
 
 namespace REON {
 
-    class Material : public Resource {
+    
+    class [[clang::annotate("serialize")]] Material : public ResourceBase {
     public:
         Material(std::shared_ptr<Shader> shader);
         Material();
@@ -14,7 +16,12 @@ namespace REON {
 
         virtual void Load(const std::string& filePath, std::any metadata = {}) override;
 
+        virtual void Load() override;
+
         virtual void Unload() override;
+
+        std::filesystem::path Serialize(std::filesystem::path path);
+        void Deserialize(std::filesystem::path path);
 
     public:
         std::shared_ptr<Texture> albedoTexture;

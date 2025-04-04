@@ -9,7 +9,7 @@
 #include <REON/AssetManagement/AssetRegistry.h>
 
 namespace fs = std::filesystem;
-using json = nlohmann::json;
+using json = nlohmann::ordered_json;
 
 namespace REON::EDITOR {
 
@@ -86,13 +86,15 @@ namespace REON::EDITOR {
 			metaData["Type"] = assetInfo.type;
 			metaData["Path"] = assetInfo.path.string();
 
+			REON::AssetRegistry::ProcessAsset(assetInfo);
+
+			metaData["Extra Data"] = assetInfo.extraInformation;
+
 			std::ofstream metaFile(metaPath);
 			if (metaFile.is_open()) {
 				metaFile << metaData.dump(4);
 				metaFile.close();
 			}
-
-			REON::AssetRegistry::ProcessAsset(assetInfo);
 		}
 	};
 }

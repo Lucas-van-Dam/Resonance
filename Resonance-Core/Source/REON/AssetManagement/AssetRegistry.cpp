@@ -44,7 +44,7 @@ namespace REON {
         processors[extension] = std::move(processor);
     }
 
-    void AssetRegistry::ProcessAsset(const AssetInfo& metaData) {
+    void AssetRegistry::ProcessAsset(AssetInfo& metaData) {
         auto it = processors.find(metaData.type);
         if (it != processors.end()) {
             it->second->Process(metaData);

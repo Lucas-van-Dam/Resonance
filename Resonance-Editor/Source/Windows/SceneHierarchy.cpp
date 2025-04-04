@@ -1,4 +1,5 @@
 #include "SceneHierarchy.h"
+#include "ProjectManagement/ProjectManager.h"
 
 namespace REON::EDITOR {
 
@@ -68,9 +69,23 @@ namespace REON::EDITOR {
 	// Function to render the entire scene hierarchy
 	void SceneHierarchy::RenderSceneHierarchy(const std::vector<std::shared_ptr<REON::GameObject>>& rootObjects, std::shared_ptr<REON::GameObject>& selectedObject) {
 		ImGui::Begin("Scene Hierarchy");
-
+		
 		for (const auto& rootObject : rootObjects) {
 			RenderGameObjectNode(rootObject, selectedObject);
+		}
+
+		ImGui::Dummy(ImGui::GetContentRegionAvail());
+
+		if (ImGui::BeginDragDropTarget()) {	
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
+				std::string filePath((char*)payload->Data);
+				auto extension = std::filesystem::path(filePath).extension();
+				if (extension == ".model") {
+					REON_INFO("Dropped file: \"{}\" into scene", filePath);
+					Model::ConstructGameObjectFromModelFile(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + filePath, SceneManager::Get()->GetCurrentScene());
+				}
+			}
+			ImGui::EndDragDropTarget();
 		}
 
 		ProcessReparenting();

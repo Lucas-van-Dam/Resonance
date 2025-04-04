@@ -6,7 +6,8 @@
 
 namespace REON {
 
-    class Shader : public Resource {
+
+    class [[clang::annotate("serialize")]] Shader : public ResourceBase {
     public:
         // constructor reads and builds the shader
         Shader();
@@ -30,6 +31,7 @@ namespace REON {
 
         // Inherited via Resource
         void Load(const std::string& filePath, std::any metadata) override;
+        virtual void Load() override {};
         void Unload() override;
 
     public:

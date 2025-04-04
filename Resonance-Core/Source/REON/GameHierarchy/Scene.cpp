@@ -1,10 +1,11 @@
 #include "reonpch.h"
 #include "Scene.h"
+#include "REON/GameHierarchy/Components/Transform.h"
 
 namespace REON {
 
     void Scene::AddGameObject(std::shared_ptr<GameObject> gameObject) {
-        m_GameObjects.push_back(gameObject);
+        m_GameObjectsToAdd.push_back(gameObject);
         gameObject->SetScene(shared_from_this());
     }
 
@@ -19,7 +20,12 @@ namespace REON {
         }
     }
 
-    void Scene::ProcessGameObjectDeletion() {
+    void Scene::ProcessGameObjectAddingAndDeletion() {
+        for (const auto gameObject : m_GameObjectsToAdd) {
+            if (gameObject) {
+                m_GameObjects.push_back(gameObject);
+            }
+        }
         for (const auto& gameObject : m_GameObjectsToDelete) {
             auto obj = gameObject.lock();
             if (obj) {
@@ -27,7 +33,18 @@ namespace REON {
                 m_GameObjects.erase(std::remove(m_GameObjects.begin(), m_GameObjects.end(), obj), m_GameObjects.end());
             }
         }
+        m_GameObjectsToAdd.clear();
         m_GameObjectsToDelete.clear();
+    }
+
+    void Scene::InitializeSceneWithObjects()
+    {
+        std::shared_ptr<GameObject> MainLight = std::make_shared<GameObject>();
+        std::shared_ptr<Light> lightComponent = std::make_shared<Light>(LightType::Directional, 3, glm::vec3(1, 1, 1));
+        AddGameObject(MainLight);
+        MainLight->AddComponent<Light>(lightComponent);
+        MainLight->GetTransform()->localRotation.setFromEulerAngles(110, 0, 0);
+        MainLight->SetName("MainLight");
     }
 
 

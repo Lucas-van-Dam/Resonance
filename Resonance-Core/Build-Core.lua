@@ -19,13 +19,15 @@ project "Core"
     "vendor/stb_image/**.cpp",
     "vendor/stb_image/**.h",
     "vendor/ImGuizmo/**.h",
-    "vendor/ImGuizmo/**.cpp"
+    "vendor/ImGuizmo/**.cpp",
+    "vendor/Tracy/public/TracyClient.cpp"
    }
 
    includedirs
    {
       "Source",
       "vendor/spdlog/include",
+      "%{IncludeDir.json}",
       "%{IncludeDir.GLFW}",
       "%{IncludeDir.GLAD}",
       "%{IncludeDir.ImGui}",
@@ -33,6 +35,7 @@ project "Core"
       "%{IncludeDir.stb_image}",
       "%{IncludeDir.assimp}",
       "%{IncludeDir.ImGuizmo}",
+      "%{IncludeDir.Tracy}"
    }
 
    links{
@@ -78,7 +81,7 @@ project "Core"
        symbols "On"
 
    filter "configurations:Release"
-       defines { "REON_RELEASE" }
+       defines { "REON_RELEASE", "TRACY_ENABLE" }
        runtime "Release"
        optimize "On"
        symbols "On"

@@ -1,5 +1,6 @@
 #pragma once
 #include "Resource.h"
+#include "REON/AssetManagement/AssetRegistry.h"
 
 namespace REON {
 	class ResourceManager
@@ -21,18 +22,32 @@ namespace REON {
         template <typename ResourceType>
         std::shared_ptr<ResourceType> LoadResource(const std::string& filePath, std::any metadata = {});
 
+        // Add an existing resource to the cache
+        template <typename ResourceType>
+        void AddResource(std::shared_ptr<ResourceType> resource);
+
         // Unload a resource by UID
         void UnloadResource(std::string uid);
 
         // Clear all resources
         void Clear();
 
+        std::shared_ptr<ResourceBase> GetResourceFromAsset(AssetInfo* info, const std::filesystem::path& projectPath) {
+            auto it = resourceConverters.find(info->type);
+            if (it != resourceConverters.end()) {
+                return it->second(info, projectPath.string() + "\\" + info->path.string());
+            }
+            REON_WARN("No resource converter for type {}", info->type);
+        }
+
     private:
-        ResourceManager() = default;
+        ResourceManager();
         ~ResourceManager() = default;
 
     private:
-        std::unordered_map<std::string, std::shared_ptr<Resource>> resourceCache;
+        std::unordered_map<std::string, std::shared_ptr<ResourceBase>> resourceCache;
+
+        std::unordered_map<std::string, std::function<std::shared_ptr<ResourceBase>(const AssetInfo* info, const std::filesystem::path&)>> resourceConverters;
 	};
 
     template <typename ResourceType>
@@ -53,6 +68,10 @@ namespace REON {
             }
         }
 
+        //if (metadata.type() == typeid(ResourceType)) {
+        //    auto newResource = std::make_shared<ResourceType>(std::any_cast<ResourceType>(metadata));
+        //}
+
         REON_CORE_TRACE("Loading Resource from filePath: {}", filePath);
         // Create a new resource and load it
         auto newResource = std::make_shared<ResourceType>();
@@ -61,6 +80,19 @@ namespace REON {
         // Cache and return the resource using its UID
         resourceCache[newResource->GetID()] = newResource;
         return newResource;
+    }
+
+    template<typename ResourceType>
+    void ResourceManager::AddResource(std::shared_ptr<ResourceType> resource)
+    {
+        if (resourceCache.find(resource->GetID()) != resourceCache.end()) {
+            REON_CORE_ERROR("Already found resource with UID {}", resource->GetID());
+            return;
+        }
+
+        resource->Load();
+
+        resourceCache[resource->GetID()] = resource;
     }
 
 }

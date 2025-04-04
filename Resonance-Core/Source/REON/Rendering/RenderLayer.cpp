@@ -15,6 +15,7 @@ namespace REON {
 
 	void RenderLayer::OnUpdate()
 	{
-		SceneManager::Get()->GetCurrentScene()->renderManager->Render();
+		if(auto scene = SceneManager::Get()->GetCurrentScene())
+			scene->renderManager->Render();
 	}
 }

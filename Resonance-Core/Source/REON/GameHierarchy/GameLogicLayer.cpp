@@ -2,7 +2,6 @@
 #include "GameLogicLayer.h"
 
 #include "REON/GameHierarchy/SceneManager.h"
-#include "REON/Rendering/Model.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 #include "REON/GameHierarchy/Components/Light.h"
 #include "REON/Application.h"
@@ -31,14 +30,15 @@ namespace REON {
 	void GameLogicLayer::OnAttach()
 	{
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<KeyPressedEvent>(REON_BIND_EVENT_FN(GameLogicLayer::OnKeyPressed));
-		InitializeTestScene();
 		lastTime = std::chrono::high_resolution_clock::now();
 	}
 
 	void GameLogicLayer::OnUpdate()
 	{
 		CheckKeyPressed();
-		SceneManager::Get()->GetCurrentScene()->UpdateScene(deltaTime);
+		if (auto scene = SceneManager::Get()->GetCurrentScene()) {
+			scene->UpdateScene(deltaTime);
+		}
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
 		lastTime = currentTime;
@@ -63,9 +63,6 @@ namespace REON {
 		std::shared_ptr<Scene> m_Scene = SceneManager::Get()->GetCurrentScene();
 
 		m_Scene->AddGameObject(backPack);
-		Model::LoadModelToGameObject(path, backPack);
-
-
 
 		//    std::shared_ptr<GameObject> cube = std::make_shared<GameObject>();
 		//    scene->AddGameObject(cube);

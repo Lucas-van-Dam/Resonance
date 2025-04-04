@@ -15,6 +15,7 @@ namespace REON::EDITOR {
 	{
 	public:
 		static const std::unordered_set<std::string> supportedExtensions;
+		static const std::unordered_set<std::string> primaryAssetExtensions;
 
 		static std::vector<fs::path> scanAssets(const fs::path& projectDir) {
 			std::vector<fs::path> assets;

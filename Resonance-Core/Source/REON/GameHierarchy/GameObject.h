@@ -11,9 +11,10 @@ namespace REON {
     class Scene;
     class Transform;
 
-    class GameObject : public Object, public std::enable_shared_from_this<GameObject> {
+    
+    class [[clang::annotate("serialize")]] GameObject : public Object, public std::enable_shared_from_this<GameObject> {
     public:
-        GameObject();
+        GameObject(const std::string& id = "");
         ~GameObject();
         GameObject(const GameObject&);
 
@@ -21,6 +22,8 @@ namespace REON {
         T* AddComponent(std::shared_ptr<T> component) {
             m_Components.emplace_back(component);
             m_Components.back()->SetOwner(shared_from_this());
+            if (GetScene())
+                component->OnGameObjectAddedToScene();
             return dynamic_cast<T*>(m_Components.back().get());
         }
 
@@ -70,6 +73,9 @@ namespace REON {
         std::shared_ptr<Transform> m_Transform;
 
         std::weak_ptr<Scene> m_Scene;
+
+        template <typename ClassType, typename FieldType , FieldType ClassType::* field>
+        friend struct ReflectionAccessor;
     };
 
 }

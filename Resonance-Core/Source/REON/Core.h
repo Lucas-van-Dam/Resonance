@@ -1,3 +1,4 @@
+
 #define GLM_ENABLE_EXPERIMENTAL
 
 #ifdef REON_PLATFORM_WINDOWS
@@ -22,3 +23,5 @@
 #else
 #define PROFILE_SCOPE(name)
 #endif
+
+typedef unsigned int uint;

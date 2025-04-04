@@ -13,3 +13,6 @@
 [submodule "Resonance-Core/vendor/assimp"]
 	path = Resonance-Core/vendor/assimp
 	url = https://github.com/Lucas-van-Dam/assimp
+[submodule "Resonance-Core/vendor/Tracy"]
+	path = Resonance-Core/vendor/Tracy
+	url = https://github.com/wolfpld/tracy
