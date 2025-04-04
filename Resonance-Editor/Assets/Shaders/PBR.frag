@@ -23,7 +23,7 @@ in vec3 fragViewPos;
 in vec4 fragLightSpacePos;
 in vec3 fragNormal;
 
-in vec3 T;
+in vec3 T;  
 in vec3 Normal;
 
 struct Light{
@@ -68,7 +68,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float nom   = a2;
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
-
+    
     return nom / denom;
 }
 
@@ -91,7 +91,7 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float NdotL = max(dot(N, L), 0.0);
     float ggx2 = GeometrySchlickGGX(NdotV, roughness);
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
-
+    
     return ggx1 * ggx2;
 }
 
@@ -187,7 +187,7 @@ float AdditionalShadowCalculation(vec3 normal, vec3 fragPos, Light light, int in
     vec3 fragToLight = fragPos - light.position.xyz;
     // use the light to fragment vector to sample from the depth map
     float currentDepth = length(fragToLight);
-     float bias = max((0.005 + 0.0005 * currentDepth) * (1.0 - abs(dot(normalize(normal), normalize(fragToLight)))), 0.0005);
+    float bias = max((0.005 + 0.0005 * currentDepth) * (1.0 - abs(dot(normalize(normal), normalize(fragToLight)))), 0.0005);
     //float angleFactor = 1.0 - abs(dot(normalize(normal), normalize(-fragToLight)));
     //float bias = max((0.0005 * exp(5.0 * angleFactor)) * (1.0 - angleFactor), 0.00005);
     float shadow = 0.0;

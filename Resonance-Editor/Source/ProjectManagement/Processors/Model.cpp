@@ -316,7 +316,7 @@ namespace REON::EDITOR {
 					ResourceManager::GetInstance().AddResource(mesh);
 				}
 
-				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials);
+				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials[0]);
 				nodeObject->AddComponent(renderer);
 			}
 		}

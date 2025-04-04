@@ -1,5 +1,7 @@
 #include "reonpch.h"
 #include "Light.h"
+#include "REON/GameHierarchy/GameObject.h"
+#include "REON/GameHierarchy/Scene.h"
 
 namespace REON {
 
@@ -15,6 +17,7 @@ namespace REON {
 
     void Light::OnGameObjectAddedToScene()
     {
+        GetOwner()->GetScene()->lightManager->AddLight(shared_from_this());
     }
 
     void Light::OnComponentDetach()

@@ -76,8 +76,8 @@ namespace REON {
 		file.close();
 
 		// Extract UID
-		if (json.contains("UID")) {
-			m_ID = (json["UID"].get<std::string>());
+		if (json.contains("GUID")) {
+			m_ID = (json["GUID"].get<std::string>());
 		}
 
 		// Extract Albedo Color

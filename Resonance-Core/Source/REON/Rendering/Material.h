@@ -7,7 +7,8 @@
 
 namespace REON {
 
-    class Material : public Resource {
+    
+    class [[clang::annotate("serialize")]] Material : public ResourceBase {
     public:
         Material(std::shared_ptr<Shader> shader);
         Material();

@@ -80,7 +80,8 @@ namespace REON {
 
 				m_Window->OnUpdate();
 
-				SceneManager::Get()->GetCurrentScene()->ProcessGameObjectAddingAndDeletion();
+				if(auto scene = SceneManager::Get()->GetCurrentScene())
+					scene->ProcessGameObjectAddingAndDeletion();
 			}
 			FrameEndEvent frameEndEvent;
 			EventBus::Get().publish(frameEndEvent);

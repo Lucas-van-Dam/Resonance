@@ -10,6 +10,8 @@ namespace REON {
 
 		static std::shared_ptr<SceneManager> Get();
 
+		void SetActiveScene(std::shared_ptr<Scene> scene);
+
 		std::shared_ptr<Scene> GetCurrentScene();
 
 	private:

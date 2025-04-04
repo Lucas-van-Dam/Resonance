@@ -9,7 +9,8 @@ class GameObject;
 
 namespace REON {
 
-    class Transform : public ComponentBase<Transform> {
+
+    class [[clang::annotate("serialize")]] Transform : public ComponentBase<Transform> {
     public:
         Transform()
             : localPosition(glm::vec3(0.0f)), localRotation(1.0f, 0.0f, 0.0f, 0.0f), localScale(glm::vec3(1.0f)), m_LocalMatrix(1.0f) {}
@@ -54,6 +55,9 @@ namespace REON {
 
     private:
         glm::mat4 m_LocalMatrix;
+
+        template <typename ClassType, typename FieldType, FieldType ClassType::* field>
+        friend struct ReflectionAccessor;
     };
 
 }

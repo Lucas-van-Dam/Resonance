@@ -14,7 +14,8 @@ namespace REON {
         int materialIndex;
     };
 
-    class Mesh : public Resource {
+    
+    class [[clang::annotate("serialize")]] Mesh : public ResourceBase {
     public:
         Mesh(std::string ID) { m_ID = ID; }
         Mesh(const Mesh& mesh);

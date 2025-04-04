@@ -49,6 +49,12 @@ namespace REON::EDITOR {
 					m_CurrentDirectory = entry.path();  // Navigate into the folder
 				}
 
+				if (!entry.is_directory() && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+					if (entry.path().extension() == ".scene") {
+						ProjectManager::GetInstance().LoadScene(entry.path());
+					}
+				}
+
 				if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
 					auto path = std::filesystem::relative(entry.path(), m_RootDirectory.parent_path());
 					ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", path.string().c_str(), path.string().size() + 1);

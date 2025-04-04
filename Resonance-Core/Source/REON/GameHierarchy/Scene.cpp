@@ -1,5 +1,6 @@
 #include "reonpch.h"
 #include "Scene.h"
+#include "REON/GameHierarchy/Components/Transform.h"
 
 namespace REON {
 
@@ -34,6 +35,16 @@ namespace REON {
         }
         m_GameObjectsToAdd.clear();
         m_GameObjectsToDelete.clear();
+    }
+
+    void Scene::InitializeSceneWithObjects()
+    {
+        std::shared_ptr<GameObject> MainLight = std::make_shared<GameObject>();
+        std::shared_ptr<Light> lightComponent = std::make_shared<Light>(LightType::Directional, 3, glm::vec3(1, 1, 1));
+        AddGameObject(MainLight);
+        MainLight->AddComponent<Light>(lightComponent);
+        MainLight->GetTransform()->localRotation.setFromEulerAngles(110, 0, 0);
+        MainLight->SetName("MainLight");
     }
 
 

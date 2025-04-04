@@ -1,5 +1,6 @@
 #pragma once
 #include "Resource.h"
+#include "REON/AssetManagement/AssetRegistry.h"
 
 namespace REON {
 	class ResourceManager
@@ -31,12 +32,22 @@ namespace REON {
         // Clear all resources
         void Clear();
 
+        std::shared_ptr<ResourceBase> GetResourceFromAsset(AssetInfo* info, const std::filesystem::path& projectPath) {
+            auto it = resourceConverters.find(info->type);
+            if (it != resourceConverters.end()) {
+                return it->second(info, projectPath.string() + "\\" + info->path.string());
+            }
+            REON_WARN("No resource converter for type {}", info->type);
+        }
+
     private:
-        ResourceManager() = default;
+        ResourceManager();
         ~ResourceManager() = default;
 
     private:
-        std::unordered_map<std::string, std::shared_ptr<Resource>> resourceCache;
+        std::unordered_map<std::string, std::shared_ptr<ResourceBase>> resourceCache;
+
+        std::unordered_map<std::string, std::function<std::shared_ptr<ResourceBase>(const AssetInfo* info, const std::filesystem::path&)>> resourceConverters;
 	};
 
     template <typename ResourceType>

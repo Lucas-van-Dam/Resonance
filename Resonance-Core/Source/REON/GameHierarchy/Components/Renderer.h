@@ -17,9 +17,9 @@ namespace REON {
     class Transform;
     class GameObject;
 
-    class Renderer : public ComponentBase<Renderer>, public std::enable_shared_from_this<Renderer> {
+    class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>, public std::enable_shared_from_this<Renderer> {
     public:
-        Renderer(std::shared_ptr<Mesh> mesh, std::vector<std::shared_ptr<Material>> materials);
+        Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> materials);
         Renderer() {}
         ~Renderer();
         void Draw(glm::mat4 mainLightView, glm::mat4 mainLightProj, int skyboxId, int irradianceMapId, int prefilterMapId, int brdfLUTTextureId, std::vector<int> depthCubeId = std::vector<int>(), int shadowMapId = 0, const std::shared_ptr<Shader>&overrideShader = nullptr);
@@ -32,8 +32,8 @@ namespace REON {
         void OnComponentDetach() override;
 
     public:
-        std::shared_ptr<Mesh> mesh;
-        std::vector<std::shared_ptr<Material>> materials;
+        ResourceHandle mesh;
+        ResourceHandle material;
 
     private:
         std::vector<LightData> SetLightingBuffer(glm::mat4 mainLightView, glm::mat4 mainLightProj);
@@ -44,6 +44,9 @@ namespace REON {
         glm::mat4 m_ProjectionMatrix{};
 
         std::shared_ptr<Transform> m_Transform = nullptr;
+
+        template <typename ClassType, typename FieldType, FieldType ClassType::* field>
+        friend struct ReflectionAccessor;
     };
 
 }

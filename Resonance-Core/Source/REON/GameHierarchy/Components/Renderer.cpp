@@ -18,32 +18,33 @@ namespace REON {
             overrideShader->setMat4("view", m_ViewMatrix);
             overrideShader->setMat4("projection", m_ProjectionMatrix);
             Material overrideMaterial(overrideShader);
-            mesh->Draw(overrideMaterial, data);
+            mesh.Get<Mesh>()->Draw(overrideMaterial, data);
             return;
         }
-        materials[0]->shader->setMat4("model", m_ModelMatrix);
-        materials[0]->shader->setMat4("view", m_ViewMatrix);
-        materials[0]->shader->setMat4("projection", m_ProjectionMatrix);
-        materials[0]->shader->setFloat("far_plane", 100.0f);
+        std::shared_ptr<Material> mat = material.Get<Material>();
+        mat->shader->setMat4("model", m_ModelMatrix);
+        mat->shader->setMat4("view", m_ViewMatrix);
+        mat->shader->setMat4("projection", m_ProjectionMatrix);
+        mat->shader->setFloat("far_plane", 100.0f);
         glActiveTexture(GL_TEXTURE4);
-        glUniform1i(glGetUniformLocation(materials[0]->shader->ID, "shadowMap"), 4);
+        glUniform1i(glGetUniformLocation(mat->shader->ID, "shadowMap"), 4);
         glBindTexture(GL_TEXTURE_2D, shadowMapId);
 
         if (skyboxId >= 0) {
             glActiveTexture(GL_TEXTURE5);
-            glUniform1i(glGetUniformLocation(materials[0]->shader->ID, "skyboxCube"), 5);
+            glUniform1i(glGetUniformLocation(mat->shader->ID, "skyboxCube"), 5);
             glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxId);
 
             glActiveTexture(GL_TEXTURE6);
-            glUniform1i(glGetUniformLocation(materials[0]->shader->ID, "irradianceMap"), 6);
+            glUniform1i(glGetUniformLocation(mat->shader->ID, "irradianceMap"), 6);
             glBindTexture(GL_TEXTURE_CUBE_MAP, irradianceMapId);
 
             glActiveTexture(GL_TEXTURE7);
-            glUniform1i(glGetUniformLocation(materials[0]->shader->ID, "preFilterMap"), 7);
+            glUniform1i(glGetUniformLocation(mat->shader->ID, "preFilterMap"), 7);
             glBindTexture(GL_TEXTURE_CUBE_MAP, prefilterMapId);
 
             glActiveTexture(GL_TEXTURE8);
-            glUniform1i(glGetUniformLocation(materials[0]->shader->ID, "brdfLUT"), 8);
+            glUniform1i(glGetUniformLocation(mat->shader->ID, "brdfLUT"), 8);
             glBindTexture(GL_TEXTURE_2D, brdfLUTTextureId);
         }
 
@@ -51,7 +52,7 @@ namespace REON {
             glBindTextureUnit(9 + i, depthCubeId[i]);
         }
 
-        mesh->Draw(*materials[0], data);
+        mesh.Get<Mesh>()->Draw(*mat, data);
     }
 
     void Renderer::Update(float deltaTime) {
@@ -69,7 +70,7 @@ namespace REON {
         GetOwner()->GetScene()->renderManager->AddRenderer(shared_from_this());
     }
 
-    Renderer::Renderer(std::shared_ptr<Mesh> mesh, std::vector<std::shared_ptr<Material>> materials) : mesh(std::move(mesh)), materials(materials)
+    Renderer::Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material) : mesh(std::move(mesh)), material(material)
     {
         
     }

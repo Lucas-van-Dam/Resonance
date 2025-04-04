@@ -4,7 +4,7 @@
 namespace REON {
 	SceneManager::SceneManager()
 	{
-		m_CurrentScene = std::make_shared<Scene>("TestScene");
+
 	}
 
 	SceneManager::~SceneManager()
@@ -20,5 +20,10 @@ namespace REON {
 	{
 		static std::shared_ptr<SceneManager> instance = std::make_shared<SceneManager>();
 		return instance;
+	}
+
+	void SceneManager::SetActiveScene(std::shared_ptr<Scene> scene)
+	{
+		m_CurrentScene = scene;
 	}
 }

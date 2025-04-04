@@ -9,7 +9,9 @@
 #include "GLFW/glfw3.h"
 
 namespace REON {
-    class Texture : public Resource {
+
+
+    class [[clang::annotate("serialize")]] Texture : public ResourceBase {
     public:
         Texture() : m_TextureId(0) {}
         ~Texture() override { Unload(); }

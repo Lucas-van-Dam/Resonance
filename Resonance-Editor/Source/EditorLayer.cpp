@@ -9,6 +9,7 @@
 #include "ProjectManagement/AssetScanner.h"
 #include "ProjectManagement/MetadataGenerator.h"
 #include "ProjectManagement/Processors/GLTFProcessor.h"
+#include "ProjectManagement/Processors/PrimaryProcessors.h"
 
 namespace REON::EDITOR {
 
@@ -16,6 +17,7 @@ namespace REON::EDITOR {
 	{
 		REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
 		REON::AssetRegistry::RegisterProcessor(".glb", std::make_unique<GLTFProcessor>());
+		REON::AssetRegistry::RegisterProcessor("model", std::make_unique<ModelProcessor>());
 		m_Gizmotype = GizmoType::Translate;
 	}
 
@@ -24,17 +26,15 @@ namespace REON::EDITOR {
 		if (!m_ProjectLoaded)
 			return;
 		ProcessMouseMove();
-		if (!m_SelectedObject)
-			m_SelectedObject = REON::SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
 	}
 
-	void EditorLayer::OnAttach() 
+	void EditorLayer::OnAttach()
 	{
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
 		m_ProjectOpenedCallbackID = EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
 	}
 
-	void EditorLayer::OnDetach() 
+	void EditorLayer::OnDetach()
 	{
 		EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
 		EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
@@ -124,16 +124,16 @@ namespace REON::EDITOR {
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
+		auto scene = REON::SceneManager::Get()->GetCurrentScene();
+
 		if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse))
 		{
-			auto scene = REON::SceneManager::Get()->GetCurrentScene();
-
 			auto size = ImGui::GetContentRegionAvail();
 			scene->renderManager->SetRenderDimensions(size.x, size.y);
 			m_SceneHovered = ImGui::IsWindowHovered();
 
 			ImGui::Image((void*)(intptr_t)scene->renderManager->GetEndBuffer(), size, ImVec2(0, 1), ImVec2(1, 0));
-			if (m_SelectedObject) {
+			if (scene->selectedObject) {
 				ImVec2 windowSize = ImGui::GetWindowSize();
 				ImVec2 pos = ImGui::GetWindowPos();
 
@@ -144,7 +144,7 @@ namespace REON::EDITOR {
 				auto camera = scene->GetEditorCamera();
 				glm::mat4 viewMatrix = camera->GetViewMatrix();
 				glm::mat4 projMatrix = camera->GetProjectionMatrix();
-				glm::mat4 worldMatrix = m_SelectedObject->GetTransform()->GetWorldTransform();
+				glm::mat4 worldMatrix = scene->selectedObject->GetTransform()->GetWorldTransform();
 
 				ImGuizmo::OPERATION operation;
 				switch (m_Gizmotype) {
@@ -162,7 +162,7 @@ namespace REON::EDITOR {
 				if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
 					operation, ImGuizmo::LOCAL, glm::value_ptr(worldMatrix)))
 				{
-					m_SelectedObject->GetTransform()->SetWorldTransform(worldMatrix);
+					scene->selectedObject->GetTransform()->SetWorldTransform(worldMatrix);
 				}
 
 			}
@@ -170,10 +170,9 @@ namespace REON::EDITOR {
 		ImGui::End();
 
 		//ImGui::PopStyleVar(2);
-		if (m_SelectedObject) {
-			Inspector::InspectObject(*m_SelectedObject);
-		}
-		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), m_SelectedObject);
+		Inspector::InspectObject(scene->selectedObject);
+
+		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), scene->selectedObject);
 		m_AssetBrowser.RenderAssetBrowser();
 	}
 
@@ -183,7 +182,7 @@ namespace REON::EDITOR {
 			REON::SceneManager::Get()->GetCurrentScene()->renderManager->HotReloadShaders();
 		}
 
-		if(event.GetKeyCode() == REON_KEY_1){
+		if (event.GetKeyCode() == REON_KEY_1) {
 			m_Gizmotype = GizmoType::Translate;
 		}
 		if (event.GetKeyCode() == REON_KEY_2) {
@@ -233,7 +232,7 @@ namespace REON::EDITOR {
 					extension.erase(0, 1);
 					assetInfo.type = extension;
 					assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
-
+					REON::AssetRegistry::ProcessAsset(assetInfo);
 					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
 				}
 			}

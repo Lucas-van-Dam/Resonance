@@ -18,22 +18,22 @@ namespace REON::EDITOR {
 	{
 		handlers.clear();
 		Inspector::RegisterHandler<int>("int", [](const FieldInfo& field, void* instance) {
-			int* ptr = reinterpret_cast<int*>(reinterpret_cast<char*>(instance) + field.offset);
+			int* ptr = reinterpret_cast<int*>(field.getter(instance));
 			ImGui::InputInt(field.name, ptr);
 			});
 
 		Inspector::RegisterHandler<float>("float", [](const FieldInfo& field, void* instance) {
-			float* ptr = reinterpret_cast<float*>(reinterpret_cast<char*>(instance) + field.offset);
+			float* ptr = reinterpret_cast<float*>(field.getter(instance));
 			ImGui::DragFloat(field.name, ptr, 0.1f);
 			});
 
-		Inspector::RegisterHandler<bool>("_Bool", [](const FieldInfo& field, void* instance) {
-			bool* ptr = reinterpret_cast<bool*>(reinterpret_cast<char*>(instance) + field.offset);
+		Inspector::RegisterHandler<bool>("bool", [](const FieldInfo& field, void* instance) {
+			bool* ptr = reinterpret_cast<bool*>(field.getter(instance));
 			ImGui::Checkbox(field.name, ptr);
 			});
 
 		Inspector::RegisterHandler<std::string>("std::string", [](const FieldInfo& field, void* instance) {
-			std::string* ptr = reinterpret_cast<std::string*>(reinterpret_cast<char*>(instance) + field.offset);
+			std::string* ptr = reinterpret_cast<std::string*>(field.getter(instance));
 
 			char buffer[256];
 			std::strncpy(buffer, ptr->c_str(), sizeof(buffer));
@@ -45,7 +45,7 @@ namespace REON::EDITOR {
 			});
 
 		Inspector::RegisterHandler<glm::vec3>("glm::vec3", [](const FieldInfo& field, void* instance) {
-			glm::vec3* ptr = reinterpret_cast<glm::vec3*>(reinterpret_cast<char*>(instance) + field.offset);
+			glm::vec3* ptr = reinterpret_cast<glm::vec3*>(field.getter(instance));
 
 			// Use ImGui::DragFloat3 for editing glm::vec3
 			//static glm::vec3 testVec(1.0f, 2.0f, 3.0f);
@@ -53,7 +53,7 @@ namespace REON::EDITOR {
 			});
 
 		Inspector::RegisterHandler<REON::Quaternion>("Quaternion", [](const FieldInfo& field, void* instance) {
-			REON::Quaternion* ptr = reinterpret_cast<REON::Quaternion*>(reinterpret_cast<char*>(instance) + field.offset);
+			REON::Quaternion* ptr = reinterpret_cast<REON::Quaternion*>(field.getter(instance));
 
 			glm::vec3 angles = ptr->getEulerAngles();
 
@@ -80,8 +80,12 @@ namespace REON::EDITOR {
 	}
 
 	// Render all fields of an object
-	void Inspector::InspectObject(REON::GameObject& object) {
+	void Inspector::InspectObject(std::shared_ptr<GameObject> object) {
 		ImGui::Begin("Inspector");
+		if (!object) {
+			ImGui::End();
+			return;
+		}
 
 		ImGui::Text("Transform");
 
@@ -89,10 +93,10 @@ namespace REON::EDITOR {
 
 		for (size_t i = 0; i < reflectionClass.field_count; ++i) {
 			const FieldInfo& field = reflectionClass.fields[i];
-			RenderField(field, object.GetTransform().get());  // Automatically calls the correct handler based on the type
+			RenderField(field, object->GetTransform().get());  // Automatically calls the correct handler based on the type
 		}
 
-		for (std::shared_ptr<REON::Component> component : object.GetComponents())
+		for (std::shared_ptr<REON::Component> component : object->GetComponents())
 		{
 			auto name = component->GetTypeName();
 			auto reflection = *ReflectionRegistry::Instance().GetClass(name);
