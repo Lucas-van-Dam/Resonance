@@ -6,7 +6,7 @@
 #include "REON/Rendering/Shader.h"
 #include "REON/Rendering/Structs/LightData.h"
 
-#include "REON/GameHierarchy/Components/Renderer.h"
+#include "REON/GameHierarchy/Components/RendererComponent.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 #include <assimp/pbrmaterial.h>
 #include <glm/gtx/matrix_decompose.hpp>
@@ -316,7 +316,7 @@ namespace REON::EDITOR {
 					ResourceManager::GetInstance().AddResource(mesh);
 				}
 
-				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials[0]);
+				std::shared_ptr<RendererComponent> renderer = std::make_shared<RendererComponent>(mesh, materials[0]);
 				nodeObject->AddComponent(renderer);
 			}
 		}

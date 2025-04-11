@@ -17,12 +17,12 @@ namespace REON {
 		RenderPostProcessing();
 	}
 
-	void RenderManager::AddRenderer(const std::shared_ptr<Renderer>& renderer) {
+	void RenderManager::AddRenderer(const std::shared_ptr<RendererComponent>& renderer) {
 		//m_ShaderToRenderer[renderer->material.Get<Material>()->shader].push_back(renderer);
 		m_Renderers.push_back(renderer);
 	}
 
-	void RenderManager::RemoveRenderer(std::shared_ptr<Renderer> renderer)
+	void RenderManager::RemoveRenderer(std::shared_ptr<RendererComponent> renderer)
 	{
 		REON_CORE_WARN("Removing renderer from object: {0}", renderer->GetOwner()->GetName());
 		REON_CORE_WARN("Renderer use count: {0}", renderer.use_count());
@@ -453,7 +453,7 @@ namespace REON {
 	}
 
 	void RenderManager::HotReloadShaders() {
-		for (std::shared_ptr<Renderer> renderer : m_Renderers) {
+		for (std::shared_ptr<RendererComponent> renderer : m_Renderers) {
 			renderer->material.Get<Material>()->shader->ReloadShader(); //TODO: reload every shader once, instead of every material to save performance
 		}
 		m_DirectionalShadowShader->ReloadShader();

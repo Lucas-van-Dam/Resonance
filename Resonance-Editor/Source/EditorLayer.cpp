@@ -63,7 +63,7 @@ namespace REON::EDITOR {
 			{
 				if (ImGui::MenuItem("New Project")) {
 					ImGuiFileDialog::Instance()->OpenDialog(
-						"ChooseProjectFolder",         // Key to identify the dialog
+						"ChooseProjectFolder",      // Key to identify the dialog
 						"Select Project Folder",    // Title
 						nullptr                     // File filter (nullptr for folders)
 					);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "REON/GameHierarchy/Components/Renderer.h"
+#include "REON/GameHierarchy/Components/RendererComponent.h"
 #include "REON/Rendering/LightManager.h"
 #include "REON/ResourceManagement/ResourceManager.h"
 
@@ -13,8 +13,8 @@ namespace REON {
     class RenderManager {
     public:
         void Render();
-        void AddRenderer(const std::shared_ptr<Renderer>& renderer);
-        void RemoveRenderer(std::shared_ptr<Renderer> renderer);
+        void AddRenderer(const std::shared_ptr<RendererComponent>& renderer);
+        void RemoveRenderer(std::shared_ptr<RendererComponent> renderer);
         RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera);
         void Initialize();
         void HotReloadShaders();
@@ -35,8 +35,8 @@ namespace REON {
 
     private:
         int m_Width, m_Height;
-        std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<Renderer>>> m_ShaderToRenderer;
-        std::vector<std::shared_ptr<Renderer>> m_Renderers;
+        std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<RendererComponent>>> m_ShaderToRenderer;
+        std::vector<std::shared_ptr<RendererComponent>> m_Renderers;
         std::shared_ptr<EditorCamera> m_Camera;
 
         //Lighting

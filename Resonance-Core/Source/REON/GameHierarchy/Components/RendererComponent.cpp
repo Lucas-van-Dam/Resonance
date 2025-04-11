@@ -1,5 +1,5 @@
 #include "reonpch.h"
-#include "Renderer.h"
+#include "RendererComponent.h"
 
 #include "REON/GameHierarchy/GameObject.h"
 #include "REON/GameHierarchy/Scene.h"
@@ -9,7 +9,7 @@
 
 namespace REON {
 
-    void Renderer::Draw(glm::mat4 mainLightView, glm::mat4 mainLightProj, int skyboxId, int irradianceMapId, int prefilterMapId, int brdfLUTTextureId, std::vector<int> depthCubeId, int shadowMapId,
+    void RendererComponent::Draw(glm::mat4 mainLightView, glm::mat4 mainLightProj, int skyboxId, int irradianceMapId, int prefilterMapId, int brdfLUTTextureId, std::vector<int> depthCubeId, int shadowMapId,
         const std::shared_ptr<Shader>&overrideShader) {
         auto data = SetLightingBuffer(mainLightView, mainLightProj);
         if (overrideShader != nullptr) {
@@ -55,7 +55,7 @@ namespace REON {
         mesh.Get<Mesh>()->Draw(*mat, data);
     }
 
-    void Renderer::Update(float deltaTime) {
+    void RendererComponent::Update(float deltaTime) {
         if (m_Transform == nullptr) {
             m_Transform = GetOwner()->GetTransform();
         }
@@ -64,23 +64,23 @@ namespace REON {
         m_ProjectionMatrix = GetOwner()->GetScene()->GetEditorCamera()->GetProjectionMatrix();
     }
 
-    void Renderer::SetOwner(std::shared_ptr<GameObject> owner)
+    void RendererComponent::SetOwner(std::shared_ptr<GameObject> owner)
     {
         Component::SetOwner(owner);
         GetOwner()->GetScene()->renderManager->AddRenderer(shared_from_this());
     }
 
-    Renderer::Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material) : mesh(std::move(mesh)), material(material)
+    RendererComponent::RendererComponent(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material) : mesh(std::move(mesh)), material(material)
     {
         
     }
 
-    Renderer::~Renderer()
+    RendererComponent::~RendererComponent()
     {
         
     }
 
-    std::vector<LightData> Renderer::SetLightingBuffer(glm::mat4 mainLightView, glm::mat4 mainLightProj) {
+    std::vector<LightData> RendererComponent::SetLightingBuffer(glm::mat4 mainLightView, glm::mat4 mainLightProj) {
         size_t amountOfLights = GetOwner()->GetScene()->lightManager->lights.size();
         int pointIndex = 0;
         std::vector<LightData> lights;
@@ -95,11 +95,11 @@ namespace REON {
         return lights;
     }
 
-    void Renderer::OnGameObjectAddedToScene() {
+    void RendererComponent::OnGameObjectAddedToScene() {
         //GetOwner()->GetScene()->renderManager->AddRenderer(shared_from_this());
     }
 
-    void Renderer::OnComponentDetach()
+    void RendererComponent::OnComponentDetach()
     {
         GetOwner()->GetScene()->renderManager->RemoveRenderer(shared_from_this());
     }
