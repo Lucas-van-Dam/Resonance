@@ -82,10 +82,6 @@ namespace REON::EDITOR {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Window")) {
-				if (ImGui::MenuItem("Profiler")) {
-
-				}
-				ImGui::EndMenu();
 			}
 			ImGui::EndMenuBar();
 		}
@@ -167,6 +163,18 @@ namespace REON::EDITOR {
 
 			}
 		}
+		ImGui::End();
+
+		if (ImGui::Begin("PostProcessTestWindow")) {
+			ImGui::Checkbox("Enable Bloom", &RenderManager::EnableBloom);
+
+			ImGui::DragFloat("Bloom Threshold", &RenderManager::BloomThreshold, 0.01f, 0.0f, 2.0f);
+
+			ImGui::InputInt("Bloom Passes", &RenderManager::BloomPasses, 2);
+
+			ImGui::DragFloat("Bloom Strength", &RenderManager::BloomStrength, 0.01f, 0.0f, 1.0f);
+		}
+
 		ImGui::End();
 
 		//ImGui::PopStyleVar(2);

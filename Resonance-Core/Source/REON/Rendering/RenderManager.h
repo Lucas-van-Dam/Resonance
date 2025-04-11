@@ -18,7 +18,7 @@ namespace REON {
         RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera);
         void Initialize();
         void HotReloadShaders();
-        unsigned int GetEndBuffer();
+        uint GetEndBuffer();
         void SetRenderDimensions(int width, int height);
         int GetRenderWidth();
         int GetRenderHeight();
@@ -32,6 +32,8 @@ namespace REON {
         void GenerateAdditionalShadows();
         void RenderSkyBox();
         void InitializeSkyBox();
+        void RenderBloom();
+        void InitializeFboAndTexture(uint& fbo, uint& texture);
 
     private:
         int m_Width, m_Height;
@@ -46,22 +48,22 @@ namespace REON {
         std::vector<std::shared_ptr<Light>> m_PointLights;
 
         //Shadows
-        unsigned int m_DepthMapFBO;
-        unsigned int m_DepthMap;
-        const unsigned int MAIN_SHADOW_WIDTH = 4096, MAIN_SHADOW_HEIGHT = 4096;
-        const unsigned int ADDITIONAL_SHADOW_WIDTH = 1024, ADDITIONAL_SHADOW_HEIGHT = 1024;
+        uint m_DepthMapFBO;
+        uint m_DepthMap;
+        const uint MAIN_SHADOW_WIDTH = 4096, MAIN_SHADOW_HEIGHT = 4096;
+        const uint ADDITIONAL_SHADOW_WIDTH = 1024, ADDITIONAL_SHADOW_HEIGHT = 1024;
         std::vector<int> m_DepthCubeMaps;
-        std::vector<unsigned int> m_AdditionalDepthFBOs;
+        std::vector<uint> m_AdditionalDepthFBOs;
         std::shared_ptr<Shader> m_DirectionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("DirectionalShadowShader", std::make_tuple("DirectionalShadow.vert", "DirectionalShadow.frag", std::optional<std::string>{}));
         std::shared_ptr<Shader> m_AdditionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("OmnidirectionalShadowShader", std::make_tuple("OmnidirectionalShadow.vert", "OmnidirectionalShadow.frag", std::optional<std::string>{"OmnidirectionalShadow.geom"}));
 
         //Skybox
-        unsigned int m_SkyboxVAO, m_SkyboxVBO;
-        unsigned int m_SkyboxTexture;
-        unsigned int m_HdrTexture;
-        unsigned int m_IrradianceMap;
-        unsigned int m_PrefilterMap;
-        unsigned int m_BrdfLUTTexture;
+        uint m_SkyboxVAO, m_SkyboxVBO;
+        uint m_SkyboxTexture;
+        uint m_HdrTexture;
+        uint m_IrradianceMap;
+        uint m_PrefilterMap;
+        uint m_BrdfLUTTexture;
         std::shared_ptr<Shader> m_IrradianceShader = ResourceManager::GetInstance().LoadResource<Shader>("IrradianceShader", std::make_tuple("CubeProjection.vert", "IrradianceMap.frag", std::optional<std::string>{}));
         std::shared_ptr<Shader> m_SkyboxShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxShader", std::make_tuple("SkyBox.vert", "SkyBox.frag", std::optional<std::string>{}));
         std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
@@ -70,8 +72,8 @@ namespace REON {
         std::string m_SkyboxLocation = "Assets/Textures/brown_photostudio_02_4k.hdr";
 
         //Screen shader
-        unsigned int m_SceneFramebuffer, m_SceneTexture, m_Rbo;
-        unsigned int m_QuadVAO, m_QuadVBO;
+        uint m_SceneFbo, m_SceneTexture, m_Rbo;
+        uint m_QuadVAO, m_QuadVBO;
         std::shared_ptr<Shader> m_ScreenShader = ResourceManager::GetInstance().LoadResource<Shader>("ScreenShader", std::make_tuple("fullScreen.vert", "fullScreen.frag", std::optional<std::string>{}));
         float quadVertices[24] = { // vertex attributes for a quad that fills the entire screen in Normalized Device Coordinates.
             // positions   // texCoords
@@ -84,7 +86,22 @@ namespace REON {
             1.0f,  1.0f,  1.0f, 1.0f
         };
 
+        //Post-processing
         uint m_PostProcessTexture, m_PostProcessFbo;
+            //Bloom
+        uint m_BloomFbo, m_BloomTexture;
+        uint m_BlurFboHorizontal, m_BlurTextureHorizontal;
+        uint m_BlurFboVertical, m_BlurTextureVertical;
+        std::shared_ptr<Shader> m_BrightPassShader = ResourceManager::GetInstance().LoadResource<Shader>("BrightPassShader", std::make_tuple("fullScreen.vert", "BrightPassShader.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_BlurPassShader = ResourceManager::GetInstance().LoadResource<Shader>("BlurPassShader", std::make_tuple("fullScreen.vert", "BlurShader.frag", std::optional<std::string>{}));
+        std::shared_ptr<Shader> m_CompositeShader = ResourceManager::GetInstance().LoadResource<Shader>("CompositeShader", std::make_tuple("fullScreen.vert", "BloomComposite.frag", std::optional<std::string>{}));
+
+    public:
+        static bool EnableBloom;
+        static int BloomPasses;
+        static float BloomThreshold;
+        static float BloomStrength;
+    private:
 
 #pragma region data
         float skyboxVertices[108] = {

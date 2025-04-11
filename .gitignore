@@ -453,3 +453,4 @@ Binaries/
 Resonance-Core/Source/temp_headers.txt
 compile_commands.json
 *.cap
+**/.idea/
