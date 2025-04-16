@@ -6,20 +6,18 @@
 #include "stb_image_wrapper.h"
 #include "REON/Application.h"
 #include "REON/EditorCamera.h"
+#include "REON/Rendering/PostProcessing/ColorCorrection.h"
 
 namespace REON {
-
-	bool RenderManager::EnableBloom = true;
-	int RenderManager::BloomPasses = 10;
-	float RenderManager::BloomThreshold = 1.650f;
-	float RenderManager::BloomStrength = 0.5f;
+	uint RenderManager::m_QuadVAO;
+	std::shared_ptr<BloomEffect> RenderManager::m_BloomEffect;
 
 	void RenderManager::Render() {
 		GenerateShadows();
 		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		RenderSkyBox();
 		RenderOpaques();
+		RenderSkyBox();
 		RenderTransparents();
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		RenderPostProcessing();
@@ -41,7 +39,7 @@ namespace REON {
 
 	void RenderManager::RenderSkyBox() {
 		glDepthFunc(GL_LEQUAL);
-		glEnable(GL_DEPTH_TEST);
+		glDepthMask(GL_FALSE);
 		m_SkyboxShader->use();
 		m_SkyboxShader->setMat4("view", glm::mat4(glm::mat3(m_Camera->GetViewMatrix())));
 		m_SkyboxShader->setMat4("projection", m_Camera->GetProjectionMatrix());
@@ -52,11 +50,15 @@ namespace REON {
 		m_SkyboxShader->setInt("skybox", 0);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 		glBindVertexArray(0);
+		glDepthMask(GL_TRUE);
 		glDepthFunc(GL_LESS);
 	}
 
 	void RenderManager::RenderOpaques() {
-
+		REON_CORE_ASSERT(glIsEnabled(GL_DEPTH_TEST), "Depth testing disabled unexpectedly");
+		GLboolean depthWriteEnabled;
+		glGetBooleanv(GL_DEPTH_WRITEMASK, &depthWriteEnabled);
+		REON_CORE_ASSERT(depthWriteEnabled == GL_TRUE, "Depth writing disabled unexpectedly");
 		//for (const auto& pair : shaderToRenderer) {
 		//    std::shared_ptr<Shader> shader = pair.first;
 		//    const auto& renderersFromShader = pair.second;
@@ -78,78 +80,8 @@ namespace REON {
 
 	}
 
-	void RenderManager::RenderBloom() {
-		// Step 1: Render bright-pass to a new framebuffer
-		glBindFramebuffer(GL_FRAMEBUFFER, m_BloomFbo);
-		glDisable(GL_DEPTH_TEST);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		// Use the bright-pass shader
-		m_BrightPassShader->use();
-		glBindVertexArray(m_QuadVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glUniform1i(glGetUniformLocation(m_BrightPassShader->ID, "uScene"), 0);
-		glUniform1f(glGetUniformLocation(m_BrightPassShader->ID, "threshold"), BloomThreshold);
-		glBindTexture(GL_TEXTURE_2D, m_SceneTexture);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		for (int i = 0; i < BloomPasses; ++i) {
-			// Step 2: Apply horizontal blur
-			glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFboHorizontal);
-			glClear(GL_COLOR_BUFFER_BIT);
-			m_BlurPassShader->use();
-			glUniform1i(glGetUniformLocation(m_BlurPassShader->ID, "brightPassTexture"), 0);
-			m_BlurPassShader->setVec2("offset", glm::vec2(1.0f, 0.0f));
-			m_BlurPassShader->setVec2("resolution", glm::vec2(m_Width, m_Height));
-			glBindTexture(GL_TEXTURE_2D, m_BloomTexture);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-
-			// Step 3: Apply vertical blur
-			glBindFramebuffer(GL_FRAMEBUFFER, m_BlurFboVertical);
-			glClear(GL_COLOR_BUFFER_BIT);
-			m_BlurPassShader->use();
-			glUniform1i(glGetUniformLocation(m_BlurPassShader->ID, "brightPassTexture"), 0);
-			m_BlurPassShader->setVec2("offset", glm::vec2(0.0f, 1.0f));
-			m_BlurPassShader->setVec2("resolution", glm::vec2(m_Width, m_Height));
-			glBindTexture(GL_TEXTURE_2D, m_BlurTextureHorizontal);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-		}
-
-		// Step 4: Composite the bloom with the original scene
-		glBindFramebuffer(GL_FRAMEBUFFER, m_PostProcessFbo);
-		glClear(GL_COLOR_BUFFER_BIT);
-		m_CompositeShader->use();
-		glBindVertexArray(m_QuadVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glUniform1i(glGetUniformLocation(m_CompositeShader->ID, "sceneTexture"), 0);
-		glBindTexture(GL_TEXTURE_2D, m_SceneTexture);
-		glActiveTexture(GL_TEXTURE1);
-		glUniform1i(glGetUniformLocation(m_CompositeShader->ID, "bloomTexture"), 1);
-		m_CompositeShader->setFloat("bloomStrength", BloomStrength);
-		glBindTexture(GL_TEXTURE_2D, m_BlurTextureVertical);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		glEnable(GL_DEPTH_TEST);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-
 	void RenderManager::RenderPostProcessing() {
-		if (EnableBloom)
-			RenderBloom();
-		else {
-			glBindFramebuffer(GL_FRAMEBUFFER, m_PostProcessFbo);
-			glDisable(GL_DEPTH_TEST);
-			glClear(GL_COLOR_BUFFER_BIT);
-			m_ScreenShader->use();
-			glBindVertexArray(m_QuadVAO);
-			glActiveTexture(GL_TEXTURE0);
-			glUniform1i(glGetUniformLocation(m_ScreenShader->ID, "screenTexture"), 0);
-			glBindTexture(GL_TEXTURE_2D, m_SceneTexture);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glEnable(GL_DEPTH_TEST);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		}
-
+		m_RenderResultTexture = m_PostProcessingStack.Render(m_SceneTexture, m_SceneDepthTex);
 	}
 
 
@@ -161,6 +93,13 @@ namespace REON {
 	RenderManager::RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera) : m_LightManager(std::move(lightManager)) {
 		m_Width = Application::Get().GetWindow().GetWidth();
 		m_Height = Application::Get().GetWindow().GetHeight();
+
+		m_BloomEffect = std::make_shared<BloomEffect>();
+		m_PostProcessingStack.AddEffect(m_BloomEffect);
+		m_PostProcessingStack.AddEffect(std::make_shared<ColorCorrection>());
+		m_PostProcessingStack.Init(m_Width, m_Height);
+
+		glEnable(GL_DEPTH_TEST);
 
 		//Initialize main light shadow maps
 		this->m_Camera = std::move(camera);
@@ -180,18 +119,20 @@ namespace REON {
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		//Initialize full screen shader
-		InitializeFboAndTexture(m_SceneFbo, m_SceneTexture);
+		InitializeFboAndTexture(m_SceneFbo, m_SceneTexture, m_Width, m_Height);
 
-		glGenRenderbuffers(1, &m_Rbo);
-		glBindRenderbuffer(GL_RENDERBUFFER, m_Rbo);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, m_Width, m_Height);
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_Rbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 
-		InitializeFboAndTexture(m_PostProcessFbo, m_PostProcessTexture);
+		glGenTextures(1, &m_SceneDepthTex);
+		glBindTexture(GL_TEXTURE_2D, m_SceneDepthTex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_Width, m_Height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_SceneDepthTex, 0);
 
-		InitializeFboAndTexture(m_BloomFbo, m_BloomTexture);
-		InitializeFboAndTexture(m_BlurFboHorizontal, m_BlurTextureHorizontal);
-		InitializeFboAndTexture(m_BlurFboVertical, m_BlurTextureVertical);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		InitializeFboAndTexture(m_PostProcessFbo, m_PostProcessTexture, m_Width, m_Height);
 
 
 		glGenVertexArrays(1, &m_QuadVAO);
@@ -208,13 +149,13 @@ namespace REON {
 		InitializeSkyBox();
 	}
 
-	void RenderManager::InitializeFboAndTexture(uint& fbo, uint& texture) {
+	void RenderManager::InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height) {
 		glGenFramebuffers(1, &fbo);
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
 		glGenTextures(1, &texture);
 		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
@@ -523,15 +464,11 @@ namespace REON {
 		}
 		m_DirectionalShadowShader->ReloadShader();
 		m_AdditionalShadowShader->ReloadShader();
-		m_ScreenShader->ReloadShader();
-		m_BlurPassShader->ReloadShader();
-		m_BrightPassShader->ReloadShader();
-		m_CompositeShader->ReloadShader();
 	}
 
 	unsigned int RenderManager::GetEndBuffer()
 	{
-		return m_PostProcessTexture;
+		return m_RenderResultTexture;
 	}
 
 	void RenderManager::SetRenderDimensions(int width, int height)
@@ -539,21 +476,11 @@ namespace REON {
 		m_Width = width;
 		m_Height = height;
 		glBindTexture(GL_TEXTURE_2D, m_SceneTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-		glBindRenderbuffer(GL_RENDERBUFFER, m_Rbo);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, m_Width, m_Height);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_FLOAT, NULL);
+		glBindTexture(GL_TEXTURE_2D, m_SceneDepthTex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, m_Width, m_Height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
-		glBindTexture(GL_TEXTURE_2D, m_PostProcessTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-		glBindTexture(GL_TEXTURE_2D, m_BloomTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-		glBindTexture(GL_TEXTURE_2D, m_BlurTextureHorizontal);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-		glBindTexture(GL_TEXTURE_2D, m_BlurTextureVertical);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, m_Width, m_Height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		m_PostProcessingStack.Resize(width, height);
 	}
 
 	int RenderManager::GetRenderWidth()

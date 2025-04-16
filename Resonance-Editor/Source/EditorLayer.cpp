@@ -10,6 +10,7 @@
 #include "ProjectManagement/MetadataGenerator.h"
 #include "ProjectManagement/Processors/GLTFProcessor.h"
 #include "ProjectManagement/Processors/PrimaryProcessors.h"
+#include "REON/Rendering/PostProcessing/BloomEffect.h"
 
 namespace REON::EDITOR {
 
@@ -166,13 +167,16 @@ namespace REON::EDITOR {
 		ImGui::End();
 
 		if (ImGui::Begin("PostProcessTestWindow")) {
-			ImGui::Checkbox("Enable Bloom", &RenderManager::EnableBloom);
+			bool bloom = RenderManager::m_BloomEffect->IsEnabled();
+			if (ImGui::Checkbox("Enable Bloom", &bloom)) {
+				RenderManager::m_BloomEffect->SetEnabled(bloom);
+			}
 
-			ImGui::DragFloat("Bloom Threshold", &RenderManager::BloomThreshold, 0.01f, 0.0f, 2.0f);
+			ImGui::DragFloat("Bloom Threshold", &RenderManager::m_BloomEffect->BloomThreshold, 0.01f, 0.0f, 3.0f);
 
-			ImGui::InputInt("Bloom Passes", &RenderManager::BloomPasses, 2);
+			ImGui::InputInt("Bloom Passes", &RenderManager::m_BloomEffect->BloomPasses, 2);
 
-			ImGui::DragFloat("Bloom Strength", &RenderManager::BloomStrength, 0.01f, 0.0f, 1.0f);
+			ImGui::DragFloat("Bloom Strength", &RenderManager::m_BloomEffect->BloomStrength, 0.01f, 0.0f, 1.0f);
 		}
 
 		ImGui::End();
