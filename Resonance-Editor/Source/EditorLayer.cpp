@@ -167,16 +167,27 @@ namespace REON::EDITOR {
 		ImGui::End();
 
 		if (ImGui::Begin("PostProcessTestWindow")) {
-			bool bloom = RenderManager::m_BloomEffect->IsEnabled();
-			if (ImGui::Checkbox("Enable Bloom", &bloom)) {
-				RenderManager::m_BloomEffect->SetEnabled(bloom);
+			bool enabled = RenderManager::m_ColorCorrection->IsEnabled();
+			if (ImGui::Checkbox("Enable ColorCorrection", &enabled)) {
+				RenderManager::m_ColorCorrection->SetEnabled(enabled);
 			}
 
-			ImGui::DragFloat("Bloom Threshold", &RenderManager::m_BloomEffect->BloomThreshold, 0.01f, 0.0f, 3.0f);
+			enabled = RenderManager::m_BloomEffect->IsEnabled();
+			if (ImGui::Checkbox("Enable Bloom", &enabled)) {
+				RenderManager::m_BloomEffect->SetEnabled(enabled);
+			}
 
-			ImGui::InputInt("Bloom Passes", &RenderManager::m_BloomEffect->BloomPasses, 2);
+			ImGui::DragFloat("Filter radius", &RenderManager::m_BloomEffect->FilterRadius, 0.001f, 0.0f, 3.0f);
+			ImGui::DragFloat("Bloom strength", &RenderManager::m_BloomEffect->bloomStrength, 0.01f, 0.0f, 10.0f);
 
-			ImGui::DragFloat("Bloom Strength", &RenderManager::m_BloomEffect->BloomStrength, 0.01f, 0.0f, 1.0f);
+			enabled = RenderManager::m_DepthOfField->IsEnabled();
+			if (ImGui::Checkbox("Enable Depth of Field", &enabled)) {
+				RenderManager::m_DepthOfField->SetEnabled(enabled);
+			}
+
+			ImGui::DragFloat("Focus Distance", &RenderManager::m_DepthOfField->m_FocusDistance, 1.0, 0.1f, 100.0f);
+			ImGui::DragFloat("Focus Range", &RenderManager::m_DepthOfField->m_FocusRange, 1.0, 0.1f, 100.0f);
+
 		}
 
 		ImGui::End();

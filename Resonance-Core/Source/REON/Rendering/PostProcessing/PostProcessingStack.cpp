@@ -46,7 +46,7 @@ namespace REON {
 
 			glBindFramebuffer(GL_FRAMEBUFFER, outputFbo);
 			glClear(GL_COLOR_BUFFER_BIT);
-			glBindVertexArray(RenderManager::m_QuadVAO);
+			glBindVertexArray(RenderManager::QuadVAO);
 
 			effect->Apply(currentInput, depthTexture, outputFbo);
 
@@ -69,6 +69,12 @@ namespace REON {
 
 		for (auto& effect : m_Effects) {
 			effect->Resize(width, height);
+		}
+	}
+	void PostProcessingStack::HotReloadShaders()
+	{
+		for (auto& effect : m_Effects) {
+			effect->HotReloadShaders();
 		}
 	}
 }

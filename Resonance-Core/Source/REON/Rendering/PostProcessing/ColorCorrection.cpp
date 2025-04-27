@@ -13,7 +13,7 @@ namespace REON {
 		glDisable(GL_DEPTH_TEST);
 		glClear(GL_COLOR_BUFFER_BIT);
 		m_ScreenShader->use();
-		glBindVertexArray(RenderManager::m_QuadVAO);
+		glBindVertexArray(RenderManager::QuadVAO);
 		glActiveTexture(GL_TEXTURE0);
 		glUniform1i(glGetUniformLocation(m_ScreenShader->ID, "screenTexture"), 0);
 		glBindTexture(GL_TEXTURE_2D, inputTexture);
@@ -24,6 +24,11 @@ namespace REON {
 
 	void ColorCorrection::Init(int width, int height)
 	{
+	}
+
+	void ColorCorrection::HotReloadShaders()
+	{
+		m_ScreenShader->ReloadShader();
 	}
 
 }

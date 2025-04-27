@@ -15,6 +15,8 @@ namespace REON {
 
         virtual bool IsEnabled() const { return m_Enabled; }
         virtual void SetEnabled(bool enabled) { m_Enabled = enabled; }
+        
+        virtual void HotReloadShaders() = 0;
 
     protected:
         bool m_Enabled = true;

@@ -11,6 +11,7 @@ namespace REON {
 		void AddEffect(std::shared_ptr<PostProcessingEffect> pass);
 		uint Render(uint inputTexture, uint depthTexture);
 		void Resize(int width, int height);
+		void HotReloadShaders();
 
 	private:
 		std::vector<std::shared_ptr<PostProcessingEffect>> m_Effects;

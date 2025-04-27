@@ -6,11 +6,12 @@
 #include "stb_image_wrapper.h"
 #include "REON/Application.h"
 #include "REON/EditorCamera.h"
-#include "REON/Rendering/PostProcessing/ColorCorrection.h"
 
 namespace REON {
-	uint RenderManager::m_QuadVAO;
+	uint RenderManager::QuadVAO;
 	std::shared_ptr<BloomEffect> RenderManager::m_BloomEffect;
+	std::shared_ptr<ColorCorrection> RenderManager::m_ColorCorrection;
+	std::shared_ptr<DepthOfField> RenderManager::m_DepthOfField;
 
 	void RenderManager::Render() {
 		GenerateShadows();
@@ -96,7 +97,10 @@ namespace REON {
 
 		m_BloomEffect = std::make_shared<BloomEffect>();
 		m_PostProcessingStack.AddEffect(m_BloomEffect);
-		m_PostProcessingStack.AddEffect(std::make_shared<ColorCorrection>());
+		m_ColorCorrection = std::make_shared<ColorCorrection>();
+		m_PostProcessingStack.AddEffect(m_ColorCorrection);
+		m_DepthOfField = std::make_shared<DepthOfField>();
+		m_PostProcessingStack.AddEffect(m_DepthOfField);
 		m_PostProcessingStack.Init(m_Width, m_Height);
 
 		glEnable(GL_DEPTH_TEST);
@@ -135,9 +139,9 @@ namespace REON {
 		InitializeFboAndTexture(m_PostProcessFbo, m_PostProcessTexture, m_Width, m_Height);
 
 
-		glGenVertexArrays(1, &m_QuadVAO);
+		glGenVertexArrays(1, &QuadVAO);
 		glGenBuffers(1, &m_QuadVBO);
-		glBindVertexArray(m_QuadVAO);
+		glBindVertexArray(QuadVAO);
 		glBindBuffer(GL_ARRAY_BUFFER, m_QuadVBO);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
 		glEnableVertexAttribArray(0);
@@ -163,6 +167,13 @@ namespace REON {
 		REON_CORE_ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "framebuffer is not complete!");
 
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	void RenderManager::RenderFullScreenQuad()
+	{
+		glBindVertexArray(QuadVAO);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
+		glBindVertexArray(0);
 	}
 
 	void RenderManager::GenerateMainLightShadows() {
@@ -449,7 +460,7 @@ namespace REON {
 		glViewport(0, 0, 512, 512);
 		m_BrdfShader->use();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glBindVertexArray(m_QuadVAO);
+		glBindVertexArray(QuadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
 
@@ -464,6 +475,7 @@ namespace REON {
 		}
 		m_DirectionalShadowShader->ReloadShader();
 		m_AdditionalShadowShader->ReloadShader();
+		m_PostProcessingStack.HotReloadShaders();
 	}
 
 	unsigned int RenderManager::GetEndBuffer()

@@ -5,6 +5,8 @@
 #include "REON/ResourceManagement/ResourceManager.h"
 #include "PostProcessing/PostProcessingStack.h"
 #include "PostProcessing/BloomEffect.h"
+#include "PostProcessing/ColorCorrection.h"
+#include "PostProcessing/DepthOfField.h"
 
 
 namespace REON {
@@ -24,6 +26,7 @@ namespace REON {
 		int GetRenderWidth();
 		int GetRenderHeight();
 		static void InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height);
+		static void RenderFullScreenQuad();
 
 	private:
 		void RenderOpaques();
@@ -69,12 +72,12 @@ namespace REON {
 		std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
 		std::shared_ptr<Shader> m_PreFilterShader = ResourceManager::GetInstance().LoadResource<Shader>("PreFilterShader", std::make_tuple("CubeProjection.vert", "PreFilter.frag", std::optional<std::string>{}));
 		std::shared_ptr<Shader> m_BrdfShader = ResourceManager::GetInstance().LoadResource<Shader>("BrdfShader", std::make_tuple("brdf.vert", "brdf.frag", std::optional<std::string>{}));
-		std::string m_SkyboxLocation = "Assets/Textures/brown_photostudio_02_4k.hdr";
+		std::string m_SkyboxLocation = "Assets/Textures/rogland_clear_night_4k.hdr";
 
 		//Screen shader
 		uint m_SceneFbo, m_SceneTexture, m_SceneDepthTex;
 	public:
-		static uint m_QuadVAO;
+		static uint QuadVAO;
 
 	private:
 		uint m_QuadVBO;
@@ -93,16 +96,11 @@ namespace REON {
 		PostProcessingStack m_PostProcessingStack;
 		uint m_PostProcessTexture, m_PostProcessFbo;
 		uint m_RenderResultTexture;
-		//Bloom
-		uint m_BloomFbo, m_BloomTexture;
-		uint m_BlurFboHorizontal, m_BlurTextureHorizontal;
-		uint m_BlurFboVertical, m_BlurTextureVertical;
-		std::shared_ptr<Shader> m_BrightPassShader = ResourceManager::GetInstance().LoadResource<Shader>("BrightPassShader", std::make_tuple("fullScreen.vert", "BrightPassShader.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_BlurPassShader = ResourceManager::GetInstance().LoadResource<Shader>("BlurPassShader", std::make_tuple("fullScreen.vert", "BlurShader.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_CompositeShader = ResourceManager::GetInstance().LoadResource<Shader>("CompositeShader", std::make_tuple("fullScreen.vert", "BloomComposite.frag", std::optional<std::string>{}));
 
 	public:
 		static std::shared_ptr<BloomEffect> m_BloomEffect;
+		static std::shared_ptr<ColorCorrection> m_ColorCorrection;
+		static std::shared_ptr<DepthOfField> m_DepthOfField;
 	private:
 
 #pragma region data
