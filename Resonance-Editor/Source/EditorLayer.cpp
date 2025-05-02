@@ -125,8 +125,17 @@ namespace REON::EDITOR {
 
 		if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse))
 		{
+			static ImVec2 lastSize = ImVec2(0, 0);
+			ImVec2 currentSize = ImGui::GetWindowSize();
+
+			bool wasResized = (currentSize.x != lastSize.x || currentSize.y != lastSize.y);
+			lastSize = currentSize;
+
 			auto size = ImGui::GetContentRegionAvail();
-			scene->renderManager->SetRenderDimensions(size.x, size.y);
+
+			if(wasResized)
+				scene->renderManager->SetRenderDimensions(size.x, size.y);
+			
 			m_SceneHovered = ImGui::IsWindowHovered();
 
 			ImGui::Image((void*)(intptr_t)scene->renderManager->GetEndBuffer(), size, ImVec2(0, 1), ImVec2(1, 0));

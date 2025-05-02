@@ -118,6 +118,7 @@ namespace REON {
         }
 
         // Disable additive blending
+        glDisable(GL_BLEND);
         //glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); // Restore if this was default
     }
 
