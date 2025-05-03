@@ -9,6 +9,7 @@ namespace REON {
 		void Apply(uint inputTexture, uint depthTexture, uint outputFbo) override;
 		void Init(int width, int height) override;
 		void HotReloadShaders() override;
+		std::string GetName() const override;
 
 		static float m_FocusDistance;
 		static float m_FocusRange;
@@ -21,7 +22,6 @@ namespace REON {
 		std::shared_ptr<Shader> m_CoCShader = ResourceManager::GetInstance().LoadResource<Shader>("CoCShader", std::make_tuple("fullScreen.vert", "DepthOfField/CoC.frag", std::optional<std::string>{}));
 		std::shared_ptr<Shader> m_BlurShader = ResourceManager::GetInstance().LoadResource<Shader>("DoFBlurShader", std::make_tuple("fullScreen.vert", "DepthOfField/Blur.frag", std::optional<std::string>{}));
 		std::shared_ptr<Shader> m_CompositeShader = ResourceManager::GetInstance().LoadResource<Shader>("DoFCompositeShader", std::make_tuple("fullScreen.vert", "DepthOfField/Composite.frag", std::optional<std::string>{}));
-
 	};
 
 }

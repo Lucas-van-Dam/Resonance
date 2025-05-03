@@ -13,6 +13,18 @@ namespace REON {
         m_SrcViewportSize = glm::ivec2(width, height);
         m_SrcViewportSizeFloat = glm::vec2((float)width, (float)height);
 
+        glGenFramebuffers(1, &m_ThresholdFbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ThresholdFbo);
+
+        glGenTextures(1, &m_ThresholdTexture);
+        glBindTexture(GL_TEXTURE_2D, m_ThresholdTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ThresholdTexture, 0);
+
         // Framebuffer
         const unsigned int num_bloom_mips = 5;
         bool status = m_FBO.Init(width, height, num_bloom_mips);
@@ -94,8 +106,6 @@ namespace REON {
             // Bind viewport and texture from where to read
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, mip.texture);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
             if (i == mipChain.size() - 1) {
                 m_UpsampleShader->setBool("firstMip", true);
@@ -104,8 +114,6 @@ namespace REON {
                 m_UpsampleShader->setBool("firstMip", false);
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, mipChain[i + 1].texture);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             }
 
             // Set framebuffer render target (we write to this texture)
@@ -127,6 +135,11 @@ namespace REON {
         return weights[std::min(mipLevel, 4)];
     }
 
+    std::string BloomEffect::GetName() const
+    {
+        return "Bloom";
+    }
+
     void BloomEffect::Resize(int width, int height)
     {
         m_SrcViewportSize = { width, height };
@@ -143,6 +156,12 @@ namespace REON {
         m_UpsampleShader->use();
         float aspectRatio = m_SrcViewportSizeFloat.x / m_SrcViewportSizeFloat.y;
         m_UpsampleShader->setFloat("aspectRatio", aspectRatio);
+
+        glBindTexture(GL_TEXTURE_2D, m_ThresholdTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ThresholdFbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_ThresholdTexture, 0);
     }
 
     void BloomEffect::Apply(uint inputTexture, uint depthTexture, uint outputFbo)
@@ -168,6 +187,7 @@ namespace REON {
         m_CompositeShader->ReloadShader();
         m_UpsampleShader->ReloadShader();
         m_DownsampleShader->ReloadShader();
+        m_ThresholdShader->ReloadShader();
     }
 
     BloomEffect::BloomEffect() : m_Init(false) {}
@@ -181,9 +201,18 @@ namespace REON {
 
     void BloomEffect::RenderBloomTexture(unsigned int srcTexture, float filterRadius)
     {
+        glBindFramebuffer(GL_FRAMEBUFFER, m_ThresholdFbo);
+
+        m_ThresholdShader->use();
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, srcTexture);
+
+        RenderManager::RenderFullScreenQuad();
+
         m_FBO.BindForWriting();
 
-        this->RenderDownsamples(srcTexture);
+        this->RenderDownsamples(m_ThresholdTexture);
         this->RenderUpsamples(filterRadius);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);

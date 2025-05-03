@@ -6,6 +6,7 @@
 #include "stb_image_wrapper.h"
 #include "REON/Application.h"
 #include "REON/EditorCamera.h"
+#include <REON/KeyCodes.h>
 
 namespace REON {
 	uint RenderManager::QuadVAO;
@@ -103,6 +104,8 @@ namespace REON {
 		m_PostProcessingStack.AddEffect(m_DepthOfField);
 		m_PostProcessingStack.Init(m_Width, m_Height);
 
+		m_KeyPressedCallbackID = EventBus::Get().subscribe<KeyPressedEvent>(REON_BIND_EVENT_FN(RenderManager::OnKeyPressed));
+
 		glEnable(GL_DEPTH_TEST);
 
 		//Initialize main light shadow maps
@@ -179,6 +182,19 @@ namespace REON {
 		glBindVertexArray(QuadVAO);
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		glBindVertexArray(0);
+	}
+
+	void RenderManager::OnKeyPressed(const KeyPressedEvent& event)
+	{
+		if (event.GetKeyCode() == REON_KEY_I && event.GetRepeatCount() == 0) {
+			m_PostProcessingStack.StartProfiling();
+		}
+		if (event.GetKeyCode() == REON_KEY_O && event.GetRepeatCount() == 0) {
+			m_PostProcessingStack.ExportFrameDataToCSV("BloomFrameData.csv", "Bloom");
+		}
+		if (event.GetKeyCode() == REON_KEY_K && event.GetRepeatCount() == 0) {
+			m_PostProcessingStack.ExportFrameDataToCSV("DepthOfFieldFrameData.csv", "Depth of Field");
+		}
 	}
 
 	void RenderManager::GenerateMainLightShadows() {
@@ -492,15 +508,16 @@ namespace REON {
 	{
 		m_Width = width;
 		m_Height = height;
+		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 		glBindTexture(GL_TEXTURE_2D, m_SceneTexture);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_SceneTexture, 0);
+
 		glBindTexture(GL_TEXTURE_2D, m_SceneDepthTex);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 
-		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_SceneTexture, 0);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_SceneDepthTex, 0);
 
 		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)

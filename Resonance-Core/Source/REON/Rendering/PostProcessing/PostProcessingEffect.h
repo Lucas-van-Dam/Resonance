@@ -18,6 +18,8 @@ namespace REON {
         
         virtual void HotReloadShaders() = 0;
 
+        virtual std::string GetName() const = 0;
+
     protected:
         bool m_Enabled = true;
 	};

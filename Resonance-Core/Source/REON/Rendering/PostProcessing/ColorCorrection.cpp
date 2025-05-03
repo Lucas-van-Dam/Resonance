@@ -31,4 +31,9 @@ namespace REON {
 		m_ScreenShader->ReloadShader();
 	}
 
+	std::string ColorCorrection::GetName() const
+	{
+		return "Color Correction";
+	}
+
 }

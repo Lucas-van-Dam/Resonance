@@ -12,7 +12,7 @@ void main() {
     vec3 hdrColor = texture(scene, TexCoords).rgb;
     vec3 bloomColor = texture(bloomBlur, TexCoords).rgb;
     // Add bloom on top
-    vec3 color = hdrColor + bloomColor * bloomStrength;
+    vec3 color = hdrColor + bloomColor;
 
     FragColor = vec4(color, 1.0);
 }

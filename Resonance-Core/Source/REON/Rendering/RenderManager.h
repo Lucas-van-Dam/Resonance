@@ -7,6 +7,8 @@
 #include "PostProcessing/BloomEffect.h"
 #include "PostProcessing/ColorCorrection.h"
 #include "PostProcessing/DepthOfField.h"
+#include "REON/Events/EventBus.h"
+#include "REON/Events/KeyEvent.h"
 
 
 namespace REON {
@@ -27,6 +29,7 @@ namespace REON {
 		int GetRenderHeight();
 		static void InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height);
 		static void RenderFullScreenQuad();
+		void OnKeyPressed(const KeyPressedEvent& event);
 
 	private:
 		void RenderOpaques();
@@ -39,6 +42,8 @@ namespace REON {
 		void InitializeSkyBox();
 
 	private:
+		CallbackID m_KeyPressedCallbackID;
+
 		int m_Width, m_Height;
 		std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<Renderer>>> m_ShaderToRenderer;
 		std::vector<std::shared_ptr<Renderer>> m_Renderers;

@@ -10,10 +10,10 @@ namespace REON {
 		void Apply(uint inputTexture, uint depthTexture, uint outputFbo) override;
 		void Init(int width, int height) override;
 		void HotReloadShaders() override;
+		std::string GetName() const override;
 
 	private:
 		std::shared_ptr<Shader> m_ScreenShader = ResourceManager::GetInstance().LoadResource<Shader>("ScreenShader", std::make_tuple("fullScreen.vert", "fullScreen.frag", std::optional<std::string>{}));
-
 	};
 
 }
