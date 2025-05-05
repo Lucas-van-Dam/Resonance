@@ -29,6 +29,7 @@ project "Editor"
       "../Resonance-Core/%{IncludeDir.stb_image}",
       "../Resonance-Core/%{IncludeDir.assimp}",
       "../Resonance-Core/%{IncludeDir.ImGuizmo}",
+      "../Resonance-Core/%{IncludeDir.Vulkan}"
    }
 
    dependson

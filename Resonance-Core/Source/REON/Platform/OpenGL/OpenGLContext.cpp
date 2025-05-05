@@ -12,14 +12,14 @@ namespace REON {
 		REON_CORE_ASSERT(windowHandle, "Window handle is null")
 	}
 
-	void OpenGLContext::Init()
+	void OpenGLContext::init()
 	{
 		glfwMakeContextCurrent(m_WindowHandle);
 		int status = gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 		REON_CORE_ASSERT(status, "Failed to initialize GLAD");
 	}
 
-	void OpenGLContext::SwapBuffers()
+	void OpenGLContext::swapBuffers()
 	{
 		glfwSwapBuffers(m_WindowHandle);
 	}

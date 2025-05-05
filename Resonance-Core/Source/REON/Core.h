@@ -1,6 +1,3 @@
-
-#define GLM_ENABLE_EXPERIMENTAL
-
 #ifdef REON_PLATFORM_WINDOWS
 #else
 	#error Resonance does not support any other platform other than windows

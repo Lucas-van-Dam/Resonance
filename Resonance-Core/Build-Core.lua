@@ -23,6 +23,8 @@ project "Core"
     "vendor/Tracy/public/TracyClient.cpp"
    }
 
+   libdirs{ "vendor/Vulkan/Lib" }
+
    includedirs
    {
       "Source",
@@ -35,7 +37,9 @@ project "Core"
       "%{IncludeDir.stb_image}",
       "%{IncludeDir.assimp}",
       "%{IncludeDir.ImGuizmo}",
-      "%{IncludeDir.Tracy}"
+      "%{IncludeDir.Tracy}",
+      "%{IncludeDir.Vulkan}",
+      
    }
 
    links{
@@ -43,7 +47,8 @@ project "Core"
       "GLAD",
       "ImGui",
       "assimp",
-      "opengl32.lib"
+      "opengl32.lib",
+      "vulkan-1"
    }
 
    local function generateRegistrationHeader()
@@ -72,7 +77,8 @@ project "Core"
        defines 
         { 
             "REON_PLATFORM_WINDOWS" ,
-            "GLFW_INCLUDE_NONE"
+            "GLFW_INCLUDE_NONE",
+            "GLFW_INCLUDE_VULKAN",
         }
 
    filter "configurations:Debug"

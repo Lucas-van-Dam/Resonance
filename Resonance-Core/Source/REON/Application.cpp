@@ -36,14 +36,14 @@ namespace REON {
 		m_Window = std::unique_ptr<Window>(Window::Create());
 		m_Window->SetEventCallback(REON_BIND_EVENT_FN(Application::OnEvent));
 
-		m_GameLogicLayer = new GameLogicLayer();
-		PushLayer(m_GameLogicLayer);
+		//m_GameLogicLayer = new GameLogicLayer();
+		//PushLayer(m_GameLogicLayer);
 
-		m_RenderLayer = new RenderLayer();
-		PushLayer(m_RenderLayer);
-		
-		m_ImGuiLayer = new ImGuiLayer();
-		PushOverLay(m_ImGuiLayer);
+		//m_RenderLayer = new RenderLayer();
+		//PushLayer(m_RenderLayer);
+		//
+		//m_ImGuiLayer = new ImGuiLayer();
+		//PushOverLay(m_ImGuiLayer);
 	}
 
 	Application::~Application() {
@@ -69,14 +69,14 @@ namespace REON {
 			FrameStartEvent frameStartEvent;
 			EventBus::Get().publish(frameStartEvent);
 			{
-				glClear(GL_COLOR_BUFFER_BIT);
-				for (Layer* layer : m_LayerStack)
-					layer->OnUpdate();
+				////glClear(GL_COLOR_BUFFER_BIT);
+				//for (Layer* layer : m_LayerStack)
+				//	layer->OnUpdate();
 
-				m_ImGuiLayer->Begin();
-				for (Layer* layer : m_LayerStack)
-					layer->OnImGuiRender();
-				m_ImGuiLayer->End();
+				//m_ImGuiLayer->Begin();
+				//for (Layer* layer : m_LayerStack)
+				//	layer->OnImGuiRender();
+				//m_ImGuiLayer->End();
 
 				m_Window->OnUpdate();
 

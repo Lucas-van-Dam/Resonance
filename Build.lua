@@ -20,7 +20,8 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
          "_CRT_SECURE_NO_WARNINGS",
          "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS",
          "REON_EDITOR",
-         
+         "GLM_ENABLE_EXPERIMENTAL",
+         "GLM_FORCE_DEPTH_ZERO_TO_ONE"
       }
       disablewarnings
       {
@@ -45,6 +46,7 @@ IncludeDir["assimp"] = "vendor/assimp/include"
 IncludeDir["ImGuizmo"] = "vendor/ImGuizmo"
 IncludeDir["json"] = "vendor/json/include"
 IncludeDir["Tracy"] = "vendor/Tracy"
+IncludeDir["Vulkan"] = "vendor/Vulkan/include"
 
 include "Resonance-Core/vendor/GLFW/premake5.lua"
 include "Resonance-Core/vendor/GLAD/premake5.lua"
