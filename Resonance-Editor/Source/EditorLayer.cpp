@@ -186,16 +186,12 @@ namespace REON::EDITOR {
 				RenderManager::m_BloomEffect->SetEnabled(enabled);
 			}
 
-			ImGui::DragFloat("Filter radius", &RenderManager::m_BloomEffect->FilterRadius, 0.001f, 0.0f, 3.0f);
-			ImGui::DragFloat("Bloom strength", &RenderManager::m_BloomEffect->bloomStrength, 0.01f, 0.0f, 10.0f);
-
 			enabled = RenderManager::m_DepthOfField->IsEnabled();
 			if (ImGui::Checkbox("Enable Depth of Field", &enabled)) {
 				RenderManager::m_DepthOfField->SetEnabled(enabled);
 			}
 
 			ImGui::DragFloat("Focus Distance", &RenderManager::m_DepthOfField->m_FocusDistance, 1.0, 0.1f, 100.0f);
-			ImGui::DragFloat("Focus Range", &RenderManager::m_DepthOfField->m_FocusRange, 1.0, 0.1f, 100.0f);
 
 		}
 
