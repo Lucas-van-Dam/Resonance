@@ -31,6 +31,7 @@ namespace REON {
 
 	private:
 		void OnWindowClose(const WindowCloseEvent& event);
+		void OnWindowResize(const WindowResizeEvent& event);
 
 	private:
 		bool m_Running = true;

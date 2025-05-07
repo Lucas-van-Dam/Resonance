@@ -32,6 +32,7 @@ namespace REON {
 		s_Instance = this;
 
 		EventBus::Get().subscribe<WindowCloseEvent>(REON_BIND_EVENT_FN(Application::OnWindowClose));
+		EventBus::Get().subscribe<WindowResizeEvent>(REON_BIND_EVENT_FN(Application::OnWindowResize));
 
 		m_Window = std::unique_ptr<Window>(Window::Create());
 		m_Window->SetEventCallback(REON_BIND_EVENT_FN(Application::OnEvent));
@@ -92,6 +93,11 @@ namespace REON {
 	void Application::OnWindowClose(const WindowCloseEvent& event)
 	{
 		m_Running = false;
+	}
+
+	void Application::OnWindowResize(const WindowResizeEvent& event)
+	{
+		m_Window->OnResize();
 	}
 
 	void Application::OnEvent(const Event& event)

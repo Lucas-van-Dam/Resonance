@@ -19,6 +19,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 //
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnullability-completeness"
 
 #ifndef AMD_VULKAN_MEMORY_ALLOCATOR_H
 #define AMD_VULKAN_MEMORY_ALLOCATOR_H
@@ -16677,11 +16679,15 @@ VMA_CALL_PRE VkResult VMA_CALL_POST vmaGetMemoryWin32Handle(VmaAllocator VMA_NOT
     VMA_DEBUG_GLOBAL_MUTEX_LOCK;
     return allocation->GetWin32Handle(allocator, hTargetProcess, pHandle);
 }
+
+
 #endif // VMA_EXTERNAL_MEMORY_WIN32 
 #endif // VMA_STATS_STRING_ENABLED
 #endif // _VMA_PUBLIC_INTERFACE
 #endif // VMA_IMPLEMENTATION
 
+
+#pragma clang diagnostic pop
 /**
 \page quick_start Quick start
 

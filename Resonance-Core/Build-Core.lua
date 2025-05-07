@@ -48,7 +48,9 @@ project "Core"
       "ImGui",
       "assimp",
       "opengl32.lib",
-      "vulkan-1"
+      "vulkan-1",
+      "dxcompiler",
+      "dxguid"
    }
 
    local function generateRegistrationHeader()

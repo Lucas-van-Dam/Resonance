@@ -15,6 +15,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 
 #include <filesystem>
 
@@ -22,4 +23,6 @@
 
 #ifdef REON_PLATFORM_WINDOWS
 	#include <Windows.h>
+	#include <objbase.h>
+	#include <wrl/client.h>
 #endif

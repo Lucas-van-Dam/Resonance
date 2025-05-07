@@ -37,9 +37,11 @@ project "Editor"
     "Core"
    }
 
+   libdirs{ "../Resonance-Core/vendor/Vulkan/Lib" }
+
    links
    {
-      "Core","rpcrt4",
+      "Core","rpcrt4","dxcompiler"
    }
 
    targetdir ("../Binaries/" .. OutputDir .. "/%{prj.name}")

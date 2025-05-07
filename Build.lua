@@ -21,7 +21,9 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
          "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS",
          "REON_EDITOR",
          "GLM_ENABLE_EXPERIMENTAL",
-         "GLM_FORCE_DEPTH_ZERO_TO_ONE"
+         "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+         "VK_USE_PLATFORM_WIN32_KHR",
+         "GLFW_EXPOSE_NATIVE_WIN32",
       }
       disablewarnings
       {

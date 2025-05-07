@@ -1,4 +1,5 @@
 #pragma once
+
 namespace REON {
 	class RenderContext
 	{
@@ -6,5 +7,6 @@ namespace REON {
 		virtual void init() = 0;
 		virtual void swapBuffers() = 0;
 		virtual void cleanup() = 0;
+		virtual void resize() = 0;
 	};
 }
