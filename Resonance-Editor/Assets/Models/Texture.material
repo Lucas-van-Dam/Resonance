@@ -1,0 +1,12 @@
+{
+    "GUID": "edcaf35d-25fc-4237-a9cb-c4ff04e71c23",
+    "Albedo": [
+        1.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "Roughness": 1.0,
+    "Metallic": 0.0,
+    "Shader": "0081d392-7f4b-4215-8ecd-5c7dc115afc1"
+}

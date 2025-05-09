@@ -9,8 +9,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stb_image.h>
-#include "../../Resonance-Editor/Vendor/tinygltf/tiny_gltf.h" //BAD, JUST FOR TESTING
-namespace tg = tinygltf;
+#include "nlohmann/json.hpp"
 
 namespace REON {
 	struct QueueFamilyIndices {

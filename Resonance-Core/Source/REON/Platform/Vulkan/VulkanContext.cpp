@@ -506,16 +506,8 @@ namespace REON {
 
 	void VulkanContext::loadModel()
 	{
-		tg::Model model;
-		tg::TinyGLTF loader;
-		std::string err;
-		std::string warn;
+		nlohmann::json modelJson;
 
-		if (!loader.LoadBinaryFromFile(&model, &err, &warn, "Assets/Models/BoxTextured.glb")) {
-			REON_CORE_ERROR("Failed to parse GLTF: {}", err);
-		}
-
-		//for(const auto& )
 	}
 
 	void VulkanContext::createVmaAllocator()
