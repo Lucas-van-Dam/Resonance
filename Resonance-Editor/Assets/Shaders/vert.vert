@@ -2,12 +2,14 @@ struct VS_Input
 {
     float2 position : POSITION;
     float3 color : COLOR;
+    float2 texcoord : TEXCOORD;
 };
 
 struct PS_Input
 {
     float4 position : SV_POSITION;
     float3 color : COLOR;
+    float2 tex : TEXCOORD0;
 };
 
 cbuffer UniformBufferObject : register(b0)
@@ -23,6 +25,7 @@ PS_Input main(VS_Input input)
     
     output.position = mul(projection, mul(view, mul(model, float4(input.position, 0.0f, 1.0f))));
     output.color = input.color;
+    output.tex = input.texcoord;
     
     return output;
 }
