@@ -29,6 +29,7 @@ namespace REON {
 		createTextureImage();
 		createTextureImageView();
 		createTextureSampler();
+		loadModel();
 		createVertexBuffer();
 		createIndexBuffer();
 		createUniformBuffers();
@@ -501,6 +502,20 @@ namespace REON {
 	bool VulkanContext::hasStencilComponent(VkFormat format)
 	{
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+	}
+
+	void VulkanContext::loadModel()
+	{
+		tg::Model model;
+		tg::TinyGLTF loader;
+		std::string err;
+		std::string warn;
+
+		if (!loader.LoadBinaryFromFile(&model, &err, &warn, "Assets/Models/BoxTextured.glb")) {
+			REON_CORE_ERROR("Failed to parse GLTF: {}", err);
+		}
+
+		//for(const auto& )
 	}
 
 	void VulkanContext::createVmaAllocator()

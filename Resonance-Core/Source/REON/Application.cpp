@@ -37,14 +37,14 @@ namespace REON {
 		m_Window = std::unique_ptr<Window>(Window::Create());
 		m_Window->SetEventCallback(REON_BIND_EVENT_FN(Application::OnEvent));
 
-		//m_GameLogicLayer = new GameLogicLayer();
-		//PushLayer(m_GameLogicLayer);
+		m_GameLogicLayer = new GameLogicLayer();
+		PushLayer(m_GameLogicLayer);
 
-		//m_RenderLayer = new RenderLayer();
-		//PushLayer(m_RenderLayer);
-		//
-		//m_ImGuiLayer = new ImGuiLayer();
-		//PushOverLay(m_ImGuiLayer);
+		m_RenderLayer = new RenderLayer();
+		PushLayer(m_RenderLayer);
+		
+		m_ImGuiLayer = new ImGuiLayer();
+		PushOverLay(m_ImGuiLayer);
 	}
 
 	Application::~Application() {

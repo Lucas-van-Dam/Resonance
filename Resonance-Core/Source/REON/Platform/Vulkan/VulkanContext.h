@@ -9,6 +9,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <stb_image.h>
+#include "../../Resonance-Editor/Vendor/tinygltf/tiny_gltf.h" //BAD, JUST FOR TESTING
+namespace tg = tinygltf;
 
 namespace REON {
 	struct QueueFamilyIndices {
@@ -129,6 +131,7 @@ namespace REON {
 		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 		VkFormat findDepthFormat();
 		bool hasStencilComponent(VkFormat format);
+		void loadModel();
 
 		VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 		void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
@@ -169,6 +172,8 @@ namespace REON {
 		std::vector<VkSemaphore> m_RenderFinishedSemaphores;
 		std::vector<VkFence> m_InFlightFences;
 
+		std::vector<Vertex> m_Vertices;
+		std::vector<uint32_t> m_Indices;
 		VkBuffer m_VertexBuffer;
 		VmaAllocation m_VertexBufferAllocation;
 		VkBuffer m_IndexBuffer;
@@ -187,6 +192,8 @@ namespace REON {
 		VmaAllocation m_DepthImageAllocation;
 		VkImageView m_DepthImageView;
 
+
+
 		bool framebufferResized = false;
 
 		const std::vector<const char*> m_ValidationLayers = {
@@ -199,21 +206,7 @@ namespace REON {
 
 		const int MAX_FRAMES_IN_FLIGHT = 2;
 
-		const std::array<Vertex, 8> m_Vertices = {
-					Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
-					Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
-					Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
-					Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
 
-					Vertex(glm::vec3(-0.5f, -0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
-					Vertex(glm::vec3(0.5f, -0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
-					Vertex(glm::vec3(0.5f, 0.5f, -0.5f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
-					Vertex(glm::vec3(-0.5f, 0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
-		};
-		const std::array<uint32_t, 12> m_Indices = {
-			0,1,2,2,3,0,
-			4,5,6,6,7,4,
-		};
 
 #ifdef REON_DEBUG
 		const bool m_EnableValidationLayers = true;
