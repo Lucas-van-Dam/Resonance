@@ -27,7 +27,7 @@ namespace REON {
 	};
 
 	struct Vertex { // TEMPORARY
-		glm::vec2 pos;
+		glm::vec3 pos;
 		glm::vec3 color;
 		glm::vec2 texCoord;
 
@@ -45,7 +45,7 @@ namespace REON {
 
 			attributeDescriptions[0].binding = 0;
 			attributeDescriptions[0].location = 0;
-			attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+			attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 			attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
 			attributeDescriptions[1].binding = 0;
@@ -123,8 +123,12 @@ namespace REON {
 		void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 		void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 		void createTextureImageView();
-		VkImageView createImageView(VkImage image, VkFormat format);
+		VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 		void createTextureSampler();
+		void createDepthResources();
+		VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+		VkFormat findDepthFormat();
+		bool hasStencilComponent(VkFormat format);
 
 		VkResult createDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
 		void destroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
@@ -169,7 +173,7 @@ namespace REON {
 		VmaAllocation m_VertexBufferAllocation;
 		VkBuffer m_IndexBuffer;
 		VmaAllocation m_IndexBufferAllocation;
-		
+
 		std::vector<VkBuffer> m_UniformBuffers;
 		std::vector<VmaAllocation> m_UniformBufferAllocations;
 		std::vector<void*> m_UniformBuffersMapped;
@@ -178,6 +182,10 @@ namespace REON {
 		VmaAllocation m_TextureImageAllocation;
 		VkImageView m_TextureImageView;
 		VkSampler m_TextureSampler;
+
+		VkImage m_DepthImage;
+		VmaAllocation m_DepthImageAllocation;
+		VkImageView m_DepthImageView;
 
 		bool framebufferResized = false;
 
@@ -191,14 +199,20 @@ namespace REON {
 
 		const int MAX_FRAMES_IN_FLIGHT = 2;
 
-		const std::array<Vertex, 4> m_Vertices = {
-					Vertex(glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
-					Vertex(glm::vec2(0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
-					Vertex(glm::vec2(0.5f, 0.5f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
-					Vertex(glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+		const std::array<Vertex, 8> m_Vertices = {
+					Vertex(glm::vec3(-0.5f, -0.5f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
+					Vertex(glm::vec3(0.5f, -0.5f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
+					Vertex(glm::vec3(0.5f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
+					Vertex(glm::vec3(-0.5f, 0.5f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
+
+					Vertex(glm::vec3(-0.5f, -0.5f, -0.5f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
+					Vertex(glm::vec3(0.5f, -0.5f, -0.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
+					Vertex(glm::vec3(0.5f, 0.5f, -0.5f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec2(0.0f, 1.0f)),
+					Vertex(glm::vec3(-0.5f, 0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec2(1.0f, 1.0f)),
 		};
-		const std::array<uint32_t, 6> m_Indices = {
-			0,1,2,2,3,0
+		const std::array<uint32_t, 12> m_Indices = {
+			0,1,2,2,3,0,
+			4,5,6,6,7,4,
 		};
 
 #ifdef REON_DEBUG

@@ -1,6 +1,6 @@
 struct VS_Input
 {
-    float2 position : POSITION;
+    float3 position : POSITION;
     float3 color : COLOR;
     float2 texcoord : TEXCOORD;
 };
@@ -23,7 +23,7 @@ PS_Input main(VS_Input input)
 {
     PS_Input output;
     
-    output.position = mul(projection, mul(view, mul(model, float4(input.position, 0.0f, 1.0f))));
+    output.position = mul(projection, mul(view, mul(model, float4(input.position, 1.0f))));
     output.color = input.color;
     output.tex = input.texcoord;
     

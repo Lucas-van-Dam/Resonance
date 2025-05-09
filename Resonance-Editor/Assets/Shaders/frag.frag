@@ -10,5 +10,5 @@ SamplerState texSampler : register(s1);
 
 float4 main(PS_Input input) : SV_TARGET
 {
-    return float4(tex.Sample(texSampler, input.tex).rgb, 1.0);
+    return float4(tex.Sample(texSampler, input.tex * 2).rgb, 1.0);
 }
