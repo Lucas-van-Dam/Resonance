@@ -41,7 +41,7 @@ project "Editor"
 
    links
    {
-      "Core","rpcrt4","dxcompiler"
+      "Core","rpcrt4"
    }
 
    targetdir ("../Binaries/" .. OutputDir .. "/%{prj.name}")

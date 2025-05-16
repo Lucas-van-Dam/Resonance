@@ -80,7 +80,7 @@ namespace REON::EDITOR {
 	}
 
 	// Render all fields of an object
-	void Inspector::InspectObject(std::shared_ptr<GameObject> object) {
+	void Inspector::InspectObject(std::shared_ptr<GameObject>& object) {
 		ImGui::Begin("Inspector");
 		if (!object) {
 			ImGui::End();

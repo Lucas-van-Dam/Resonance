@@ -40,13 +40,11 @@ namespace REON {
 		}
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		//glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
 		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		m_Window = glfwCreateWindow(m_Data.Width, m_Data.Height, m_Data.Title.c_str(), nullptr, nullptr);
-
-		m_Context = new VulkanContext(m_Window);
-		m_Context->init();
 
 		glfwSetWindowUserPointer(m_Window, &m_Data);
 		SetVSync(false);
@@ -130,19 +128,12 @@ namespace REON {
 
 	void WindowsWindow::ShutDown() {
 		s_GLFWInitialized = false;
-		m_Context->cleanup();
 		glfwDestroyWindow(m_Window);
 		glfwTerminate();
 	}
 
-	void WindowsWindow::OnUpdate() {
+	void WindowsWindow::PollEvents() {
 		glfwPollEvents();
-		m_Context->swapBuffers();
-	}
-
-	void WindowsWindow::OnResize()
-	{
-		m_Context->resize();
 	}
 
 	void WindowsWindow::SetVSync(bool enabled) {

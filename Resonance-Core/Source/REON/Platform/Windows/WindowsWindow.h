@@ -22,8 +22,7 @@ namespace REON {
 		WindowsWindow(const WindowProperties& properties);
 		virtual ~WindowsWindow();
 
-		void OnUpdate() override;
-		void OnResize() override;
+		void PollEvents() override;
 
 		inline unsigned int GetWidth() const override { return m_Data.Width; }
 		inline unsigned int GetHeight() const override { return m_Data.Height; }
@@ -38,8 +37,6 @@ namespace REON {
 		virtual void ShutDown();
 	private:
 		GLFWwindow* m_Window;
-
-		RenderContext* m_Context;
 
 		WindowData m_Data;
 	};

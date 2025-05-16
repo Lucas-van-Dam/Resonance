@@ -60,6 +60,8 @@ namespace REON {
 
     Scene::~Scene() {
         m_GameObjects.clear();
+        //renderManager->cleanup();
+        //renderManager.release();
     }
 
     std::shared_ptr<GameObject> Scene::GetGameObject(int index)

@@ -36,6 +36,8 @@ namespace REON {
 
         void UpdateLocalMatrix();
 
+        void cleanup() override;
+
     public:
         glm::vec3 localPosition; // Position (translation)
         Quaternion localRotation; // Quaternion for rotation

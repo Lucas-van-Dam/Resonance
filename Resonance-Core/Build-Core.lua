@@ -20,6 +20,12 @@ project "Core"
     "vendor/stb_image/**.h",
     "vendor/ImGuizmo/**.h",
     "vendor/ImGuizmo/**.cpp",
+    "vendor/imgui/*.cpp",
+    "vendor/imgui/*.h",
+    "vendor/imgui/backends/imgui_impl_glfw.cpp",
+    "vendor/imgui/backends/imgui_impl_glfw.h",
+    "vendor/imgui/backends/imgui_impl_vulkan.cpp",
+    "vendor/imgui/backends/imgui_impl_vulkan.h",
     "vendor/Tracy/public/TracyClient.cpp"
    }
 
@@ -45,7 +51,7 @@ project "Core"
    links{
       "GLFW",
       "GLAD",
-      "ImGui",
+    --   "ImGui",
       "assimp",
       "opengl32.lib",
       "vulkan-1",

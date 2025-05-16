@@ -1,6 +1,8 @@
-#include "reonpch.h"
+﻿#include "reonpch.h"
 #include "Mesh.h"
 #include <REON/ResourceManagement/ResourceInfo.h>
+#include <REON/Platform/Vulkan/VulkanContext.h>
+#include <REON/Application.h>
 
 namespace REON {
 
@@ -27,21 +29,20 @@ namespace REON {
 
     void Mesh::Unload()
     {
-        m_Vertices.clear();
-        indices.clear();
-
-        glDeleteVertexArrays(1, &m_VAO);
-        glDeleteBuffers(1, &m_VBO);
-        glDeleteBuffers(1, &m_EBO);
+        const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+        vkDestroyBuffer(context->getDevice(), m_VertexBuffer, nullptr);
+        vmaFreeMemory(context->getAllocator(), m_VertexBufferAllocation);
+        vkDestroyBuffer(context->getDevice(), m_IndexBuffer, nullptr);
+        vmaFreeMemory(context->getAllocator(), m_IndexBufferAllocation);
     }
 
     nlohmann::ordered_json Mesh::Serialize() const
     {
         nlohmann::ordered_json meshJson;
         meshJson["GUID"] = GetID();
-        meshJson["vertices"] = ConvertVec3Array(vertices); // Convert glm::vec3 to JSON
+        meshJson["vertices"] = ConvertVec3Array(positions); // Convert glm::vec3 to JSON
         meshJson["normals"] = ConvertVec3Array(normals);
-        meshJson["uvs"] = ConvertVec2Array(uvs);
+        meshJson["uvs"] = ConvertVec2Array(texCoords);
         meshJson["tangents"] = ConvertVec3Array(tangents);
         meshJson["colors"] = ConvertVec4Array(colors);
         meshJson["indices"] = indices;
@@ -63,9 +64,9 @@ namespace REON {
 
     void Mesh::DeSerialize(const nlohmann::ordered_json& meshJson)
     {
-        vertices = ConvertJsonToVec3Array(meshJson["vertices"]);
+        positions = ConvertJsonToVec3Array(meshJson["vertices"]);
         normals = ConvertJsonToVec3Array(meshJson["normals"]);
-        uvs = ConvertJsonToVec2Array(meshJson["uvs"]);
+        texCoords = ConvertJsonToVec2Array(meshJson["uvs"]);
         tangents = ConvertJsonToVec3Array(meshJson["tangents"]);
         colors = ConvertJsonToVec4Array(meshJson["colors"]);
         indices = meshJson["indices"].get<std::vector<uint32_t>>();
@@ -128,118 +129,139 @@ namespace REON {
         return vec;
     }
 
+    void Mesh::calculateTangents() {
+        // https://learnopengl.com/Advanced-Lighting/Normal-Mapping
+        tangents.resize(normals.size());
+
+        // Iterate over all triangles of each sub-mesh.
+        for (auto& submesh : subMeshes)
+            for (size_t i = submesh.indexOffset; i < submesh.indexOffset + submesh.indexCount; i += 3)
+            {
+                if (i + 2 > indices.size())
+                    break;
+
+                glm::vec3 indices{ indices[i], indices[i + 1], indices[i + 2] };
+
+                if (indices[0] > positions.size() || indices[1] > positions.size() || indices[2] > positions.size())
+                    continue;
+
+                // Get vertices of the triangle.
+                glm::vec3 vtx0 = positions[indices[0]];
+                glm::vec3 vtx1 = positions[indices[1]];
+                glm::vec3 vtx2 = positions[indices[2]];
+
+                // Get UVs of the triangle.
+                glm::vec2 uv0 = texCoords[indices[0]];
+                glm::vec2 uv1 = texCoords[indices[1]];
+                glm::vec2 uv2 = texCoords[indices[2]];
+
+                // Get primary edges
+                glm::vec3 edge0 = vtx1 - vtx0;
+                glm::vec3 edge1 = vtx2 - vtx0;
+
+                // Get difference in uv over the two primary edges.
+                glm::vec2 deltaUV0 = uv1 - uv0;
+                glm::vec2 deltaUV1 = uv2 - uv0;
+
+                // Get inverse of the determinant of the UV tangent matrix.
+                float inverseUVDeterminant = 1.0f / (deltaUV0.x * deltaUV1.y - deltaUV1.x * deltaUV0.y);
+
+                // T = tangent
+                // B = bi-tangent
+                // E0 = first primary edge
+                // E1 = second primary edge
+                // dU0 = delta of x texture coordinates of the first primary edge
+                // dV0 = delta of y texture coordinates of the first primary edge
+                // dU1 = delta of x texture coordinates of the second primary edge
+                // dV1 = delta of y texture coordinates of the second primary edge
+                // ┌          ┐          1        ┌           ┐ ┌             ┐
+                // │ Tx Ty Tz │ _ ─────────────── │  dV1 -dV0 │ │ E0x E0y E0z │
+                // │ Bx By Bz │ ─ dU0ΔV1 - dU1ΔV0 │ -dU1  dU0 │ │ E1x E1y E1z │
+                // └          ┘                   └           ┘ └             ┘
+                glm::vec3 tangent;
+                tangent.x = inverseUVDeterminant * ((deltaUV1.y * edge0.x) - (deltaUV0.y * edge1.x));
+                tangent.y = inverseUVDeterminant * ((deltaUV1.y * edge0.y) - (deltaUV0.y * edge1.y));
+                tangent.z = inverseUVDeterminant * ((deltaUV1.y * edge0.z) - (deltaUV0.y * edge1.z));
+
+                // Check if the tangent is valid.
+                if (tangent == glm::vec3(0, 0, 0) || tangent != tangent)
+                    continue;
+
+                // Normalize the tangent.
+                tangent = glm::normalize(tangent);
+
+                // Accumulate the tangent in order to be able to smooth it later.
+                tangents[indices[0]] += tangent;
+                tangents[indices[1]] += tangent;
+                tangents[indices[2]] += tangent;
+            }
+
+        // Smooth all tangents.
+        for (size_t i = 0; i < tangents.size(); i++)
+            if (tangents[i] != glm::vec3(0.0f,0.0f,0.0f))
+                tangents[i] = glm::normalize(tangents[i]);
+    }
+
 
     // initializes all the buffer objects/arrays
     void Mesh::setupMesh()
     {
-        // create buffers/arrays
-        glGenVertexArrays(1, &m_VAO);
-        glGenBuffers(1, &m_VBO);
-        glGenBuffers(1, &m_EBO);
-        glGenBuffers(1, &m_SSBO);
-
-        glBindVertexArray(m_VAO);
-        // load data into vertex buffers
-        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-        // A great thing about structs is that their memory layout is sequential for all its items.
-        // The effect is that we can simply pass a pointer to the struct and it translates perfectly to a glm::vec3/2 array which
-        // again translates to 3/2 floats which translates to a byte array.
-        glBufferData(GL_ARRAY_BUFFER, m_Vertices.size() * sizeof(Vertex), &m_Vertices[0], GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), &indices[0], GL_STATIC_DRAW);
-
-        // set the vertex attribute pointers
-        // vertex Positions
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-        // vertex normals
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Normal));
-        // vertex texture coords
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, TexCoords));
-        // vertex tangent
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Tangent));
-        // vertex bitangent
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, Bitangent));
-        // ids
-        glEnableVertexAttribArray(5);
-        glVertexAttribIPointer(5, 4, GL_INT, sizeof(Vertex), (void*)offsetof(Vertex, m_BoneIDs));
-
-        // weights
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, m_Weights));
-        glBindVertexArray(0);
+        REON_CORE_CRITICAL("THIS SHOULD NOT BE CALLED ANYMORE");
     }
 
     void Mesh::setupMesh2()
     {
-        glGenVertexArrays(1, &m_VAO);
-        glGenBuffers(1, &m_VBO);
-        glGenBuffers(1, &m_EBO);
+        setupBuffers();
+    }
 
-        glBindVertexArray(m_VAO);
+    void Mesh::setupBuffers()
+    {
+        m_Vertices.resize(positions.size());
 
-        // Compute the total size needed for interleaved buffer
-        size_t vertexCount = vertices.size();
-        size_t totalSize = (vertices.size() * sizeof(glm::vec3)) +
-            (normals.size() * sizeof(glm::vec3)) +
-            (uvs.size() * sizeof(glm::vec2)) +
-            (tangents.size() * sizeof(glm::vec3)) +
-            (colors.size() * sizeof(glm::vec4));
+        for (size_t i = 0; i < positions.size(); ++i) {
+            Vertex vertex{};
+            vertex.Position = positions[i];
+            vertex.Color = colors[i];
+            vertex.Normal = normals[i];
+            vertex.TexCoords = texCoords[i];
+            vertex.Tangent = tangents.size() > i ? tangents[i] : glm::vec3(0.0f,0.0f,0.0f); //TODO: Calculate tangents when loading
 
-        glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-        glBufferData(GL_ARRAY_BUFFER, totalSize, nullptr, GL_STATIC_DRAW);
-
-        // Offset tracker for interleaved buffer
-        size_t offset = 0;
-
-        // Upload positions
-        glBufferSubData(GL_ARRAY_BUFFER, offset, vertices.size() * sizeof(glm::vec3), vertices.data());
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
-        offset += vertices.size() * sizeof(glm::vec3);
-
-        // Upload normals (if available)
-        if (!normals.empty()) {
-            glBufferSubData(GL_ARRAY_BUFFER, offset, normals.size() * sizeof(glm::vec3), normals.data());
-            glEnableVertexAttribArray(1);
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
-            offset += normals.size() * sizeof(glm::vec3);
+            m_Vertices[i] = vertex;
         }
 
-        // Upload UVs (if available)
-        if (!uvs.empty()) {
-            glBufferSubData(GL_ARRAY_BUFFER, offset, uvs.size() * sizeof(glm::vec2), uvs.data());
-            glEnableVertexAttribArray(2);
-            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(glm::vec2), (void*)offset);
-            offset += uvs.size() * sizeof(glm::vec2);
-        }
+        VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_Vertices.size();
 
-        // Upload tangents (if available)
-        if (!tangents.empty()) {
-            glBufferSubData(GL_ARRAY_BUFFER, offset, tangents.size() * sizeof(glm::vec3), tangents.data());
-            glEnableVertexAttribArray(3);
-            glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)offset);
-            offset += tangents.size() * sizeof(glm::vec3);
-        }
+        VkBuffer stagingBuffer;
+        VmaAllocation stagingBufferAllocation;
+        const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+        context->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer, stagingBufferAllocation);
 
-        // Upload colors (if available)
-        if (!colors.empty()) {
-            glBufferSubData(GL_ARRAY_BUFFER, offset, colors.size() * sizeof(glm::vec4), colors.data());
-            glEnableVertexAttribArray(4);
-            glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, sizeof(glm::vec4), (void*)offset);
-            offset += colors.size() * sizeof(glm::vec4);
-        }
+        void* data;
+        vmaMapMemory(context->getAllocator(), stagingBufferAllocation, &data);
+        memcpy(data, m_Vertices.data(), (size_t)bufferSize);
+        vmaUnmapMemory(context->getAllocator(), stagingBufferAllocation);
 
-        // Upload indices
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint), indices.data(), GL_STATIC_DRAW);
+        context->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 0, m_VertexBuffer, m_VertexBufferAllocation);
 
-        glBindVertexArray(0);
+        context->copyBuffer(stagingBuffer, m_VertexBuffer, bufferSize);
+
+        vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
+        vmaFreeMemory(context->getAllocator(), stagingBufferAllocation);
+
+        bufferSize = sizeof(indices[0]) * indices.size();
+
+        context->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer, stagingBufferAllocation);
+
+        vmaMapMemory(context->getAllocator(), stagingBufferAllocation, &data);
+        memcpy(data, indices.data(), (size_t)bufferSize);
+        vmaUnmapMemory(context->getAllocator(), stagingBufferAllocation);
+
+        context->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 0, m_IndexBuffer, m_IndexBufferAllocation);
+
+        context->copyBuffer(stagingBuffer, m_IndexBuffer, bufferSize);
+
+        vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
+        vmaFreeMemory(context->getAllocator(), stagingBufferAllocation);
     }
 
     Mesh::Mesh(const Mesh& mesh)
@@ -250,50 +272,51 @@ namespace REON {
     // render the mesh
     void Mesh::Draw(Material& material, std::vector<LightData> lightData) const
     {
+        /*
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, 0);
         //load textures or flat values
         //diffuse
         if (material.albedoTexture == nullptr) {
-            material.shader->setBool("useAlbedoTexture", false);
-            material.shader->setVec4("albedo", material.albedoColor);
+            //material.shader->setBool("useAlbedoTexture", false);
+            //material.shader->setVec4("albedo", material.albedoColor);
         }
         else {
-            material.shader->setBool("useAlbedoTexture", true);
+            //material.shader->setBool("useAlbedoTexture", true);
             glActiveTexture(GL_TEXTURE0);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_albedo"), 0);
-            glBindTexture(GL_TEXTURE_2D, material.albedoTexture->GetTextureId());
+            //glBindTexture(GL_TEXTURE_2D, material.albedoTexture->GetTextureId());
         }
         //normal
         if (material.normalTexture == nullptr) {
-            material.shader->setBool("useNormalTexture", false);
+            //material.shader->setBool("useNormalTexture", false);
         }
         else {
-            material.shader->setBool("useNormalTexture", true);
+            //material.shader->setBool("useNormalTexture", true);
             glActiveTexture(GL_TEXTURE1);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_normal"), 1);
-            glBindTexture(GL_TEXTURE_2D, material.normalTexture->GetTextureId());
+            //glBindTexture(GL_TEXTURE_2D, material.normalTexture->GetTextureId());
         }
         //roughness
         if (material.roughnessTexture == nullptr) {
-            material.shader->setBool("useRoughnessTexture", false);
-            material.shader->setFloat("roughness", material.roughness);
+            //material.shader->setBool("useRoughnessTexture", false);
+            //material.shader->setFloat("roughness", material.roughness);
         }
         else {
-            material.shader->setBool("useRoughnessTexture", true);
+            //material.shader->setBool("useRoughnessTexture", true);
             glActiveTexture(GL_TEXTURE2);
             glUniform1i(glGetUniformLocation(material.shader->ID, "texture_roughness"), 2);
-            glBindTexture(GL_TEXTURE_2D, material.roughnessTexture->GetTextureId());
+            //glBindTexture(GL_TEXTURE_2D, material.roughnessTexture->GetTextureId());
         }
         //metallic
         if (material.metallicTexture == nullptr) {
-            material.shader->setBool("useMetallicTexture", false);
-            material.shader->setFloat("metallic", material.metallic);
+            //material.shader->setBool("useMetallicTexture", false);
+            //material.shader->setFloat("metallic", material.metallic);
         }
         else {
-            material.shader->setBool("useMetallicTexture", true);
+            //material.shader->setBool("useMetallicTexture", true);
             glActiveTexture(GL_TEXTURE3);
-            glBindTexture(GL_TEXTURE_2D, material.metallicTexture->GetTextureId());
+            //glBindTexture(GL_TEXTURE_2D, material.metallicTexture->GetTextureId());
         }
 
         if (!lightData.empty()) {
@@ -314,5 +337,6 @@ namespace REON {
 
         // always good practice to set everything back to defaults once configured.
         glActiveTexture(GL_TEXTURE0);
+        */
     }
 }

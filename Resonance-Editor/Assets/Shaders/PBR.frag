@@ -237,7 +237,7 @@ float MainShadowCalculation(vec4 fragPosLightSpace)
 
 void main()
 {
-    vec3 V    = normalize(fragViewPos - fragPosition);
+    vec3 V = normalize(fragViewPos - fragPosition);
     vec3 N = normalize(Normal);
     vec3 R = reflect(-V, N);
 

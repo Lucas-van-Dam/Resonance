@@ -20,6 +20,10 @@ namespace REON {
         GetOwner()->GetScene()->lightManager->AddLight(shared_from_this());
     }
 
+    void Light::cleanup()
+    {
+    }
+
     void Light::OnComponentDetach()
     {
     }

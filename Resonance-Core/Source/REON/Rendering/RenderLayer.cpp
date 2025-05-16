@@ -18,4 +18,9 @@ namespace REON {
 		if(auto scene = SceneManager::Get()->GetCurrentScene())
 			scene->renderManager->Render();
 	}
+	void RenderLayer::OnCleanup()
+	{
+		if (auto scene = SceneManager::Get()->GetCurrentScene())
+			scene->renderManager->cleanup();
+	}
 }

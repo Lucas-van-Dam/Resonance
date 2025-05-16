@@ -1,6 +1,6 @@
 #pragma once
 
-#include "glad/glad.h"
+#include <glad/glad.h>
 #include "glm/glm.hpp"
 #include "REON/ResourceManagement/Resource.h"
 
@@ -13,23 +13,10 @@ namespace REON {
 	public:
 		// constructor reads and builds the shader
 		Shader();
-		// use/activate the shader
-		void use() const;
-		// utility uniform functions
-		void setBool(const std::string& name, bool value) const;
-		void setInt(const std::string& name, int value) const;
-		void setFloat(const std::string& name, float value) const;
-		void setVec2(const std::string& name, const glm::vec2& value) const;
-		void setVec2(const std::string& name, float x, float y) const;
-		void setVec3(const std::string& name, const glm::vec3& value) const;
-		void setVec3(const std::string& name, float x, float y, float z) const;
-		void setVec4(const std::string& name, const glm::vec4& value) const;
-		void setVec4(const std::string& name, float x, float y, float z, float w) const;
-		void setMat2(const std::string& name, const glm::mat2& mat) const;
-		void setMat3(const std::string& name, const glm::mat3& mat) const;
-		void setMat4(const std::string& name, const glm::mat4& mat) const;
 
 		void ReloadShader();
+
+		void use() {}
 
 		// Inherited via Resource
 		void Load(const std::string& filePath, std::any metadata) override;
@@ -37,17 +24,16 @@ namespace REON {
 		void Unload() override;
 
 		static std::vector<char> CompileHLSLToSPIRV(const std::string& source);
+		std::vector<char> getVertexSPIRV() { if (m_VertexSPIRV.empty()) return CompileHLSLToSPIRV(m_VertexPath); else return m_VertexSPIRV; }
+		std::vector<char> getFragmentSPIRV() { if (m_FragmentSPIRV.empty()) return CompileHLSLToSPIRV(m_FragmentPath); else return m_FragmentSPIRV; }
+		std::vector<char> getGeometrySPIRV() { if (m_GeometrySPIRV.empty()) return CompileHLSLToSPIRV(m_GeometryPath); else return m_GeometrySPIRV; }
 
 	public:
 		// the program ID
 		unsigned int ID;
 
 	private:
-		// utility function for checking shader compilation/linking errors.
-		// ------------------------------------------------------------------------
-		static void checkCompileErrors(unsigned int shader, const std::string& type);
-
-	private:
+		std::vector<char> m_VertexSPIRV, m_FragmentSPIRV, m_GeometrySPIRV;
 		std::string m_VertexPath, m_FragmentPath, m_GeometryPath;
 		GLuint m_FragmentID, m_VertexID, m_GeometryID;
 	};

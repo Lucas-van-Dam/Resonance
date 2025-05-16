@@ -105,6 +105,9 @@ namespace REON {
 
 	GameObject::~GameObject()
 	{
+		for (auto component : m_Components) {
+			//component->cleanup();
+		}
 	}
 
 	GameObject::GameObject(const GameObject&) {

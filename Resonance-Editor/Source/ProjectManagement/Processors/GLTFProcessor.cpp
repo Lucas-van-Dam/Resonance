@@ -69,7 +69,7 @@ namespace REON::EDITOR {
 
 			auto pbrData = srcMat.pbrMetallicRoughness;
 
-			mat->albedoColor = glm::vec4(
+			mat->flatData.albedo = glm::vec4(
 				static_cast<float>(pbrData.baseColorFactor[0]),
 				static_cast<float>(pbrData.baseColorFactor[1]),
 				static_cast<float>(pbrData.baseColorFactor[2]),
@@ -83,8 +83,8 @@ namespace REON::EDITOR {
 				REON_ERROR("HAVENT IMPLEMENTED METALLICROUGHNESS TEXTURES YET, WILL IN A BIT");
 			}
 			else {
-				mat->roughness = pbrData.roughnessFactor;
-				mat->metallic = pbrData.metallicFactor;
+				mat->flatData.roughness = pbrData.roughnessFactor;
+				mat->flatData.metallic = pbrData.metallicFactor;
 			}
 
 			if (srcMat.normalTexture.index >= 0) {
@@ -163,14 +163,14 @@ namespace REON::EDITOR {
 			}
 			sceneNode.materials.push_back(matID);
 
-			const int vertexOffset = meshData->vertices.size();
+			const int vertexOffset = meshData->positions.size();
 
 			for (auto& attribute : primitive.attributes)
 			{
 				const tinygltf::Accessor& accessor = model.accessors.at(attribute.second);
 				if (attribute.first.compare("POSITION") == 0)
 				{
-					HandleGLTFBuffer(model, accessor, meshData->vertices, transform);
+					HandleGLTFBuffer(model, accessor, meshData->positions, transform);
 				}
 				else if (attribute.first.compare("NORMAL") == 0)
 				{
@@ -178,7 +178,7 @@ namespace REON::EDITOR {
 				}
 				else if (attribute.first.compare("TEXCOORD_0") == 0)
 				{
-					HandleGLTFBuffer(model, accessor, meshData->uvs);
+					HandleGLTFBuffer(model, accessor, meshData->texCoords);
 				}
 				else if (attribute.first.compare("COLOR_0") == 0)
 				{
@@ -191,10 +191,10 @@ namespace REON::EDITOR {
 				}
 			}
 
-			const int smallestBufferSize = std::min(meshData->normals.size(), std::min(meshData->uvs.size(), meshData->colors.size()));
-			const int vertexCount = meshData->vertices.size();
+			const int smallestBufferSize = std::min(meshData->normals.size(), std::min(meshData->texCoords.size(), meshData->colors.size()));
+			const int vertexCount = meshData->positions.size();
 			meshData->normals.reserve(vertexCount);
-			meshData->uvs.reserve(vertexCount);
+			meshData->texCoords.reserve(vertexCount);
 			meshData->colors.reserve(vertexCount);
 
 			for (int i = smallestBufferSize; i < vertexCount; ++i)
@@ -202,12 +202,15 @@ namespace REON::EDITOR {
 				if (meshData->normals.size() == i)
 					meshData->normals.push_back(glm::vec3(0,1,0));
 
-				if (meshData->uvs.size() == i)
-					meshData->uvs.push_back(glm::vec2(0, 0));
+				if (meshData->texCoords.size() == i)
+					meshData->texCoords.push_back(glm::vec2(0, 0));
 
 				if (meshData->colors.size() == i)
 					meshData->colors.push_back(glm::vec4(1,1,1,1));
 			}
+
+			if (meshData->tangents.empty())
+				meshData->calculateTangents();
 
 			const int index = primitive.indices;
 
@@ -224,7 +227,7 @@ namespace REON::EDITOR {
 			}
 			else
 			{
-				for (uint i = static_cast<uint>(vertexOffset); i < meshData->vertices.size(); i++)
+				for (uint i = static_cast<uint>(vertexOffset); i < meshData->positions.size(); i++)
 					meshData->indices.push_back(i);
 			}
 			subMesh.indexCount = meshData->indices.size() - subMesh.indexOffset;

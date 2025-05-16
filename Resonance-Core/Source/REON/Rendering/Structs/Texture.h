@@ -1,11 +1,11 @@
 #pragma once
 
 #include "REON/ResourceManagement/Resource.h"
-
 #include "stb_image_wrapper.h"
 #include "assimp/Importer.hpp"
 #include "assimp/scene.h"
-#include "glad/glad.h"
+#include "vulkan/vulkan.h"
+#include "vma/vk_mem_alloc.h"
 #include "GLFW/glfw3.h"
 
 namespace REON {
@@ -13,7 +13,7 @@ namespace REON {
 
     class [[clang::annotate("serialize")]] Texture : public ResourceBase {
     public:
-        Texture() : m_TextureId(0) {}
+        Texture() {}
         ~Texture() override { Unload(); }
 
         // Inherited via Resource
@@ -23,9 +23,13 @@ namespace REON {
 
         virtual void Unload() override;
 
-        unsigned int GetTextureId();
+        VkImageView getTextureView() const;
+        VkSampler getSampler() const;
 
     private:
-        unsigned int m_TextureId;
+        VkImage m_Texture;
+        VkImageView m_TextureView;
+        VmaAllocation m_TextureAllocation;
+        VkSampler m_TextureSampler;
     };
 }

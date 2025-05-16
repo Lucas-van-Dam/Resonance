@@ -1,6 +1,7 @@
 #pragma once
 #include "Resource.h"
 #include "REON/AssetManagement/AssetRegistry.h"
+#include <typeindex>
 
 namespace REON {
 	class ResourceManager
@@ -24,13 +25,18 @@ namespace REON {
 
         // Add an existing resource to the cache
         template <typename ResourceType>
-        void AddResource(std::shared_ptr<ResourceType> resource);
+        void AddResource(std::shared_ptr<ResourceType> resource, std::any metadata = {});
+
+        template<typename T>
+        std::string GetTypeName() const;
 
         // Unload a resource by UID
         void UnloadResource(std::string uid);
 
         // Clear all resources
         void Clear();
+
+        void Destroy();
 
         std::shared_ptr<ResourceBase> GetResourceFromAsset(AssetInfo* info, const std::filesystem::path& projectPath) {
             auto it = resourceConverters.find(info->type);
@@ -42,11 +48,11 @@ namespace REON {
 
     private:
         ResourceManager();
-        ~ResourceManager() = default;
+        ~ResourceManager();
 
     private:
         std::unordered_map<std::string, std::shared_ptr<ResourceBase>> resourceCache;
-
+        //std::unordered_map<std::string, std::vector<std::shared_ptr<ResourceBase>>> resourcesByType;
         std::unordered_map<std::string, std::function<std::shared_ptr<ResourceBase>(const AssetInfo* info, const std::filesystem::path&)>> resourceConverters;
 	};
 
@@ -75,6 +81,10 @@ namespace REON {
         REON_CORE_TRACE("Loading Resource from filePath: {}", filePath);
         // Create a new resource and load it
         auto newResource = std::make_shared<ResourceType>();
+
+        //std::string typeName = GetTypeName<ResourceType>();
+        //resourcesByType[typeName].push_back(newResource);
+
         newResource->Load(filePath, metadata);
 
         // Cache and return the resource using its UID
@@ -83,16 +93,30 @@ namespace REON {
     }
 
     template<typename ResourceType>
-    void ResourceManager::AddResource(std::shared_ptr<ResourceType> resource)
+    void ResourceManager::AddResource(std::shared_ptr<ResourceType> resource, std::any metadata)
     {
         if (resourceCache.find(resource->GetID()) != resourceCache.end()) {
             REON_CORE_ERROR("Already found resource with UID {}", resource->GetID());
             return;
         }
 
+        //std::string typeName = GetTypeName<ResourceType>();
+        //resourcesByType[typeName].push_back(resource);
+
         resource->Load();
 
         resourceCache[resource->GetID()] = resource;
+    }
+
+    template<typename T>
+    std::string ResourceManager::GetTypeName() const
+    {
+        std::string mangledName = typeid(T).name();
+        size_t pos = mangledName.find_last_of("::");
+        if (pos != std::string::npos) {
+            return mangledName.substr(pos + 1); // Skip "::"
+        }
+        return mangledName;
     }
 
 }

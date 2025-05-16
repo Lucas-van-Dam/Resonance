@@ -138,7 +138,7 @@ namespace REON::EDITOR {
 				vector.x = mesh->mBitangents[i].x;
 				vector.y = mesh->mBitangents[i].y;
 				vector.z = mesh->mBitangents[i].z;
-				vertex.Bitangent = vector;
+				//vertex.Bitangent = vector;
 			}
 			else
 				vertex.TexCoords = glm::vec2(0.0f, 0.0f);
@@ -205,9 +205,9 @@ namespace REON::EDITOR {
 		material->roughnessTexture = LoadTexture(aiMaterial, aiTextureType_UNKNOWN, m_Directory);
 		//material->MetallicTexture = LoadMaterialTextures(aiMaterial, aiTextureType_METALNESS, "texture_metallic", directory);
 
-		material->metallic = metallic;
-		material->roughness = roughness;
-		material->albedoColor = glm::vec4(color.r, color.g, color.b, color.a);
+		//material->metallic = metallic;
+		//material->roughness = roughness;
+		//material->albedoColor = glm::vec4(color.r, color.g, color.b, color.a);
 
 		std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier, std::make_tuple(vertices, indices));
 

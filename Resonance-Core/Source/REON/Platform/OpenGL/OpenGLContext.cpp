@@ -19,7 +19,7 @@ namespace REON {
 		REON_CORE_ASSERT(status, "Failed to initialize GLAD");
 	}
 
-	void OpenGLContext::swapBuffers()
+	void OpenGLContext::endFrame()
 	{
 		glfwSwapBuffers(m_WindowHandle);
 	}

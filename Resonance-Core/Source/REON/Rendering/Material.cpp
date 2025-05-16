@@ -1,6 +1,8 @@
 #include "reonpch.h"
 #include "Material.h"
 #include "REON/ResourceManagement/ResourceManager.h"
+#include <REON/Platform/Vulkan/VulkanContext.h>
+#include "REON/Application.h"
 
 namespace REON {
 
@@ -21,32 +23,52 @@ namespace REON {
 
 	void Material::Load()
 	{
+		const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
 
+		VkDeviceSize bufferSize = sizeof(FlatData);
+
+		flatDataBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
+		m_FlatDataBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
+		flatDataBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
+
+		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
+			// TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
+			context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, flatDataBuffers[i], m_FlatDataBufferAllocations[i]);
+
+			vmaMapMemory(context->getAllocator(), m_FlatDataBufferAllocations[i], &flatDataBuffersMapped[i]);
+		}
 	}
 
 	void Material::Unload()
 	{
-		shader.reset();
+		const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+
+		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
+			vkDestroyBuffer(context->getDevice(), flatDataBuffers[i], nullptr);
+			vmaUnmapMemory(context->getAllocator(), m_FlatDataBufferAllocations[i]);
+			vmaFreeMemory(context->getAllocator(), m_FlatDataBufferAllocations[i]);
+		}
 	}
 
 	std::filesystem::path Material::Serialize(std::filesystem::path path) {
 		nlohmann::ordered_json json;
 		json["GUID"] = GetID();
+		json["Name"] = GetName();
 
-		json["Albedo"] = { albedoColor.r, albedoColor.g, albedoColor.b, albedoColor.a };
-		if (albedoTexture)
-			json["AlbedoTexture"] = albedoTexture->GetID();
-		if (roughnessTexture)
-			json["RoughnessTexture"] = roughnessTexture->GetID();
+		json["Albedo"] = { flatData.albedo.r, flatData.albedo.g, flatData.albedo.b, flatData.albedo.a };
+		if (albedoTexture.Get<Texture>())
+			json["AlbedoTexture"] = albedoTexture.Get<Texture>()->GetID();
+		if (roughnessTexture.Get<Texture>())
+			json["RoughnessTexture"] = roughnessTexture.Get<Texture>()->GetID();
 
-		json["Roughness"] = roughness;
-		json["Metallic"] = metallic;
+		json["Roughness"] = flatData.roughness;
+		json["Metallic"] = flatData.metallic;
 
-		if (normalTexture)
-			json["NormalTexture"] = normalTexture->GetID();
+		if (normalTexture.Get<Texture>())
+			json["NormalTexture"] = normalTexture.Get<Texture>()->GetID();
 
-		if (shader)
-			json["Shader"] = shader->GetID();
+		if (shader.Get<Shader>())
+			json["Shader"] = shader.Get<Shader>()->GetID();
 
 		std::string writePath = path.string() + "\\" + GetName() + ".material";
 
@@ -80,35 +102,42 @@ namespace REON {
 			m_ID = (json["GUID"].get<std::string>());
 		}
 
+		if (json.contains("Name")) {
+			SetName(json["Name"].get<std::string>());
+		}
+
 		// Extract Albedo Color
 		if (json.contains("Albedo")) {
 			auto albedoArray = json["Albedo"];
-			albedoColor = glm::vec4(albedoArray[0], albedoArray[1], albedoArray[2], albedoArray[3]);
+			flatData.albedo = glm::vec4(albedoArray[0], albedoArray[1], albedoArray[2], albedoArray[3]);
 		}
 
 		// Extract Albedo Texture
 		if (json.contains("AlbedoTexture")) {
 			std::string albedoTextureID = json["AlbedoTexture"].get<std::string>();
+			flatData.useAlbedoTexture = true;
 			//albedoTexture = LoadTextureByID(albedoTextureID); // Replace with your actual texture loading logic
 		}
 
 		// Extract Roughness and Roughness Texture
 		if (json.contains("Roughness")) {
-			roughness = json["Roughness"].get<float>();
+			flatData.roughness = json["Roughness"].get<float>();
 		}
 		if (json.contains("RoughnessTexture")) {
 			std::string roughnessTextureID = json["RoughnessTexture"].get<std::string>();
+			flatData.useRoughnessTexture = true;
 			//roughnessTexture = LoadTextureByID(roughnessTextureID);
 		}
 
 		// Extract Metallic
 		if (json.contains("Metallic")) {
-			metallic = json["Metallic"].get<float>();
+			flatData.metallic = json["Metallic"].get<float>();
 		}
 
 		// Extract Normal Texture
 		if (json.contains("NormalTexture")) {
 			std::string normalTextureID = json["NormalTexture"].get<std::string>();
+			flatData.useNormalTexture = true;
 			//normalTexture = LoadTextureByID(normalTextureID);
 		}
 
@@ -118,4 +147,6 @@ namespace REON {
 			shader = ResourceManager::GetInstance().LoadResource<Shader>("DefaultLit", std::make_tuple("PBR.vert", "PBR.frag", std::optional<std::string>{}));
 		}
 	}
+
+	
 }

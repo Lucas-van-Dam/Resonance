@@ -11,6 +11,7 @@
 #include "ProjectManagement/Processors/GLTFProcessor.h"
 #include "ProjectManagement/Processors/PrimaryProcessors.h"
 #include "REON/Rendering/PostProcessing/BloomEffect.h"
+#include "vulkan/vulkan.h"
 
 namespace REON::EDITOR {
 
@@ -83,6 +84,7 @@ namespace REON::EDITOR {
 				ImGui::EndMenu();
 			}
 			if (ImGui::BeginMenu("Window")) {
+				ImGui::EndMenu();
 			}
 			ImGui::EndMenuBar();
 		}
@@ -115,13 +117,31 @@ namespace REON::EDITOR {
 			ImGuiFileDialog::Instance()->Close();
 		}
 
-		if (!m_ProjectLoaded)
+		if (!m_ProjectLoaded || m_FirstFrame) {
+			const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+
+			VkSemaphore signalSemaphores[] = { context->getCurrentRenderFinishedSemaphore() };
+			VkSemaphore waitSemaphores[] = { context->getCurrentImageAvailableSemaphore() };
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+			VkSubmitInfo submitInfo{};
+			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			submitInfo.signalSemaphoreCount = 1;
+			submitInfo.waitSemaphoreCount = 1;
+			submitInfo.pSignalSemaphores = signalSemaphores;
+			submitInfo.pWaitSemaphores = waitSemaphores;
+			submitInfo.pWaitDstStageMask = waitStages;
+
+			vkQueueSubmit(context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+			if (m_ProjectLoaded)
+				m_FirstFrame = false;
 			return;
+		}
+
 
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
-		auto scene = REON::SceneManager::Get()->GetCurrentScene();
+		auto scene = SceneManager::Get()->GetCurrentScene();
 
 		if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse))
 		{
@@ -133,12 +153,15 @@ namespace REON::EDITOR {
 
 			auto size = ImGui::GetContentRegionAvail();
 
-			if(wasResized)
+			if (wasResized)
 				scene->renderManager->SetRenderDimensions(size.x, size.y);
-			
+
 			m_SceneHovered = ImGui::IsWindowHovered();
 
-			ImGui::Image((void*)(intptr_t)scene->renderManager->GetEndBuffer(), size, ImVec2(0, 1), ImVec2(1, 0));
+			auto texId = scene->renderManager->GetEndBuffer();
+
+			if(texId != nullptr)
+				ImGui::Image((ImTextureID)texId, size, ImVec2(0, 1), ImVec2(1, 0));
 			if (scene->selectedObject) {
 				ImVec2 windowSize = ImGui::GetWindowSize();
 				ImVec2 pos = ImGui::GetWindowPos();
@@ -175,27 +198,27 @@ namespace REON::EDITOR {
 		}
 		ImGui::End();
 
-		if (ImGui::Begin("PostProcessTestWindow")) {
-			bool enabled = RenderManager::m_ColorCorrection->IsEnabled();
-			if (ImGui::Checkbox("Enable ColorCorrection", &enabled)) {
-				RenderManager::m_ColorCorrection->SetEnabled(enabled);
-			}
+		//if (ImGui::Begin("PostProcessTestWindow")) {
+		//	bool enabled = RenderManager::m_ColorCorrection->IsEnabled();
+		//	if (ImGui::Checkbox("Enable ColorCorrection", &enabled)) {
+		//		RenderManager::m_ColorCorrection->SetEnabled(enabled);
+		//	}
 
-			enabled = RenderManager::m_BloomEffect->IsEnabled();
-			if (ImGui::Checkbox("Enable Bloom", &enabled)) {
-				RenderManager::m_BloomEffect->SetEnabled(enabled);
-			}
+		//	enabled = RenderManager::m_BloomEffect->IsEnabled();
+		//	if (ImGui::Checkbox("Enable Bloom", &enabled)) {
+		//		RenderManager::m_BloomEffect->SetEnabled(enabled);
+		//	}
 
-			enabled = RenderManager::m_DepthOfField->IsEnabled();
-			if (ImGui::Checkbox("Enable Depth of Field", &enabled)) {
-				RenderManager::m_DepthOfField->SetEnabled(enabled);
-			}
+		//	enabled = RenderManager::m_DepthOfField->IsEnabled();
+		//	if (ImGui::Checkbox("Enable Depth of Field", &enabled)) {
+		//		RenderManager::m_DepthOfField->SetEnabled(enabled);
+		//	}
 
-			ImGui::DragFloat("Focus Distance", &RenderManager::m_DepthOfField->m_FocusDistance, 1.0, 0.1f, 100.0f);
+		//	ImGui::DragFloat("Focus Distance", &RenderManager::m_DepthOfField->m_FocusDistance, 1.0, 0.1f, 100.0f);
 
-		}
+		//}
 
-		ImGui::End();
+		//ImGui::End();
 
 		//ImGui::PopStyleVar(2);
 		Inspector::InspectObject(scene->selectedObject);

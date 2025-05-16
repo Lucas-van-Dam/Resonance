@@ -19,6 +19,7 @@ namespace REON {
 		void OnUpdate() override;
 		//void OnImGuiRender() override;
 		//void OnEvent(Event& event) override;
+		void OnCleanup() override;
 
 	private:
 	};

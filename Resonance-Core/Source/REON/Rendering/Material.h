@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "REON/Rendering/Shader.h"
 #include "REON/Rendering/Structs/Texture.h"
@@ -6,7 +6,15 @@
 #include "nlohmann/json.hpp"
 
 namespace REON {
-
+    struct alignas(16) FlatData {
+        glm::vec4 albedo;       // float4 → 16 bytes
+        float roughness;        // float → 4 bytes
+        float metallic;         // float → 4 bytes
+        int useAlbedoTexture = false;    // bool → 4 bytes (no native bools in std140)
+        int useNormalTexture = false;    // bool → 4 bytes
+        int useRoughnessTexture = false; // bool → 4 bytes
+        int useMetallicTexture = false;  // bool → 4 bytes
+    };
     
     class [[clang::annotate("serialize")]] Material : public ResourceBase {
     public:
@@ -24,14 +32,22 @@ namespace REON {
         void Deserialize(std::filesystem::path path);
 
     public:
-        std::shared_ptr<Texture> albedoTexture;
-        glm::vec4 albedoColor;
-        std::shared_ptr<Texture> metallicTexture;
-        float metallic;
-        std::shared_ptr<Texture> roughnessTexture;
-        float roughness;
-        std::shared_ptr<Texture> normalTexture;
-        std::shared_ptr<Shader> shader;
+        ResourceHandle albedoTexture;
+        ResourceHandle metallicTexture;
+        ResourceHandle roughnessTexture;
+        ResourceHandle normalTexture;
+        ResourceHandle shader;
+        FlatData flatData;
+
+        std::vector<VkBuffer> flatDataBuffers;
+        std::vector<VkDescriptorSet> descriptorSets;
+        std::vector<void*> flatDataBuffersMapped;
+
+    private:
+
+        std::vector<VmaAllocation> m_FlatDataBufferAllocations;
+        //void createDescriptorSets();
+
     };
 }
 

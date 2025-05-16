@@ -1,6 +1,7 @@
 #include "reonpch.h"
 #include "ResourceManager.h"
 #include <REON/Rendering/Mesh.h>
+#include <ReflectionSystem.h>
 
 namespace REON {
 	ResourceManager::ResourceManager() {
@@ -40,6 +41,11 @@ namespace REON {
 			};
 	}
 
+	ResourceManager::~ResourceManager()
+	{
+		Destroy();
+	}
+
 	inline void ResourceManager::UnloadResource(std::string uid)
 	{
 		resourceCache.erase(uid);
@@ -48,5 +54,14 @@ namespace REON {
 	inline void ResourceManager::Clear()
 	{
 		resourceCache.clear();
+	}
+	void ResourceManager::Destroy()
+	{
+		resourceConverters.clear();
+		for (auto resource : resourceCache) {
+			REON_CORE_INFO("Resource: {} has {} references", resource.second->GetName(), resource.second.use_count());
+			resource.second.reset();
+		}
+		Clear();
 	}
 }

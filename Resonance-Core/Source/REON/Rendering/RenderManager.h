@@ -9,6 +9,9 @@
 #include "PostProcessing/DepthOfField.h"
 #include "REON/Events/EventBus.h"
 #include "REON/Events/KeyEvent.h"
+#include <set>
+#include "vulkan/vulkan.h"
+#include "REON/Platform/Vulkan/VulkanContext.h"
 
 
 namespace REON {
@@ -23,13 +26,14 @@ namespace REON {
 		RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera);
 		void Initialize();
 		void HotReloadShaders();
-		uint GetEndBuffer();
+		VkDescriptorSet GetEndBuffer();
 		void SetRenderDimensions(int width, int height);
 		int GetRenderWidth();
 		int GetRenderHeight();
 		static void InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height);
 		static void RenderFullScreenQuad();
 		void OnKeyPressed(const KeyPressedEvent& event);
+		void cleanup();
 
 	private:
 		void RenderOpaques();
@@ -40,11 +44,74 @@ namespace REON {
 		void GenerateAdditionalShadows();
 		void RenderSkyBox();
 		void InitializeSkyBox();
+		std::vector<LightData> GetLightingBuffer();
+		void setGlobalData();
+
+		void deleteForResize();
+
+		void createDummyResources();
+		void createEndBufferSet();
+
+		void createOpaqueCommandPool();
+		void createOpaqueCommandBuffers();
+		void createOpaqueImages();
+		void createOpaqueRenderPass();
+		void createOpaqueFrameBuffers();
+		void createOpaqueDescriptorSetLayout();
+		void createOpaqueGlobalDescriptorSets();
+		void createGlobalBuffers();
+		void createOpaqueMaterialDescriptorSets(const std::shared_ptr<Material>& material);
+		void createOpaqueObjectDescriptorSets(const std::shared_ptr<Renderer>& renderer);
+		void createOpaqueGraphicsPipeline();
+		VkPipeline createGraphicsPipeline(std::shared_ptr<Material> mat);
 
 	private:
+		const VulkanContext* m_Context;
+
+		std::unordered_map<std::string, VkPipeline> m_PipelineByShaderId;
+		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::shared_ptr<Renderer>>>> m_RenderersByShaderId;
+		std::set<std::weak_ptr<Material>> materials;
+
+		std::vector<VkDescriptorSet> m_GlobalDescriptorSets;
+		std::vector<VkBuffer> m_GlobalDataBuffers;
+		std::vector<VmaAllocation> m_GlobalDataBufferAllocations;
+		std::vector<void*> m_GlobalDataBuffersMapped;
+
+		std::vector<VkDescriptorSet> m_EndDescriptorSets;
+		VkDescriptorSetLayout m_EndDescriptorSetLayout; //
+		VkSampler m_EndSampler;
+
+		// OPAQUE PIPELINE
+		std::vector<VkCommandBuffer> m_OpaqueCommandBuffers; //
+		VkCommandPool m_OpaqueCommandPool; //
+		VkRenderPass m_OpaqueRenderPass; //
+		VkDescriptorSetLayout m_OpaqueGlobalDescriptorSetLayout; //
+		VkDescriptorSetLayout m_OpaqueMaterialDescriptorSetLayout; //
+		VkDescriptorSetLayout m_OpaqueObjectDescriptorSetLayout; //
+		VkPipelineLayout m_OpaquePipelineLayout; //
+		VkPipeline m_OpaqueGraphicsPipeline; //
+		VkImage m_DepthImage; //
+		VmaAllocation m_DepthImageAllocation; //
+		VkImageView m_DepthImageView; //
+		VkImage m_ColorImage; //
+		VmaAllocation m_ColorImageAllocation; //
+		VkImageView m_ColorImageView; //
+		std::vector<VkFramebuffer> m_OpaqueFramebuffers; //
+		std::vector<VkImage> m_OpaqueResolveImages; //
+		std::vector<VmaAllocation> m_OpaqueResolveImageAllocations; //
+		std::vector<VkImageView> m_OpaqueResolveImageViews; //
+
+		bool resized = false;
+
+		VkImage m_DummyImage;
+		VkImageView m_DummyImageView;
+		VmaAllocation m_DummyImageAllocation;
+		VkSampler m_DummySampler;
+
+		//OLD (some still used, but new things (vulkan) are above this, will filter out whats not used anymore once i get everything working)
 		CallbackID m_KeyPressedCallbackID;
 
-		int m_Width, m_Height;
+		uint m_Width, m_Height;
 		std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<Renderer>>> m_ShaderToRenderer;
 		std::vector<std::shared_ptr<Renderer>> m_Renderers;
 		std::shared_ptr<EditorCamera> m_Camera;
@@ -62,8 +129,8 @@ namespace REON {
 		const uint ADDITIONAL_SHADOW_WIDTH = 1024, ADDITIONAL_SHADOW_HEIGHT = 1024;
 		std::vector<int> m_DepthCubeMaps;
 		std::vector<uint> m_AdditionalDepthFBOs;
-		std::shared_ptr<Shader> m_DirectionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("DirectionalShadowShader", std::make_tuple("DirectionalShadow.vert", "DirectionalShadow.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_AdditionalShadowShader = ResourceManager::GetInstance().LoadResource<Shader>("OmnidirectionalShadowShader", std::make_tuple("OmnidirectionalShadow.vert", "OmnidirectionalShadow.frag", std::optional<std::string>{"OmnidirectionalShadow.geom"}));
+		std::shared_ptr<Shader> m_DirectionalShadowShader = nullptr;// ResourceManager::GetInstance().LoadResource<Shader>("DirectionalShadowShader", std::make_tuple("DirectionalShadow.vert", "DirectionalShadow.frag", std::optional<std::string>{}));
+		std::shared_ptr<Shader> m_AdditionalShadowShader = nullptr;// ResourceManager::GetInstance().LoadResource<Shader>("OmnidirectionalShadowShader", std::make_tuple("OmnidirectionalShadow.vert", "OmnidirectionalShadow.frag", std::optional<std::string>{"OmnidirectionalShadow.geom"}));
 
 		//Skybox
 		uint m_SkyboxVAO, m_SkyboxVBO;
@@ -72,11 +139,11 @@ namespace REON {
 		uint m_IrradianceMap;
 		uint m_PrefilterMap;
 		uint m_BrdfLUTTexture;
-		std::shared_ptr<Shader> m_IrradianceShader = ResourceManager::GetInstance().LoadResource<Shader>("IrradianceShader", std::make_tuple("CubeProjection.vert", "IrradianceMap.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_SkyboxShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxShader", std::make_tuple("SkyBox.vert", "SkyBox.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_PreFilterShader = ResourceManager::GetInstance().LoadResource<Shader>("PreFilterShader", std::make_tuple("CubeProjection.vert", "PreFilter.frag", std::optional<std::string>{}));
-		std::shared_ptr<Shader> m_BrdfShader = ResourceManager::GetInstance().LoadResource<Shader>("BrdfShader", std::make_tuple("brdf.vert", "brdf.frag", std::optional<std::string>{}));
+		//std::shared_ptr<Shader> m_IrradianceShader = ResourceManager::GetInstance().LoadResource<Shader>("IrradianceShader", std::make_tuple("CubeProjection.vert", "IrradianceMap.frag", std::optional<std::string>{}));
+		//std::shared_ptr<Shader> m_SkyboxShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxShader", std::make_tuple("SkyBox.vert", "SkyBox.frag", std::optional<std::string>{}));
+		//std::shared_ptr<Shader> m_SkyboxMappingShader = ResourceManager::GetInstance().LoadResource<Shader>("SkyboxMappingShader", std::make_tuple("CubeProjection.vert", "CubeProjection.frag", std::optional<std::string>{}));
+		//std::shared_ptr<Shader> m_PreFilterShader = ResourceManager::GetInstance().LoadResource<Shader>("PreFilterShader", std::make_tuple("CubeProjection.vert", "PreFilter.frag", std::optional<std::string>{}));
+		//std::shared_ptr<Shader> m_BrdfShader = ResourceManager::GetInstance().LoadResource<Shader>("BrdfShader", std::make_tuple("brdf.vert", "brdf.frag", std::optional<std::string>{}));
 		std::string m_SkyboxLocation = "Assets/Textures/rogland_clear_night_4k.hdr";
 
 		//Screen shader

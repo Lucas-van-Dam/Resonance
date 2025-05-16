@@ -9,7 +9,7 @@ namespace REON {
 	void DepthOfField::Resize(int width, int height)
 	{
         m_BlurShader->use();
-        m_BlurShader->setVec2("texelSize", glm::vec2(1.0f / width, 1.0f / height));
+        //m_BlurShader->setVec2("texelSize", glm::vec2(1.0f / width, 1.0f / height));
 
         glBindTexture(GL_TEXTURE_2D, m_CoCTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED, GL_FLOAT, nullptr);
@@ -42,8 +42,8 @@ namespace REON {
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, depthTexture);
 
-        m_CoCShader->setFloat("focusDistance", m_FocusDistance);
-        m_CoCShader->setFloat("focusRange", m_FocusRange);
+        //m_CoCShader->setFloat("focusDistance", m_FocusDistance);
+        //m_CoCShader->setFloat("focusRange", m_FocusRange);
 
         RenderManager::RenderFullScreenQuad();
 
@@ -112,7 +112,7 @@ namespace REON {
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         m_BlurShader->use();
-        m_BlurShader->setVec2("texelSize", glm::vec2(1.0f / width, 1.0f / height));
+        //m_BlurShader->setVec2("texelSize", glm::vec2(1.0f / width, 1.0f / height));
 	}
 
 	void DepthOfField::HotReloadShaders()

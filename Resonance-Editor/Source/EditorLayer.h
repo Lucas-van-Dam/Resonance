@@ -51,6 +51,7 @@ namespace REON::EDITOR {
 		GizmoType m_Gizmotype;
 
 		bool m_ProjectLoaded = false;
+		bool m_FirstFrame = true;
 
 		bool m_SceneHovered = false;
 		double m_SavedX = 0, m_SavedY = 0;

@@ -23,6 +23,8 @@ namespace REON {
         // Inherited via Component
         void OnGameObjectAddedToScene() override;
 
+        void cleanup() override;
+
     public:
         LightType type;
         float intensity;

@@ -8,6 +8,7 @@
 #include "REON/ImGui/ImGuiLayer.h"
 #include "Rendering/RenderLayer.h"
 #include "GameHierarchy/GameLogicLayer.h"
+#include "Rendering/RenderContext.h"
 
 namespace REON {
 
@@ -29,6 +30,8 @@ namespace REON {
 
 		uint64_t GetFrameNumber() { return m_FrameNumber; }
 
+		const RenderContext* GetRenderContext() const { return m_Context; }
+
 	private:
 		void OnWindowClose(const WindowCloseEvent& event);
 		void OnWindowResize(const WindowResizeEvent& event);
@@ -36,6 +39,7 @@ namespace REON {
 	private:
 		bool m_Running = true;
 
+		RenderContext* m_Context;
 		std::unique_ptr<Window> m_Window;
 		ImGuiLayer* m_ImGuiLayer;
 		RenderLayer* m_RenderLayer;

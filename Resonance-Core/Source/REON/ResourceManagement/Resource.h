@@ -60,12 +60,14 @@ namespace REON {
         template <typename T>
         std::shared_ptr<T> Get() const {
             static_assert(std::is_base_of_v<ResourceBase, T>, "T must derive from ResourceBase");
-            return std::dynamic_pointer_cast<T>(resourceBase);
+            if(auto sharedResource = resourceBase.lock())
+                return std::dynamic_pointer_cast<T>(sharedResource);
+            return nullptr;
         }
 
 
 
     private:
-        std::shared_ptr<ResourceBase> resourceBase;
+        std::weak_ptr<ResourceBase> resourceBase;
     };
 }

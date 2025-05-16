@@ -5,7 +5,8 @@ namespace REON {
 	{
 	public:
 		virtual void init() = 0;
-		virtual void swapBuffers() = 0;
+		virtual void startFrame() = 0;
+		virtual void endFrame() = 0;
 		virtual void cleanup() = 0;
 		virtual void resize() = 0;
 	};

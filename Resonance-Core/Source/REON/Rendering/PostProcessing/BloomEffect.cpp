@@ -35,16 +35,16 @@ namespace REON {
         glm::vec2 texelSize = glm::vec2(1.0f / width, 1.0f / height);
         for (int i = 0; i < num_bloom_mips; ++i)
         {
-            m_DownsampleShader->setVec2("srcTexelSize[" + std::to_string(i) + "]", texelSize);
+            //m_DownsampleShader->setVec2("srcTexelSize[" + std::to_string(i) + "]", texelSize);
             texelSize *= 2.0f;
         }
-        m_DownsampleShader->setInt("srcTexture", 0);
+        //m_DownsampleShader->setInt("srcTexture", 0);
 
         // Upsample
         m_UpsampleShader->use();
         float aspectRatio = width / height;
-        m_UpsampleShader->setFloat("aspectRatio", aspectRatio);
-        m_UpsampleShader->setInt("srcTexture", 0);
+        //m_UpsampleShader->setFloat("aspectRatio", aspectRatio);
+        //m_UpsampleShader->setInt("srcTexture", 0);
 
         m_Init = true;
     }
@@ -71,7 +71,7 @@ namespace REON {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            m_DownsampleShader->setInt("uMipLevel", i);
+            //m_DownsampleShader->setInt("uMipLevel", i);
 
             // Render screen-filled quad of resolution of current mip
             RenderManager::RenderFullScreenQuad();
@@ -86,7 +86,7 @@ namespace REON {
         const std::vector<BloomMip>& mipChain = m_FBO.MipChain();
 
         m_UpsampleShader->use();
-        m_UpsampleShader->setFloat("filterRadius", FilterRadius);
+        //m_UpsampleShader->setFloat("filterRadius", FilterRadius);
 
         // Enable additive blending
         glEnable(GL_BLEND);
@@ -100,18 +100,18 @@ namespace REON {
 
             glm::vec2 texelSize = glm::vec2(1.0f / mip.size.x, 1.0f / mip.size.y);
 
-            m_UpsampleShader->setVec2("texelSize", texelSize);
-            m_UpsampleShader->setFloat("mipWeight", GetWeightForMip(i));
+            //m_UpsampleShader->setVec2("texelSize", texelSize);
+            //m_UpsampleShader->setFloat("mipWeight", GetWeightForMip(i));
 
             // Bind viewport and texture from where to read
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, mip.texture);
 
             if (i == mipChain.size() - 1) {
-                m_UpsampleShader->setBool("firstMip", true);
+                //m_UpsampleShader->setBool("firstMip", true);
             }
             else {
-                m_UpsampleShader->setBool("firstMip", false);
+                //m_UpsampleShader->setBool("firstMip", false);
                 glActiveTexture(GL_TEXTURE1);
                 glBindTexture(GL_TEXTURE_2D, mipChain[i + 1].texture);
             }
@@ -149,13 +149,13 @@ namespace REON {
         glm::vec2 texelSize = glm::vec2(1.0f / width, 1.0f / height);
         for (int i = 0; i < 5; ++i)
         {
-            m_DownsampleShader->setVec2("srcTexelSize[" + std::to_string(i) + "]", texelSize);
+            //m_DownsampleShader->setVec2("srcTexelSize[" + std::to_string(i) + "]", texelSize);
             texelSize *= 2.0f;
         }
 
         m_UpsampleShader->use();
         float aspectRatio = m_SrcViewportSizeFloat.x / m_SrcViewportSizeFloat.y;
-        m_UpsampleShader->setFloat("aspectRatio", aspectRatio);
+        //m_UpsampleShader->setFloat("aspectRatio", aspectRatio);
 
         glBindTexture(GL_TEXTURE_2D, m_ThresholdTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
@@ -171,7 +171,7 @@ namespace REON {
         glBindFramebuffer(GL_FRAMEBUFFER, outputFbo);
 
         m_CompositeShader->use();
-        m_CompositeShader->setFloat("bloomStrength", bloomStrength);
+        //m_CompositeShader->setFloat("bloomStrength", bloomStrength);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, inputTexture);

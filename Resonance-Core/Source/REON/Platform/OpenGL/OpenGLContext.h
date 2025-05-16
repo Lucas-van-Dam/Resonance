@@ -12,7 +12,7 @@ namespace REON {
 		OpenGLContext(GLFWwindow* windowHandle);
 
 		void init() override;
-		void swapBuffers() override;
+		void endFrame() override;
 
 	private:
 		GLFWwindow* m_WindowHandle;

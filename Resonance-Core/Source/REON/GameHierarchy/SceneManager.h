@@ -14,6 +14,8 @@ namespace REON {
 
 		std::shared_ptr<Scene> GetCurrentScene();
 
+		void Destroy();
+
 	private:
 		std::shared_ptr<Scene> m_CurrentScene;
 	};

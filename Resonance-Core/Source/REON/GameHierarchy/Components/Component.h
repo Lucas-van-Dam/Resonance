@@ -23,6 +23,8 @@ namespace REON {
             m_GameObject = owner;
         }
 
+        virtual void cleanup() = 0;
+
         virtual void OnGameObjectAddedToScene() = 0;
         virtual void OnComponentDetach() = 0;
 

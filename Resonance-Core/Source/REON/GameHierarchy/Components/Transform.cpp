@@ -60,6 +60,10 @@ namespace REON {
         m_LocalMatrix = translation * rotation * scale;
     }
 
+    void Transform::cleanup()
+    {
+    }
+
     void Transform::OnGameObjectAddedToScene()
     {
     }

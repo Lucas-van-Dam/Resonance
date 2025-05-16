@@ -19,6 +19,7 @@ namespace REON {
 		/// </summary>
 		/// <param name="id"></param>
 		//void SetID(std::string id) { m_ID = id; }
+
 		const std::string& GetName() const { return m_Name; }
 		virtual std::string ToString() const { return m_Name + " [" + m_ID + "]"; }
 
