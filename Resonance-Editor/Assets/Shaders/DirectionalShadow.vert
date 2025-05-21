@@ -1,10 +1,26 @@
-#version 460 core
-layout (location = 0) in vec3 aPos;
-
-uniform mat4 lightSpaceMatrix;
-uniform mat4 model;
-
-void main()
+struct VS_Input
 {
-    gl_Position = lightSpaceMatrix * model * vec4(aPos, 1.0);
+    float3 Position : POSITION;
+};
+
+struct VS_Output
+{
+    float4 Position : SV_Position;
+};
+
+cbuffer ModelMatrix : register(b1, space1)
+{
+    matrix model;
+};
+
+cbuffer LightSpaceMatrix : register(b0)
+{
+    matrix lightSpaceMatrix;
+};
+
+VS_Output main(VS_Input input)
+{
+    VS_Output output;
+    output.Position = mul(lightSpaceMatrix, mul(model, float4(input.Position, 1.0)));
+    return output;
 }

@@ -17,7 +17,7 @@ namespace REON {
 	void RenderManager::Render() {
 		resized = false;
 		setGlobalData();
-		//GenerateShadows();
+		GenerateShadows();
 		//glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		RenderOpaques();
@@ -70,12 +70,12 @@ namespace REON {
 	void RenderManager::RenderOpaques() {
 		if (m_RenderersByShaderId.empty()) {
 			VkSemaphore signalSemaphores[] = { m_Context->getCurrentRenderFinishedSemaphore() };
-			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore() };
-			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[m_Context->getCurrentFrame()]};
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 			VkSubmitInfo submitInfo{};
 			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 			submitInfo.signalSemaphoreCount = 1;
-			submitInfo.waitSemaphoreCount = 1;
+			submitInfo.waitSemaphoreCount = 2;
 			submitInfo.pSignalSemaphores = signalSemaphores;
 			submitInfo.pWaitSemaphores = waitSemaphores;
 			submitInfo.pWaitDstStageMask = waitStages;
@@ -159,7 +159,7 @@ namespace REON {
 
 				for (const auto& renderer : material.second) {
 					//set object buffers (model matrix)
-					renderer->Draw(m_OpaqueCommandBuffers[currentFrame], m_OpaquePipelineLayout, m_GlobalDescriptorSets[currentFrame]);
+					renderer->Draw(m_OpaqueCommandBuffers[currentFrame], m_OpaquePipelineLayout, { m_GlobalDescriptorSets[currentImageIndex], mat->descriptorSets[currentFrame] });
 				}
 			}
 
@@ -195,9 +195,9 @@ namespace REON {
 			VkSubmitInfo submitInfo{};
 			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore()};
-			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-			submitInfo.waitSemaphoreCount = 1;
+			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[currentFrame]};
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT };
+			submitInfo.waitSemaphoreCount = 2;
 			submitInfo.pWaitSemaphores = waitSemaphores;
 			submitInfo.pWaitDstStageMask = waitStages;
 			submitInfo.commandBufferCount = 1;
@@ -222,6 +222,15 @@ namespace REON {
 
 
 	void RenderManager::GenerateShadows() {
+		auto light = m_LightManager->mainLight;
+		glm::mat4 lightSpaceMatrix;
+		float near_plane = -50.0f, far_plane = 100;
+		m_MainLightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);
+		//m_MainLightProj[1][1] *= -1.0f;
+		m_MainLightView = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), (light->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, -1.0f)), (light->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
+		lightSpaceMatrix = m_MainLightProj * m_MainLightView;
+		m_DirectionalShadowPass.render(m_Context, m_Renderers, lightSpaceMatrix, m_DirectionalShadowsGenerated[m_Context->getCurrentFrame()]);
+		return;
 		GenerateMainLightShadows();
 		GenerateAdditionalShadows();
 	}
@@ -235,6 +244,8 @@ namespace REON {
 		//Initialize main light shadow maps
 		this->m_Camera = std::move(camera);
 
+		m_DirectionalShadowPass.Init(m_Context);
+
 		createGlobalBuffers();
 		createDummyResources();
 		createOpaqueCommandPool();
@@ -245,6 +256,7 @@ namespace REON {
 		createOpaqueDescriptorSetLayout();
 		createOpaqueGraphicsPipeline();
 		createEndBufferSet();
+		createSyncObjects();
 
 		return;
 
@@ -427,8 +439,8 @@ namespace REON {
 		glm::mat4 lightSpaceMatrix;
 		float near_plane = -50.0f, far_plane = 100;
 		glm::mat4 mainLightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);
-
-		glm::mat4 mainLightView = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), (scene->lightManager->lights[0]->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, 1.0f)), (scene->lightManager->lights[0]->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
+		//mainLightProj[1][1] *= -1.0f;
+		glm::mat4 mainLightView = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), (scene->lightManager->lights[0]->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, -1.0f)), (scene->lightManager->lights[0]->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
 		lightSpaceMatrix = mainLightProj * mainLightView;
 
 		for (int i = 0; i < amountOfLights; ++i) {
@@ -449,6 +461,9 @@ namespace REON {
 
 		GlobalRenderData data{};
 		auto lightData = GetLightingBuffer();
+
+		std::vector<LightData> lights;
+
 		data.viewProj = projMat * viewMat;
 		data.inverseView = glm::inverse(viewMat);
 		for (int i = 0; i < lightData.size(); i++) {
@@ -456,11 +471,25 @@ namespace REON {
 				REON_CORE_WARN("More lights in scene than allowed ({}), ignoring further lights", lightData.size());
 				break;
 			}
-			data.lightData[i] = lightData[i];
+			lights.push_back(lightData[i]);
 		}
 		data.lightCount = glm::min(static_cast<int>(lightData.size()), REON_MAX_LIGHTS);
 
-		memcpy(m_GlobalDataBuffersMapped[m_Context->getCurrentFrame()], &data, sizeof(data));
+		memcpy(m_GlobalDataBuffersMapped[m_Context->getCurrentImageIndex()], &data, sizeof(data));
+
+		memcpy(m_LightDataBuffersMapped[m_Context->getCurrentImageIndex()], lights.data(), lights.size() * sizeof(LightData));
+	}
+
+	void RenderManager::createSyncObjects()
+	{
+		m_DirectionalShadowsGenerated.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+
+		VkSemaphoreCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+			vkCreateSemaphore(m_Context->getDevice(), &createInfo, nullptr, &m_DirectionalShadowsGenerated[i]);
+		}
 	}
 
 	void RenderManager::createDummyResources()
@@ -647,7 +676,6 @@ namespace REON {
 
 	void RenderManager::createOpaqueRenderPass()
 	{
-
 		VkAttachmentDescription colorAttachment{};
 		colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachment.samples = m_Context->getSampleCount();
@@ -753,10 +781,25 @@ namespace REON {
 		globalLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 		globalLayoutBinding.pImmutableSamplers = nullptr;
 
+		VkDescriptorSetLayoutBinding globalLightBinding{};
+		globalLightBinding.binding = 1;
+		globalLightBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		globalLightBinding.descriptorCount = 1;
+		globalLightBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+		globalLightBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding globalDirectionalShadowBinding{};
+		globalDirectionalShadowBinding.binding = 2;
+		globalDirectionalShadowBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		globalDirectionalShadowBinding.descriptorCount = 1;
+		globalDirectionalShadowBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		globalDirectionalShadowBinding.pImmutableSamplers = nullptr;
+
+		std::array<VkDescriptorSetLayoutBinding, 3> globalBindings{ globalLayoutBinding, globalLightBinding, globalDirectionalShadowBinding };
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &globalLayoutBinding;
+		layoutInfo.bindingCount = globalBindings.size();
+		layoutInfo.pBindings = globalBindings.data();
 
 		VkResult res = vkCreateDescriptorSetLayout(m_Context->getDevice(), &layoutInfo, nullptr, &m_OpaqueGlobalDescriptorSetLayout);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create descriptor set layout");
@@ -782,21 +825,14 @@ namespace REON {
 		normalLayoutBinding.pImmutableSamplers = nullptr;
 		normalLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		VkDescriptorSetLayoutBinding roughnessLayoutBinding{};
-		roughnessLayoutBinding.binding = 5;
-		roughnessLayoutBinding.descriptorCount = 1;
-		roughnessLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		roughnessLayoutBinding.pImmutableSamplers = nullptr;
-		roughnessLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		VkDescriptorSetLayoutBinding roughnessMetallicLayoutBinding{};
+		roughnessMetallicLayoutBinding.binding = 5;
+		roughnessMetallicLayoutBinding.descriptorCount = 1;
+		roughnessMetallicLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		roughnessMetallicLayoutBinding.pImmutableSamplers = nullptr;
+		roughnessMetallicLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		VkDescriptorSetLayoutBinding metallicLayoutBinding{};
-		metallicLayoutBinding.binding = 6;
-		metallicLayoutBinding.descriptorCount = 1;
-		metallicLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		metallicLayoutBinding.pImmutableSamplers = nullptr;
-		metallicLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
-		std::array<VkDescriptorSetLayoutBinding, 5> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessLayoutBinding, metallicLayoutBinding };
+		std::array<VkDescriptorSetLayoutBinding, 4> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessMetallicLayoutBinding };
 		VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
 		materialLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		materialLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -824,25 +860,35 @@ namespace REON {
 
 	void RenderManager::createOpaqueGlobalDescriptorSets()
 	{
-		m_GlobalDescriptorSets.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+		m_GlobalDescriptorSets.resize(m_Context->getAmountOfSwapChainImages());
 
-		std::vector<VkDescriptorSetLayout> globalLayouts(m_Context->MAX_FRAMES_IN_FLIGHT, m_OpaqueGlobalDescriptorSetLayout);
+		std::vector<VkDescriptorSetLayout> globalLayouts(m_Context->getAmountOfSwapChainImages(), m_OpaqueGlobalDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo globalAllocInfo{};
 		globalAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		globalAllocInfo.descriptorPool = m_Context->getDescriptorPool();
-		globalAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->MAX_FRAMES_IN_FLIGHT);
+		globalAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->getAmountOfSwapChainImages());
 		globalAllocInfo.pSetLayouts = globalLayouts.data();
 
 		VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &globalAllocInfo, m_GlobalDescriptorSets.data());
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate descriptor sets");
 
-		for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			VkDescriptorBufferInfo globalBufferInfo{};
 			globalBufferInfo.buffer = m_GlobalDataBuffers[i];
 			globalBufferInfo.offset = 0;
 			globalBufferInfo.range = sizeof(GlobalRenderData);
 
-			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+			VkDescriptorBufferInfo lightBufferInfo{};
+			lightBufferInfo.buffer = m_LightDataBuffers[i];
+			lightBufferInfo.offset = 0;
+			lightBufferInfo.range = sizeof(LightData) * REON_MAX_LIGHTS;
+
+			VkDescriptorImageInfo directionalShadowBufferInfo{};
+			directionalShadowBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			directionalShadowBufferInfo.imageView = m_DirectionalShadowPass.getShadowViews()[i];
+			directionalShadowBufferInfo.sampler = m_DirectionalShadowPass.getShadowSampler();
+
+			std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = m_GlobalDescriptorSets[i];
 			descriptorWrites[0].dstBinding = 0;
@@ -850,6 +896,22 @@ namespace REON {
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			descriptorWrites[0].descriptorCount = 1;
 			descriptorWrites[0].pBufferInfo = &globalBufferInfo;
+
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = m_GlobalDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].pBufferInfo = &lightBufferInfo;
+
+			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[2].dstSet = m_GlobalDescriptorSets[i];
+			descriptorWrites[2].dstBinding = 2;
+			descriptorWrites[2].dstArrayElement = 0;
+			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[2].descriptorCount = 1;
+			descriptorWrites[2].pImageInfo = &directionalShadowBufferInfo;
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
@@ -859,15 +921,21 @@ namespace REON {
 	{
 		VkDeviceSize bufferSize = sizeof(GlobalRenderData);
 
-		m_GlobalDataBuffers.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
-		m_GlobalDataBufferAllocations.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
-		m_GlobalDataBuffersMapped.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+		m_GlobalDataBuffers.resize(m_Context->getAmountOfSwapChainImages());
+		m_GlobalDataBufferAllocations.resize(m_Context->getAmountOfSwapChainImages());
+		m_GlobalDataBuffersMapped.resize(m_Context->getAmountOfSwapChainImages());
 
-		for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+		m_LightDataBuffers.resize(m_Context->getAmountOfSwapChainImages());
+		m_LightDataBufferAllocations.resize(m_Context->getAmountOfSwapChainImages());
+		m_LightDataBuffersMapped.resize(m_Context->getAmountOfSwapChainImages());
+
+		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			// TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
 			m_Context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_GlobalDataBuffers[i], m_GlobalDataBufferAllocations[i]);
-
 			vmaMapMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i], &m_GlobalDataBuffersMapped[i]);
+
+			m_Context->createBuffer(sizeof(LightData) * REON_MAX_LIGHTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_LightDataBuffers[i], m_LightDataBufferAllocations[i]);
+			vmaMapMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i], &m_LightDataBuffersMapped[i]);
 		}
 	}
 
@@ -903,19 +971,13 @@ namespace REON {
 			normalImageInfo.imageView = normalTexture ? normalTexture->getTextureView() : m_DummyImageView;
 			normalImageInfo.sampler = normalTexture ? normalTexture->getSampler() : m_DummySampler;
 
-			VkDescriptorImageInfo roughnessImageInfo{};
-			const auto& roughnessTexture = material->roughnessTexture.Get<Texture>();
-			roughnessImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			roughnessImageInfo.imageView = roughnessTexture ? roughnessTexture->getTextureView() : m_DummyImageView;
-			roughnessImageInfo.sampler = roughnessTexture ? roughnessTexture->getSampler() : m_DummySampler;
+			VkDescriptorImageInfo roughnessMetallicImageInfo{};
+			const auto& roughnessMetallicTexture = material->roughnessMetallicTexture.Get<Texture>();
+			roughnessMetallicImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			roughnessMetallicImageInfo.imageView = roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImageView;
+			roughnessMetallicImageInfo.sampler = roughnessMetallicTexture ? roughnessMetallicTexture->getSampler() : m_DummySampler;
 
-			VkDescriptorImageInfo metallicImageInfo{};
-			const auto& metallicTexture = material->metallicTexture.Get<Texture>();
-			metallicImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			metallicImageInfo.imageView = metallicTexture ? metallicTexture->getTextureView() : m_DummyImageView;
-			metallicImageInfo.sampler = metallicTexture ? metallicTexture->getSampler() : m_DummySampler;
-
-			std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
+			std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = material->descriptorSets[i];
 			descriptorWrites[0].dstBinding = 1;
@@ -946,15 +1008,7 @@ namespace REON {
 			descriptorWrites[3].dstArrayElement = 0;
 			descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorWrites[3].descriptorCount = 1;
-			descriptorWrites[3].pImageInfo = &roughnessImageInfo;
-
-			descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[4].dstSet = material->descriptorSets[i];
-			descriptorWrites[4].dstBinding = 6; //MIGHT BE WRONG
-			descriptorWrites[4].dstArrayElement = 0;
-			descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			descriptorWrites[4].descriptorCount = 1;
-			descriptorWrites[4].pImageInfo = &metallicImageInfo;
+			descriptorWrites[3].pImageInfo = &roughnessMetallicImageInfo;
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
@@ -991,6 +1045,8 @@ namespace REON {
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
+
+		m_DirectionalShadowPass.createPerObjectDescriptorSets(m_Context, renderer);
 	}
 
 	void RenderManager::createOpaqueGraphicsPipeline()
@@ -1192,6 +1248,11 @@ namespace REON {
 		vkDestroyRenderPass(m_Context->getDevice(), m_OpaqueRenderPass, nullptr);
 
 		vkDestroyCommandPool(m_Context->getDevice(), m_OpaqueCommandPool, nullptr);
+	}
+
+	void RenderManager::setMainLight(std::shared_ptr<Light> light)
+	{
+		m_DirectionalShadowPass.createPerLightDescriptorSets(m_Context);
 	}
 
 	void RenderManager::deleteForResize()

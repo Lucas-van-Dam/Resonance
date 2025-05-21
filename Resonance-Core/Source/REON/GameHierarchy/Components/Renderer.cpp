@@ -13,12 +13,9 @@ namespace REON {
 
     glm::mat4 Renderer::ViewProjMatrix;
 
-    void Renderer::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet globalDescriptorSet) {
+    void Renderer::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, std::vector<VkDescriptorSet> descriptorSets) {
         const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
 
-        std::vector<VkDescriptorSet> descriptorSets;
-        descriptorSets.push_back(globalDescriptorSet);
-        descriptorSets.push_back(material.Get<Material>()->descriptorSets[context->getCurrentFrame()]);
         descriptorSets.push_back(objectDescriptorSets[context->getCurrentFrame()]);
 
         ObjectRenderData data{};
@@ -32,6 +29,23 @@ namespace REON {
 
         vkCmdBindIndexBuffer(commandBuffer, mesh.Get<Mesh>()->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
         
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.Get<Mesh>()->indices.size()), 1, 0, 0, 0);
+    }
+    
+    void Renderer::Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet perLightDescriptorSet) {
+        const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+
+        std::array<VkDescriptorSet, 2> descriptorSets{ perLightDescriptorSet, shadowObjectDescriptorSets[context->getCurrentFrame()] };
+
+        memcpy(shadowObjectDataBuffersMapped[context->getCurrentFrame()], &m_ModelMatrix, sizeof(m_ModelMatrix));
+
+        VkBuffer vertexBuffers[] = { mesh.Get<Mesh>()->m_VertexBuffer };
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+        vkCmdBindIndexBuffer(commandBuffer, mesh.Get<Mesh>()->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
         vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mesh.Get<Mesh>()->indices.size()), 1, 0, 0, 0);
     }
@@ -108,6 +122,10 @@ namespace REON {
             vkDestroyBuffer(context->getDevice(), objectDataBuffers[i], nullptr);
             vmaUnmapMemory(context->getAllocator(), objectDataBufferAllocations[i]);
             vmaFreeMemory(context->getAllocator(), objectDataBufferAllocations[i]);
+
+            vkDestroyBuffer(context->getDevice(), shadowObjectDataBuffers[i], nullptr);
+            vmaUnmapMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i]);
+            vmaFreeMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i]);
         }
     }
 
@@ -127,6 +145,19 @@ namespace REON {
 
             vmaMapMemory(context->getAllocator(), objectDataBufferAllocations[i], &objectDataBuffersMapped[i]);
         }
+
+        bufferSize = sizeof(glm::mat4);
+
+        shadowObjectDataBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
+        shadowObjectDataBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
+        shadowObjectDataBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
+
+        for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
+            // TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
+            context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, shadowObjectDataBuffers[i], shadowObjectDataBufferAllocations[i]);
+
+            vmaMapMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i], &shadowObjectDataBuffersMapped[i]);
+        }
     }
 
     Renderer::Renderer()
@@ -144,6 +175,19 @@ namespace REON {
             context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, objectDataBuffers[i], objectDataBufferAllocations[i]);
 
             vmaMapMemory(context->getAllocator(), objectDataBufferAllocations[i], &objectDataBuffersMapped[i]);
+        }
+
+        bufferSize = sizeof(glm::mat4);
+
+        shadowObjectDataBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
+        shadowObjectDataBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
+        shadowObjectDataBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
+
+        for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
+            // TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
+            context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, shadowObjectDataBuffers[i], shadowObjectDataBufferAllocations[i]);
+
+            vmaMapMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i], &shadowObjectDataBuffersMapped[i]);
         }
     }
 

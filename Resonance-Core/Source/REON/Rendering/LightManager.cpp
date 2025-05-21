@@ -1,6 +1,6 @@
 #include "reonpch.h"
 #include "LightManager.h"
-
+#include "REON/GameHierarchy/Scene.h"
 
 
 namespace REON {
@@ -13,6 +13,7 @@ namespace REON {
         if (mainLight == nullptr && light->type == LightType::Directional) {
             mainLight = light;
             lights.insert(lights.begin(), light);
+            light->GetOwner()->GetScene()->renderManager->setMainLight(light);
             return;
         }
         lights.emplace_back(light);

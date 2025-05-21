@@ -20,7 +20,6 @@ namespace REON {
     struct alignas(16) GlobalRenderData {
         glm::mat4 viewProj;
         glm::mat4 inverseView;
-        LightData lightData[REON_MAX_LIGHTS];
         int lightCount;
         glm::vec3 _padding;
     };
@@ -36,7 +35,8 @@ namespace REON {
         Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> materials);
         Renderer();
         ~Renderer();
-        void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet globalDescriptorSet);
+        void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, std::vector<VkDescriptorSet> descriptorSets);
+        void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet perLightDescriptorSet);
         void Draw(glm::mat4 mainLightView, glm::mat4 mainLightProj, int skyboxId, int irradianceMapId, int prefilterMapId, int brdfLUTTextureId, std::vector<int> depthCubeId = std::vector<int>(), int shadowMapId = 0, const std::shared_ptr<Shader>&overrideShader = nullptr);
 
         void Update(float deltaTime) override;
@@ -59,6 +59,11 @@ namespace REON {
         std::vector<VkBuffer> objectDataBuffers;
         std::vector<VmaAllocation> objectDataBufferAllocations;
         std::vector<void*> objectDataBuffersMapped;
+
+        std::vector<VkDescriptorSet> shadowObjectDescriptorSets;
+        std::vector<VkBuffer> shadowObjectDataBuffers;
+        std::vector<VmaAllocation> shadowObjectDataBufferAllocations;
+        std::vector<void*> shadowObjectDataBuffersMapped;
 
     private:
         glm::mat4 m_ModelMatrix{};

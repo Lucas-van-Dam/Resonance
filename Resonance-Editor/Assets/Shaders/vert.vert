@@ -4,7 +4,7 @@ struct VS_Input
     float4 color : COLOR;
     float3 normal : NORMAL;
     float2 texcoord : TEXCOORD;
-    float3 tangent : TANGENT;
+    float4 tangent : TANGENT;
 };
 
 struct PS_Input
@@ -13,10 +13,10 @@ struct PS_Input
     float4 color : COLOR;
     float3 normal : NORMAL;
     float2 tex : TEXCOORD;
-    float3 tangent : TANGENT;
+    float4 tangent : TANGENT;
     float3 fragPosition : FRAG_POSITION;
     float3 fragViewPos : FRAG_VIEW_POS;
-    float3 fragLightSpacePos : FRAG_LIGHT_SPACE_POS;
+    float4 fragLightSpacePos : FRAG_LIGHT_SPACE_POS;
 };
 
 struct Light
@@ -37,10 +37,11 @@ cbuffer GlobalBuffer : register(b0)
 {
     float4x4 viewProj;
     float4x4 inverseView;
-    Light lights[50];
     int lightCount;
     float3 _padding;
 };
+
+StructuredBuffer<Light> lights : register(t1);
 
 PS_Input main(VS_Input input)
 {
@@ -48,11 +49,11 @@ PS_Input main(VS_Input input)
     
     output.position = mul(viewProj, mul(model, float4(input.position, 1.0f)));
     output.color = input.color;
-    output.normal = normalize(mul((float3x3) transposeInverseModel, input.normal));
+    output.normal = mul(transposeInverseModel, float4(input.normal, 1.0f));
     output.tex = input.texcoord;
-    output.tangent = normalize(mul((float3x3) model, input.tangent));
-    output.fragPosition = mul((float3x3) model, input.position);
+    output.tangent = normalize(mul(model, input.tangent));
+    output.fragPosition = mul(model, float4(input.position, 1.0)).xyz;
     output.fragViewPos = float3(inverseView[0][3], inverseView[1][3], inverseView[2][3]);
-    output.fragLightSpacePos = mul(lights[0].mainViewProj, float4(output.fragPosition, 1.0f)).xyz;
+    output.fragLightSpacePos =mul(lights[0].mainViewProj, float4(output.fragPosition, 1.0f));
     return output;
 }

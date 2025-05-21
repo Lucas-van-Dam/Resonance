@@ -12,6 +12,7 @@
 #include <set>
 #include "vulkan/vulkan.h"
 #include "REON/Platform/Vulkan/VulkanContext.h"
+#include "RenderPasses/DirectionalShadowPass.h"
 
 
 namespace REON {
@@ -35,6 +36,8 @@ namespace REON {
 		void OnKeyPressed(const KeyPressedEvent& event);
 		void cleanup();
 
+		void setMainLight(std::shared_ptr<Light> light);
+
 	private:
 		void RenderOpaques();
 		void RenderTransparents();
@@ -49,6 +52,7 @@ namespace REON {
 
 		void deleteForResize();
 
+		void createSyncObjects();
 		void createDummyResources();
 		void createEndBufferSet();
 
@@ -77,6 +81,11 @@ namespace REON {
 		std::vector<VmaAllocation> m_GlobalDataBufferAllocations;
 		std::vector<void*> m_GlobalDataBuffersMapped;
 
+		std::vector<VkDescriptorSet> m_LightDescriptorSets;
+		std::vector<VkBuffer> m_LightDataBuffers;
+		std::vector<VmaAllocation> m_LightDataBufferAllocations;
+		std::vector<void*> m_LightDataBuffersMapped;
+
 		std::vector<VkDescriptorSet> m_EndDescriptorSets;
 		VkDescriptorSetLayout m_EndDescriptorSetLayout; //
 		VkSampler m_EndSampler;
@@ -100,6 +109,10 @@ namespace REON {
 		std::vector<VkImage> m_OpaqueResolveImages; //
 		std::vector<VmaAllocation> m_OpaqueResolveImageAllocations; //
 		std::vector<VkImageView> m_OpaqueResolveImageViews; //
+
+		// Directional Shadows
+		DirectionalShadowPass m_DirectionalShadowPass;
+		std::vector<VkSemaphore> m_DirectionalShadowsGenerated;
 
 		bool resized = false;
 
