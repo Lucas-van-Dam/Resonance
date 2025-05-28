@@ -2,6 +2,9 @@
 #include "Texture.h"
 #include "REON/Application.h"
 #include "REON/Platform/Vulkan/VulkanContext.h"
+#include "REON/ResourceManagement/ResourceManager.h"
+
+
 
 namespace REON {
 
@@ -9,11 +12,29 @@ namespace REON {
 	{
 		const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
 
+		std::vector<uint8_t> pixels;
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("Assets/Textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		bool stbi = false;
+
+		auto [imageData, preDefPixels] = std::any_cast<std::tuple<TextureHeader, std::vector<uint8_t>>>(metadata);
+
+		if (preDefPixels.empty()) {
+			auto stbiPixels = stbi_load("Assets/Textures/texture.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+			pixels.resize(texWidth * texHeight * texChannels);
+			memcpy(pixels.data(), stbiPixels, texWidth * texHeight * texChannels);
+			stbi = true;
+		}
+		else {
+			pixels = preDefPixels;
+		}
+
+		texWidth = imageData.width;
+		texHeight = imageData.height;
+		texChannels = imageData.channels;
+
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-		REON_CORE_ASSERT(pixels, "Failed to load texture image");
+		REON_CORE_ASSERT(!pixels.empty(), "Failed to load texture image");
 
 		//m_MipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
@@ -24,31 +45,32 @@ namespace REON {
 
 		void* data;
 		vmaMapMemory(context->getAllocator(), stagingBufferAllocation, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		memcpy(data, pixels.data(), static_cast<size_t>(imageSize));
 		vmaUnmapMemory(context->getAllocator(), stagingBufferAllocation);
 
-		stbi_image_free(pixels);
+		if (stbi)
+			stbi_image_free(pixels.data());
 
-		context->createImage(texWidth, texHeight, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, m_Texture, m_TextureAllocation);
+		context->createImage(texWidth, texHeight, 1, VK_SAMPLE_COUNT_1_BIT, imageData.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, m_Texture, m_TextureAllocation);
 
-		context->transitionImageLayout(m_Texture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
+		context->transitionImageLayout(m_Texture, imageData.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
 		context->copyBufferToImage(stagingBuffer, m_Texture, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
 		//generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
-		context->transitionImageLayout(m_Texture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+		context->transitionImageLayout(m_Texture, imageData.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
 
 		vkDestroyBuffer(context->getDevice(), stagingBuffer, nullptr);
 		vmaFreeMemory(context->getAllocator(), stagingBufferAllocation);
 
-		m_TextureView = context->createImageView(m_Texture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		m_TextureView = context->createImageView(m_Texture, imageData.format, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = VK_FILTER_LINEAR;
-		samplerInfo.minFilter = VK_FILTER_LINEAR;
-		samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		samplerInfo.magFilter = imageData.magFilter;
+		samplerInfo.minFilter = imageData.minFilter;
+		samplerInfo.addressModeU = imageData.addressModeU;
+		samplerInfo.addressModeV = imageData.addressModeV;
+		samplerInfo.addressModeW = imageData.addressModeW;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
 
@@ -89,5 +111,33 @@ namespace REON {
 	VkSampler Texture::getSampler() const
 	{
 		return m_TextureSampler;
+	}
+	std::shared_ptr<Texture> Texture::getTextureFromId(const std::string& Id, const std::string& basePath)
+	{
+		std::shared_ptr<Texture> tex;
+		if (!(tex = ResourceManager::GetInstance().GetResource<Texture>(Id))) {
+			if (auto texInfo = AssetRegistry::Instance().GetAssetById(Id)) {
+				TextureHeader header{};
+				std::vector<uint8_t> pixels;
+				std::ifstream texIn(basePath + "\\" + texInfo->path.string(), std::ios::binary);
+				if (texIn.is_open()) {
+					texIn.read(reinterpret_cast<char*>(&header), sizeof(TextureHeader));
+					size_t size = header.width * header.height * header.channels;
+					pixels.resize(size);
+					texIn.read(reinterpret_cast<char*>(pixels.data()), size);
+					texIn.close();
+				}
+
+				//std::string debugPath = "debug_" + Id + ".png";
+				//stbi_write_png(debugPath.c_str(), header.width, header.height, header.channels, pixels.data(), header.width * header.channels);
+
+				tex = ResourceManager::GetInstance().LoadResource<Texture>(basePath + "\\" + texInfo->path.string(), std::make_tuple(header, pixels));
+			}
+			else {
+				REON_ERROR("CANT FIND MATERIAL");
+				return nullptr;
+			}
+		}
+		return tex;
 	}
 }

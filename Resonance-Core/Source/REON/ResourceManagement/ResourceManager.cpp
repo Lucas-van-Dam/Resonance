@@ -5,7 +5,7 @@
 
 namespace REON {
 	ResourceManager::ResourceManager() {
-		resourceConverters["mesh"] = [](const AssetInfo* info, const std::filesystem::path& path) -> std::shared_ptr<ResourceBase> {
+		resourceConverters["mesh"] = [](const AssetInfo* info, const std::filesystem::path& path, const std::filesystem::path& basePath) -> std::shared_ptr<ResourceBase> {
 			nlohmann::json j;
 			std::ifstream file(path);
 			if (file.is_open()) {
@@ -27,7 +27,7 @@ namespace REON {
 			}
 			return nullptr;
 			};
-		resourceConverters["material"] = [](const AssetInfo* info, const std::filesystem::path& path) {
+		resourceConverters["material"] = [](const AssetInfo* info, const std::filesystem::path& path, const std::filesystem::path& basePath) {
 			nlohmann::json j;
 			std::ifstream file(path);
 			if (file.is_open()) {
@@ -36,7 +36,7 @@ namespace REON {
 			}
 
 			std::shared_ptr<Material> material = std::make_shared<Material>();
-			material->Deserialize(path);
+			material->Deserialize(path, basePath);
 			return material;
 			};
 	}

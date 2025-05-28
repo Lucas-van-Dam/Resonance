@@ -26,8 +26,14 @@ project "Core"
     "vendor/imgui/backends/imgui_impl_glfw.h",
     "vendor/imgui/backends/imgui_impl_vulkan.cpp",
     "vendor/imgui/backends/imgui_impl_vulkan.h",
-    "vendor/Tracy/public/TracyClient.cpp"
+    "vendor/Tracy/public/TracyClient.cpp",
+    "vendor/MikkTSpace/*.h",
+    "vendor/MikkTSpace/*.c",
    }
+
+   filter { "files:vendor/MikkTSpace/*.c" }
+    flags { "NoPCH" }
+   filter {} -- clear filter
 
    libdirs{ "vendor/Vulkan/Lib" }
 
@@ -45,6 +51,7 @@ project "Core"
       "%{IncludeDir.ImGuizmo}",
       "%{IncludeDir.Tracy}",
       "%{IncludeDir.Vulkan}",
+      "%{IncludeDir.MikkTSpace}",
       
    }
 

@@ -28,7 +28,9 @@ namespace REON::EDITOR {
 			for (const auto& entry : fs::recursive_directory_iterator(projectDir)) {
 				if (entry.is_regular_file()) {
 					auto extension = entry.path().extension().string();
-					if (supportedExtensions.find(extension) != supportedExtensions.end()) {
+					auto filename = entry.path().filename().string();
+					if (supportedExtensions.find(extension) != supportedExtensions.end() ||
+						supportedExtensions.find(filename) != supportedExtensions.end()) {
 						assets.push_back(entry.path());
 					}
 				}

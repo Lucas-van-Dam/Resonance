@@ -41,7 +41,7 @@ namespace REON {
         std::shared_ptr<ResourceBase> GetResourceFromAsset(AssetInfo* info, const std::filesystem::path& projectPath) {
             auto it = resourceConverters.find(info->type);
             if (it != resourceConverters.end()) {
-                return it->second(info, projectPath.string() + "\\" + info->path.string());
+                return it->second(info, projectPath.string() + "\\" + info->path.string(), projectPath);
             }
             REON_WARN("No resource converter for type {}", info->type);
         }
@@ -53,7 +53,7 @@ namespace REON {
     private:
         std::unordered_map<std::string, std::shared_ptr<ResourceBase>> resourceCache;
         //std::unordered_map<std::string, std::vector<std::shared_ptr<ResourceBase>>> resourcesByType;
-        std::unordered_map<std::string, std::function<std::shared_ptr<ResourceBase>(const AssetInfo* info, const std::filesystem::path&)>> resourceConverters;
+        std::unordered_map<std::string, std::function<std::shared_ptr<ResourceBase>(const AssetInfo* info, const std::filesystem::path& path, const std::filesystem::path& basePath)>> resourceConverters;
 	};
 
     template <typename ResourceType>

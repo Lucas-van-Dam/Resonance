@@ -18,7 +18,8 @@ namespace REON::EDITOR {
 
 	struct MetaFileData {
 		std::string modelUID; // e.g., assetInfo.id or similar unique identifier.
-		SceneNodeData rootNode;
+		std::string sceneName;
+		std::vector<SceneNodeData> rootNodes;
 		// Optionally, you can include a map of processed mesh data if needed.
 		std::vector<std::shared_ptr<Mesh>> meshes;
 	};
@@ -32,6 +33,7 @@ namespace REON::EDITOR {
 		std::string uid;
 		std::filesystem::path basePath;
 		std::vector<std::string> materialIDs;
+		std::filesystem::path fullPath;
 
 		SceneNodeData HandleGLTFNode(const tg::Model& model, const tg::Node& node, const glm::mat4& parentTransform, MetaFileData& modelFileData);
 
@@ -49,6 +51,8 @@ namespace REON::EDITOR {
 		nlohmann::ordered_json SerializeSceneNode(const SceneNodeData& node);
 
 		void SerializeCompanionFile(const MetaFileData& data, const std::string& outPath);
+
+		std::shared_ptr<Texture> HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, VkFormat format, int textureIndex);
 
 		//void ProcessNode(aiNode* node, const aiScene* scene, std::string path);
 		//void ProcessMesh(aiMesh* mesh, const aiScene* scene, std::string path);

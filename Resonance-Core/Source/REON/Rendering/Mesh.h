@@ -7,6 +7,8 @@
 #include "nlohmann/json.hpp"
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
+#include <mikktspace.h>
+
 
 namespace REON {
 
@@ -42,13 +44,16 @@ namespace REON {
         std::vector<glm::vec3> ConvertJsonToVec3Array(const nlohmann::json& jsonArray);
         std::vector<glm::vec4> ConvertJsonToVec4Array(const nlohmann::json& jsonArray);
 
-        void calculateTangents();
+        static void calculateTangents(std::shared_ptr<Mesh> mesh);
+
+        int getNumberOfFaces() const { return indices.size() / 3; }
+        int getIndexFromFace(int face, int vert) const { return indices[face * 3 + vert]; }
 
         std::vector<glm::vec3> positions;
         std::vector<glm::vec4> colors;
         std::vector<glm::vec3> normals;
         std::vector<glm::vec2> texCoords;
-        std::vector<glm::vec3> tangents;
+        std::vector<glm::vec4> tangents;
         std::vector<uint> indices;
 
         std::vector<SubMesh> subMeshes;
@@ -74,5 +79,55 @@ namespace REON {
         std::vector<Vertex> m_Vertices;
         // mesh data
         unsigned int m_VAO, m_SSBO;
+
+    public:
+        struct SMikkTSpaceMeshContext {
+            std::shared_ptr<Mesh> mesh;
+        };
+
+        static int getNumFaces(const SMikkTSpaceContext* pContext) {
+            auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
+            return ctx->mesh->getNumberOfFaces();
+        }
+
+        static int getNumVerticesOfFace(const SMikkTSpaceContext* pContext, int face) {
+            return 3;
+        }
+
+        static void getPosition(const SMikkTSpaceContext* pContext, float fvPosOut[], int face, int vert) {
+            auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
+            int index = ctx->mesh->getIndexFromFace(face, vert);
+            fvPosOut[0] = ctx->mesh->positions[index].x;
+            fvPosOut[1] = ctx->mesh->positions[index].y;
+            fvPosOut[2] = ctx->mesh->positions[index].z;
+        }
+
+        static void getNormal(const SMikkTSpaceContext* pContext, float fvNormalOut[], int face, int vert) {
+            auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
+            int index = ctx->mesh->getIndexFromFace(face, vert);
+            fvNormalOut[0] = ctx->mesh->normals[index].x;
+            fvNormalOut[1] = ctx->mesh->normals[index].y;
+            fvNormalOut[2] = ctx->mesh->normals[index].z;
+        }
+
+        static void getTexCoord(const SMikkTSpaceContext* pContext, float fvTexOut[], int face, int vert) {
+            auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
+            int index = ctx->mesh->getIndexFromFace(face, vert);
+            fvTexOut[0] = ctx->mesh->texCoords[index].x;
+            fvTexOut[1] = ctx->mesh->texCoords[index].y;
+        }
+
+        static void setTSpaceBasic(const SMikkTSpaceContext* pContext, const float fvTangent[], const float fSign, int face, int vert) {
+            auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
+            int index = ctx->mesh->getIndexFromFace(face, vert);
+            ctx->mesh->tangents[index].x = fvTangent[0];
+            ctx->mesh->tangents[index].y = fvTangent[1];
+            ctx->mesh->tangents[index].z = fvTangent[2];
+            ctx->mesh->tangents[index].w = fSign;
+        }
     };
+
+
+
+
 }

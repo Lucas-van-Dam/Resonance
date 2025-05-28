@@ -43,7 +43,7 @@ namespace REON {
         meshJson["vertices"] = ConvertVec3Array(positions); // Convert glm::vec3 to JSON
         meshJson["normals"] = ConvertVec3Array(normals);
         meshJson["uvs"] = ConvertVec2Array(texCoords);
-        meshJson["tangents"] = ConvertVec3Array(tangents);
+        meshJson["tangents"] = ConvertVec4Array(tangents);
         meshJson["colors"] = ConvertVec4Array(colors);
         meshJson["indices"] = indices;
 
@@ -67,7 +67,7 @@ namespace REON {
         positions = ConvertJsonToVec3Array(meshJson["vertices"]);
         normals = ConvertJsonToVec3Array(meshJson["normals"]);
         texCoords = ConvertJsonToVec2Array(meshJson["uvs"]);
-        tangents = ConvertJsonToVec3Array(meshJson["tangents"]);
+        tangents = ConvertJsonToVec4Array(meshJson["tangents"]);
         colors = ConvertJsonToVec4Array(meshJson["colors"]);
         indices = meshJson["indices"].get<std::vector<uint32_t>>();
 
@@ -129,77 +129,24 @@ namespace REON {
         return vec;
     }
 
-    void Mesh::calculateTangents() {
-        // https://learnopengl.com/Advanced-Lighting/Normal-Mapping
-        tangents.resize(normals.size());
+    void Mesh::calculateTangents(std::shared_ptr<Mesh> mesh) {
+        mesh->tangents.resize(mesh->indices.size());
+        SMikkTSpaceMeshContext userContext{};
+        userContext.mesh = mesh;
 
-        // Iterate over all triangles of each sub-mesh.
-        for (auto& submesh : subMeshes)
-            for (size_t i = submesh.indexOffset; i < submesh.indexOffset + submesh.indexCount; i += 3)
-            {
-                if (i + 2 > indices.size())
-                    break;
+        SMikkTSpaceInterface mikkInterface{};
+        mikkInterface.m_getNumFaces = getNumFaces;
+        mikkInterface.m_getNumVerticesOfFace = getNumVerticesOfFace;
+        mikkInterface.m_getPosition = getPosition;
+        mikkInterface.m_getNormal = getNormal;
+        mikkInterface.m_getTexCoord = getTexCoord;
+        mikkInterface.m_setTSpaceBasic = setTSpaceBasic;
 
-                glm::vec3 indices{ indices[i], indices[i + 1], indices[i + 2] };
+        SMikkTSpaceContext context{};
+        context.m_pUserData = &userContext;
+        context.m_pInterface = &mikkInterface;
 
-                if (indices[0] > positions.size() || indices[1] > positions.size() || indices[2] > positions.size())
-                    continue;
-
-                // Get vertices of the triangle.
-                glm::vec3 vtx0 = positions[indices[0]];
-                glm::vec3 vtx1 = positions[indices[1]];
-                glm::vec3 vtx2 = positions[indices[2]];
-
-                // Get UVs of the triangle.
-                glm::vec2 uv0 = texCoords[indices[0]];
-                glm::vec2 uv1 = texCoords[indices[1]];
-                glm::vec2 uv2 = texCoords[indices[2]];
-
-                // Get primary edges
-                glm::vec3 edge0 = vtx1 - vtx0;
-                glm::vec3 edge1 = vtx2 - vtx0;
-
-                // Get difference in uv over the two primary edges.
-                glm::vec2 deltaUV0 = uv1 - uv0;
-                glm::vec2 deltaUV1 = uv2 - uv0;
-
-                // Get inverse of the determinant of the UV tangent matrix.
-                float inverseUVDeterminant = 1.0f / (deltaUV0.x * deltaUV1.y - deltaUV1.x * deltaUV0.y);
-
-                // T = tangent
-                // B = bi-tangent
-                // E0 = first primary edge
-                // E1 = second primary edge
-                // dU0 = delta of x texture coordinates of the first primary edge
-                // dV0 = delta of y texture coordinates of the first primary edge
-                // dU1 = delta of x texture coordinates of the second primary edge
-                // dV1 = delta of y texture coordinates of the second primary edge
-                // ┌          ┐          1        ┌           ┐ ┌             ┐
-                // │ Tx Ty Tz │ _ ─────────────── │  dV1 -dV0 │ │ E0x E0y E0z │
-                // │ Bx By Bz │ ─ dU0ΔV1 - dU1ΔV0 │ -dU1  dU0 │ │ E1x E1y E1z │
-                // └          ┘                   └           ┘ └             ┘
-                glm::vec3 tangent;
-                tangent.x = inverseUVDeterminant * ((deltaUV1.y * edge0.x) - (deltaUV0.y * edge1.x));
-                tangent.y = inverseUVDeterminant * ((deltaUV1.y * edge0.y) - (deltaUV0.y * edge1.y));
-                tangent.z = inverseUVDeterminant * ((deltaUV1.y * edge0.z) - (deltaUV0.y * edge1.z));
-
-                // Check if the tangent is valid.
-                if (tangent == glm::vec3(0, 0, 0) || tangent != tangent)
-                    continue;
-
-                // Normalize the tangent.
-                tangent = glm::normalize(tangent);
-
-                // Accumulate the tangent in order to be able to smooth it later.
-                tangents[indices[0]] += tangent;
-                tangents[indices[1]] += tangent;
-                tangents[indices[2]] += tangent;
-            }
-
-        // Smooth all tangents.
-        for (size_t i = 0; i < tangents.size(); i++)
-            if (tangents[i] != glm::vec3(0.0f,0.0f,0.0f))
-                tangents[i] = glm::normalize(tangents[i]);
+        genTangSpaceDefault(&context);
     }
 
 
@@ -224,7 +171,7 @@ namespace REON {
             vertex.Color = colors[i];
             vertex.Normal = normals[i];
             vertex.TexCoords = texCoords[i];
-            vertex.Tangent = tangents.size() > i ? tangents[i] : glm::vec3(0.0f,0.0f,0.0f); //TODO: Calculate tangents when loading
+            vertex.Tangent = tangents.size() > i ? tangents[i] : glm::vec4(0.0f,0.0f,0.0f,0.0f); //TODO: Calculate tangents when loading
 
             m_Vertices[i] = vertex;
         }

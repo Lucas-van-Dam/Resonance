@@ -98,121 +98,6 @@ namespace REON::EDITOR {
 	}
 
 	void Model::processMesh(aiMesh* mesh, const aiScene* scene, std::shared_ptr<GameObject> parent) {
-		// data to fill
-		std::vector<Vertex> vertices;
-		std::vector<unsigned int> indices;
-		std::vector<Texture> textures;
-		std::string meshIdentifier = m_Directory + "/" + mesh->mName.C_Str();
-
-		// walk through each of the mesh's vertices
-		for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
-			Vertex vertex;
-			glm::vec3 vector; // we declare a placeholder vector since assimp uses its own vector class that doesn't directly convert to glm's vec3 class so we transfer the data to this placeholder glm::vec3 first.
-			// positions
-			vector.x = mesh->mVertices[i].x;
-			vector.y = mesh->mVertices[i].y;
-			vector.z = mesh->mVertices[i].z;
-			vertex.Position = vector;
-			// normals
-			if (mesh->HasNormals()) {
-				vector.x = mesh->mNormals[i].x;
-				vector.y = mesh->mNormals[i].y;
-				vector.z = mesh->mNormals[i].z; 
-				vertex.Normal = vector;
-			}
-			// texture coordinates
-			if (mesh->mTextureCoords[0]) // does the mesh contain texture coordinates?
-			{
-				glm::vec2 vec;
-				// a vertex can contain up to 8 different texture coordinates. We thus make the assumption that we won't
-				// use models where a vertex can have multiple texture coordinates so we always take the first set (0).
-				vec.x = mesh->mTextureCoords[0][i].x;
-				vec.y = mesh->mTextureCoords[0][i].y;
-				vertex.TexCoords = vec;
-				// tangent
-				vector.x = mesh->mTangents[i].x;
-				vector.y = mesh->mTangents[i].y;
-				vector.z = mesh->mTangents[i].z;
-				vertex.Tangent = vector;
-				// bitangent
-				vector.x = mesh->mBitangents[i].x;
-				vector.y = mesh->mBitangents[i].y;
-				vector.z = mesh->mBitangents[i].z;
-				//vertex.Bitangent = vector;
-			}
-			else
-				vertex.TexCoords = glm::vec2(0.0f, 0.0f);
-
-			vertices.push_back(vertex);
-		}
-		// now wak through each of the mesh's faces (a face is a mesh its triangle) and retrieve the corresponding vertex indices.
-		for (unsigned int i = 0; i < mesh->mNumFaces; i++) {
-			aiFace face = mesh->mFaces[i];
-			// retrieve all indices of the face and store them in the indices vector
-			for (unsigned int j = 0; j < face.mNumIndices; j++)
-				indices.push_back(face.mIndices[j]);
-		}
-		// process materials
-		aiMaterial* aiMaterial = scene->mMaterials[mesh->mMaterialIndex];
-		// we assume a convention for sampler names in the shaders. Each diffuse texture should be named
-		// as 'texture_diffuseN' where N is a sequential number ranging from 1 to MAX_SAMPLER_NUMBER.
-		// Same applies to other texture as the following list summarizes:
-		// diffuse: texture_diffuseN
-		// specular: texture_specularN
-		// normal: texture_normalN
-		aiString materialName;
-		aiMaterial->Get(AI_MATKEY_NAME, materialName);
-		std::shared_ptr<Material> material = ResourceManager::GetInstance().LoadResource<Material>(materialName.C_Str(), ResourceManager::GetInstance().LoadResource<Shader>("DefaultLit", std::make_tuple("PBR.vert", "PBR.frag", std::optional<std::string>{})));
-
-		auto color = aiColor4D(1, 1, 1, 1);
-		aiGetMaterialColor(aiMaterial, AI_MATKEY_COLOR_DIFFUSE, &color);
-		float metallic = -1;
-		aiGetMaterialFloat(aiMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_METALLIC_FACTOR, &metallic);
-		float roughness = -1;
-		aiGetMaterialFloat(aiMaterial, AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, &roughness);
-
-		//    // 1. diffuse maps
-		//    vector<Texture> diffuseMaps = loadMaterialTextures(aiMaterial, aiTextureType_DIFFUSE, "texture_diffuse");
-		//    textures.insert(textures.end(), diffuseMaps.begin(), diffuseMaps.end());
-		//    // 2. normal maps
-		//    std::vector<Texture> normalMaps = loadMaterialTextures(aiMaterial, aiTextureType_NORMALS, "texture_normal");
-		//    textures.insert(textures.end(), normalMaps.begin(), normalMaps.end());
-		//    // 3. height maps
-		//    std::vector<Texture> heightMaps = loadMaterialTextures(aiMaterial, aiTextureType_AMBIENT, "texture_height");
-		//    textures.insert(textures.end(), heightMaps.begin(), heightMaps.end());
-		//    // 4. shininess maps
-		//    vector<Texture> shininessMaps = loadMaterialTextures(aiMaterial, aiTextureType_SHININESS, "texture_shininess");
-		//    textures.insert(textures.end(), shininessMaps.begin(), shininessMaps.end());
-		//    // 5. metalness maps
-		//    vector<Texture> metallicMaps = loadMaterialTextures(aiMaterial, aiTextureType_METALNESS, "texture_metallic");
-		//    textures.insert(textures.end(), metallicMaps.begin(), metallicMaps.end());
-
-		//TODO: ADD METALLIC ROUGHNESS TOGETHER
-
-		aiString normalMapPath;
-
-		//// Check if the material has a normal map
-		//if (aiMaterial->GetTexture(aiTextureType_NORMALS, 0, &normalMapPath) == AI_SUCCESS) {
-		//	// Successfully retrieved the normal map path
-		//	//std::cout << "Normal map texture found: " << normalMapPath.C_Str() << std::endl;
-		//}
-		//else {
-		//	REON_CORE_WARN("No normal map found for material");
-		//}
-
-		material->albedoTexture = LoadTexture(aiMaterial, aiTextureType_DIFFUSE, m_Directory);
-		material->normalTexture = LoadTexture(aiMaterial, aiTextureType_NORMALS, m_Directory);
-		material->roughnessTexture = LoadTexture(aiMaterial, aiTextureType_UNKNOWN, m_Directory);
-		//material->MetallicTexture = LoadMaterialTextures(aiMaterial, aiTextureType_METALNESS, "texture_metallic", directory);
-
-		//material->metallic = metallic;
-		//material->roughness = roughness;
-		//material->albedoColor = glm::vec4(color.r, color.g, color.b, color.a);
-
-		std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier, std::make_tuple(vertices, indices));
-
-		//std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(meshObj, material);
-		//parent->AddComponent(renderer);
 	}
 
 	std::shared_ptr<Texture> Model::LoadTexture(aiMaterial* mat, aiTextureType type, const std::string& directory) {
@@ -249,11 +134,38 @@ namespace REON::EDITOR {
 		file >> j;
 		file.close();
 
-		auto nodeObject = std::make_shared<GameObject>();
+		if (j.contains("rootNodes")) {
+			if (j["rootNodes"].size() > 1) {
+				auto sceneObject = std::make_shared<GameObject>();
 
-		scene->AddGameObject(nodeObject);
+				scene->AddGameObject(sceneObject);
 
-		return ProcessModelNode(j["rootNode"], j, nodeObject);
+				if (j.contains("sceneName")) {
+					sceneObject->SetName(j["sceneName"]);
+				}
+				else {
+					sceneObject->SetName("Scene_" + std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+				}
+
+				for (auto node : j["rootNodes"]) {
+					auto nodeObject = std::make_shared<GameObject>();
+
+					sceneObject->AddChild(nodeObject);
+
+					ProcessModelNode(node, j, nodeObject); // ADD CHILD BEFORE SCENE IS SET
+				}
+
+				return sceneObject;
+			}
+			else {
+				auto nodeObject = std::make_shared<GameObject>();
+
+				scene->AddGameObject(nodeObject);
+
+				return ProcessModelNode(j["rootNodes"][0], j, nodeObject);
+			}
+		}
+		return nullptr;
 	}
 
 	std::shared_ptr<GameObject> Model::ProcessModelNode(nlohmann::json nodeJson, nlohmann::json fullJson, std::shared_ptr<GameObject> nodeObject)
@@ -280,11 +192,11 @@ namespace REON::EDITOR {
 				if (!(mat = ResourceManager::GetInstance().GetResource<Material>(materialID))) {
 					if (auto matInfo = AssetRegistry::Instance().GetAssetById(materialID)) {
 						mat = std::make_shared<Material>();
-						mat->Deserialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + matInfo->path.string());
+						mat->Deserialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + matInfo->path.string(), ProjectManager::GetInstance().GetCurrentProjectPath());
 						ResourceManager::GetInstance().AddResource(mat);
 					}
 					else {
-						REON_ERROR("CANT FIND MATERIAL");
+						REON_ERROR("CANT FIND MATERIAL: {}", materialID.get<std::string>());
 					}
 				}
 				REON_CORE_ASSERT(mat);

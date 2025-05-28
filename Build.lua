@@ -49,6 +49,7 @@ IncludeDir["ImGuizmo"] = "vendor/ImGuizmo"
 IncludeDir["json"] = "vendor/json/include"
 IncludeDir["Tracy"] = "vendor/Tracy"
 IncludeDir["Vulkan"] = "vendor/Vulkan/include"
+IncludeDir["MikkTSpace"] = "vendor/MikkTSpace"
 
 include "Resonance-Core/vendor/GLFW/premake5.lua"
 include "Resonance-Core/vendor/GLAD/premake5.lua"

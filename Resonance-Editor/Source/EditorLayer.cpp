@@ -280,6 +280,7 @@ namespace REON::EDITOR {
 					REON::AssetInfo assetInfo;
 					assetInfo.id = j["GUID"];
 					auto extension = asset.extension().string();
+					bool shouldBreak = assetInfo.id == "84a05ca5-48cb-4890-a4cd-026528ee74eb";
 					extension.erase(0, 1);
 					assetInfo.type = extension;
 					assetInfo.path = fs::relative(asset, event.GetProjectDirectory());

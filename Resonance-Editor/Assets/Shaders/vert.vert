@@ -13,7 +13,7 @@ struct PS_Input
     float4 color : COLOR;
     float3 normal : NORMAL;
     float2 tex : TEXCOORD;
-    float4 tangent : TANGENT;
+    float3x3 tbn : TBN;
     float3 fragPosition : FRAG_POSITION;
     float3 fragViewPos : FRAG_VIEW_POS;
     float4 fragLightSpacePos : FRAG_LIGHT_SPACE_POS;
@@ -49,11 +49,14 @@ PS_Input main(VS_Input input)
     
     output.position = mul(viewProj, mul(model, float4(input.position, 1.0f)));
     output.color = input.color;
-    output.normal = mul(transposeInverseModel, float4(input.normal, 1.0f));
     output.tex = input.texcoord;
-    output.tangent = normalize(mul(model, input.tangent));
+    output.normal = normalize(mul(transposeInverseModel, float4(input.normal, 0.0f)).xyz);
+    float3 tangent = normalize(mul(transposeInverseModel, float4(input.tangent.xyz, 0.0)).xyz);
+    tangent = normalize(tangent - dot(tangent, output.normal) * output.normal);
+    float3 bitangent = cross(output.normal, tangent) * input.tangent.w;
+    output.tbn = float3x3(tangent, bitangent, output.normal);
     output.fragPosition = mul(model, float4(input.position, 1.0)).xyz;
     output.fragViewPos = float3(inverseView[0][3], inverseView[1][3], inverseView[2][3]);
-    output.fragLightSpacePos =mul(lights[0].mainViewProj, float4(output.fragPosition, 1.0f));
+    output.fragLightSpacePos = mul(lights[0].mainViewProj, float4(output.fragPosition, 1.0f));
     return output;
 }

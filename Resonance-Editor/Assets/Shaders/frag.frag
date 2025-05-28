@@ -6,7 +6,7 @@ struct PS_Input
     float4 color : COLOR;
     float3 normal : NORMAL;
     float2 tex : TEXCOORD;
-    float4 tangent : TANGENT;
+    float3x3 tbn : TBN;
     float3 fragPosition : FRAG_POSITION;
     float3 fragViewPos : FRAG_VIEW_POS;
     float4 fragLightSpacePos : FRAG_LIGHT_SPACE_POS;
@@ -42,8 +42,8 @@ cbuffer flatData : register(b1, space1)
     float metallic;
     int useAlbedoTexture;
     int useNormalTexture;
-    int useRoughnessTexture;
-    int useMetallicTexture;
+    int useMetallicRoughnessTexture;
+    float normalScalar;
 };
 
 Texture2D texture_albedo : register(t3, space1);
@@ -125,28 +125,42 @@ float MainShadowCalculation(float4 fragPosLightSpace, float3 normal)
     return shadow;
 }
 
-float4 main(PS_Input input) : SV_TARGET
+float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 {
-    //return input.fragLightSpacePos;
     float3 V = normalize(input.fragViewPos - input.fragPosition);
+    
     float3 N = normalize(input.normal);
-    float3 R = reflect(-V, N);
+    
+    //return float4(N, 1.0);
     
     if (useNormalTexture)
     {
-        float3 fragTangent = normalize(input.tangent.xyz);
-        fragTangent = normalize(fragTangent - dot(fragTangent, N) * N);
-        float3 fragBiTangent = cross(N, fragTangent) * input.tangent.w;
-        
-        float3x3 TBN = transpose(float3x3(fragTangent, fragBiTangent, N));
         N = texture_normal.Sample(texture_sampler_normal, input.tex).rgb;
         
-        //N.g = 1.0 - N.g;
-        N = normalize(N * 2.0 - 1.0);
-        N = normalize(mul(TBN, N));
+        N.g = 1.0 - N.g;
         
-        //return float4(fragBiTangent, 1.0);
+        N = normalize(N * 2.0 - 1.0);
+        
+        //return float4(N, 1.0);
+        
+        
+        N = normalize(mul(N, input.tbn));
+        
+        if(!isFrontFacing)
+            N = -N;
+        
+        return float4(N, 1.0);
+        
     }
+    
+        //return float4(N, 1.0);
+    
+    
+    //return float4(N, 1.0f);
+    
+    //float3 R = reflect(-V, N);
+    
+    
     
     //return float4(input.fragViewPos, 1.0);
     
@@ -157,6 +171,8 @@ float4 main(PS_Input input) : SV_TARGET
     // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0
     // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)
     float3 F0 = lerp(0.04.xxx, diffuseColor.xyz, metallicInternal);
+    
+    //return float4(roughnessInternal, roughnessInternal, roughnessInternal, 1.0);
     
     float3 Lo = 0.0;
     int pointLightCount = 0;
@@ -169,7 +185,7 @@ float4 main(PS_Input input) : SV_TARGET
             
         if (lights[i].position.w == 1.0)
         {
-            L = normalize(-lights[i].direction.xyz);
+            L = normalize(lights[i].direction.xyz);
             radiance = lights[i].color.xyz;
             shadow = MainShadowCalculation(input.fragLightSpacePos, N);
         }
@@ -205,6 +221,8 @@ float4 main(PS_Input input) : SV_TARGET
         // have diffuse lighting, or a linear blend if partly metal (pure metals
         // have no diffuse light).
         kD *= 1.0 - metallicInternal;
+        
+        //return float4(specular, 1.0);
         
         float NdotL = max(dot(N, L), 0.0);
 

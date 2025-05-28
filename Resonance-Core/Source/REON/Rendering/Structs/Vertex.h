@@ -11,7 +11,7 @@ namespace REON{
 		glm::vec4 Color;
         glm::vec3 Normal;
         glm::vec2 TexCoords;
-        glm::vec3 Tangent;
+        glm::vec4 Tangent;
 
 		static VkVertexInputBindingDescription getBindingDescription() {
 			VkVertexInputBindingDescription bindingDescription{};
@@ -47,7 +47,7 @@ namespace REON{
 
 			attributeDescriptions[4].binding = 0;
 			attributeDescriptions[4].location = 4;
-			attributeDescriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+			attributeDescriptions[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
 			attributeDescriptions[4].offset = offsetof(Vertex, Tangent);
 
 			return attributeDescriptions;

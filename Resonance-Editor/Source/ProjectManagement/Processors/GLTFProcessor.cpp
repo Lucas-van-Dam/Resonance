@@ -1,11 +1,11 @@
 #include "reonpch.h"
 #define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "GLTFProcessor.h"
 #include <ProjectManagement/ProjectManager.h>
 #include <REON/ResourceManagement/ResourceInfo.h>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include "mikktspace.h"
 
 using json = nlohmann::json;
 
@@ -19,15 +19,15 @@ namespace REON::EDITOR {
 		std::string warn;
 
 		auto extension = assetInfo.path.extension().string();
-		std::string fullPath = ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + assetInfo.path.string();
+		fullPath = ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + assetInfo.path.string();
 
 		if (extension == ".gltf") {
-			if (!loader.LoadASCIIFromFile(&model, &err, &warn, fullPath)) {
+			if (!loader.LoadASCIIFromFile(&model, &err, &warn, fullPath.string())) {
 				REON_ERROR("Failed to parse GLTF: {}", err);
 			}
 		}
 		else if (extension == ".glb") {
-			if (!loader.LoadBinaryFromFile(&model, &err, &warn, fullPath)) {
+			if (!loader.LoadBinaryFromFile(&model, &err, &warn, fullPath.string())) {
 				REON_ERROR("Failed to parse GLTF: {}", err);
 			}
 		}
@@ -60,12 +60,15 @@ namespace REON::EDITOR {
 			std::shared_ptr<Material> mat = std::make_shared<Material>();
 			mat->shader = litShader;
 
-			mat->SetName(srcMat.name);
+
+			mat->SetName(srcMat.name.empty() ? "Material_" + mat->GetID() : srcMat.name);
 
 			materialIDs.push_back(mat->GetID());
 
 			if (srcMat.alphaMode != "OPAQUE")
 				REON_WARN("Transparent materials are not supported yet, material: {}", srcMat.name);
+
+			mat->setDoubleSided(srcMat.doubleSided);
 
 			auto pbrData = srcMat.pbrMetallicRoughness;
 
@@ -74,13 +77,20 @@ namespace REON::EDITOR {
 				static_cast<float>(pbrData.baseColorFactor[1]),
 				static_cast<float>(pbrData.baseColorFactor[2]),
 				static_cast<float>(pbrData.baseColorFactor[3]));
-			
+
 			if (pbrData.baseColorTexture.index >= 0) {
-				REON_ERROR("HAVENT IMPLEMENTED COLOR TEXTURES YET, WILL IN A BIT");
+				
+				mat->albedoTexture = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index], VK_FORMAT_R8G8B8A8_SRGB, pbrData.baseColorTexture.index);
+				mat->flatData.useAlbedoTexture = true;
+				if (pbrData.baseColorTexture.texCoord != 0)
+					REON_WARN("Albedo texture has non 0 texcoord and is not used");
 			}
 
 			if (pbrData.metallicRoughnessTexture.index >= 0) {
-				REON_ERROR("HAVENT IMPLEMENTED METALLICROUGHNESS TEXTURES YET, WILL IN A BIT");
+				mat->roughnessMetallicTexture = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index], VK_FORMAT_R8G8B8A8_SRGB, pbrData.metallicRoughnessTexture.index);
+				mat->flatData.useMetallicRoughnessTexture = true;
+				if (pbrData.metallicRoughnessTexture.texCoord != 0)
+					REON_WARN("MetallicRoughness texture has non 0 texcoord and is not used");
 			}
 			else {
 				mat->flatData.roughness = pbrData.roughnessFactor;
@@ -88,21 +98,27 @@ namespace REON::EDITOR {
 			}
 
 			if (srcMat.normalTexture.index >= 0) {
-				REON_ERROR("HAVENT IMPLEMENTED NORMAL TEXTURES YET, WILL IN A BIT");
+				mat->normalTexture = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], VK_FORMAT_R8G8B8A8_UNORM, srcMat.normalTexture.index);
+				mat->flatData.useNormalTexture = true;
+				//TODO: add normal scalar
+				if (srcMat.normalTexture.texCoord != 0)
+					REON_WARN("Normal texture has non 0 texcoord and is not used");
 			}
 
-			AssetRegistry::Instance().RegisterAsset({mat->GetID(), "Material", mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + (basePath.parent_path().string())).string()});
+			AssetRegistry::Instance().RegisterAsset({ mat->GetID(), "Material", mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + (basePath.parent_path().string())).string() });
 
 			ResourceManager::GetInstance().AddResource(mat);
 		}
 
 		const int sceneToLoad = model.defaultScene < 0 ? 0 : model.defaultScene;
 
+		metaData.sceneName = model.scenes[sceneToLoad].name;
+
 		for (auto& nodeId : model.scenes[sceneToLoad].nodes) {
 			if (nodeId < 0)
 				return;
 
-			metaData.rootNode = HandleGLTFNode(model, model.nodes[nodeId], glm::mat4(1.0f), metaData);
+			metaData.rootNodes.push_back(HandleGLTFNode(model, model.nodes[nodeId], glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1, 0, 0)), metaData)); //pre-rotation for correction of -90 degree rotation
 		}
 
 		assetInfo.extraInformation["Importer"] = "GLTFImporter";
@@ -118,7 +134,7 @@ namespace REON::EDITOR {
 		SceneNodeData data;
 		data.name = node.name;
 
-		glm::mat4 transform = parentTransform * GetTransformFromGLTFNode(node);
+		glm::mat4 transform = GetTransformFromGLTFNode(node);
 
 		data.transform = transform;
 
@@ -133,7 +149,7 @@ namespace REON::EDITOR {
 		for (auto& nodeId : node.children) {
 			if (nodeId < 0 || nodeId > model.nodes.size())
 				continue;
-			
+
 			data.children.push_back(HandleGLTFNode(model, model.nodes[nodeId], transform, modelFileData));
 		}
 
@@ -152,16 +168,21 @@ namespace REON::EDITOR {
 			SubMesh subMesh;
 			subMesh.indexOffset = meshData->indices.size();
 
-			auto matID = materialIDs[primitive.material];
-			auto it = std::find(matIDsPerMesh.begin(), matIDsPerMesh.end(), matID);
-			if (it != matIDsPerMesh.end()) {
-				subMesh.materialIndex = std::distance(matIDsPerMesh.begin(), it);
+			if (primitive.material >= 0) {
+				auto matID = materialIDs[primitive.material];
+				auto it = std::find(matIDsPerMesh.begin(), matIDsPerMesh.end(), matID);
+				if (it != matIDsPerMesh.end()) {
+					subMesh.materialIndex = std::distance(matIDsPerMesh.begin(), it);
+				}
+				else {
+					subMesh.materialIndex = matIDsPerMesh.size();
+					matIDsPerMesh.push_back(matID);
+				}
+				sceneNode.materials.push_back(matID);
 			}
 			else {
-				subMesh.materialIndex = matIDsPerMesh.size();
-				matIDsPerMesh.push_back(matID);
+				subMesh.materialIndex = -1;
 			}
-			sceneNode.materials.push_back(matID);
 
 			const int vertexOffset = meshData->positions.size();
 
@@ -180,9 +201,13 @@ namespace REON::EDITOR {
 				{
 					HandleGLTFBuffer(model, accessor, meshData->texCoords);
 				}
+				else if (attribute.first.compare("TANGENT") == 0)
+				{
+					HandleGLTFBuffer(model, accessor, meshData->tangents);
+				}
 				else if (attribute.first.compare("COLOR_0") == 0)
 				{
-					REON_INFO("Color found");
+					REON_WARN("Color found, but not implemented yet");
 					//auto result = detail::handleGltfVertexColor(model, accessor, accessor.type, accessor.componentType, meshData.colors);
 				}
 				else
@@ -200,17 +225,14 @@ namespace REON::EDITOR {
 			for (int i = smallestBufferSize; i < vertexCount; ++i)
 			{
 				if (meshData->normals.size() == i)
-					meshData->normals.push_back(glm::vec3(0,1,0));
+					meshData->normals.push_back(glm::vec3(0, 1, 0));
 
 				if (meshData->texCoords.size() == i)
 					meshData->texCoords.push_back(glm::vec2(0, 0));
 
 				if (meshData->colors.size() == i)
-					meshData->colors.push_back(glm::vec4(1,1,1,1));
+					meshData->colors.push_back(glm::vec4(1, 1, 1, 1));
 			}
-
-			if (meshData->tangents.empty())
-				meshData->calculateTangents();
 
 			const int index = primitive.indices;
 
@@ -237,8 +259,12 @@ namespace REON::EDITOR {
 			meshData->subMeshes.push_back(subMesh);
 		}
 
+		if (meshData->tangents.empty()) {
+			Mesh::calculateTangents(meshData);
+		}
+
 		ResourceManager::GetInstance().AddResource(meshData);
-		AssetRegistry::Instance().RegisterAsset({ meshData->GetID(), "Mesh", basePath.string() + ".meta"});
+		AssetRegistry::Instance().RegisterAsset({ meshData->GetID(), "Mesh", basePath.string() + ".meta" });
 
 		return meshData->GetID();
 	}
@@ -253,9 +279,9 @@ namespace REON::EDITOR {
 				static_cast<float>(node.matrix[12]), static_cast<float>(node.matrix[13]), static_cast<float>(node.matrix[14]), static_cast<float>(node.matrix[15]));
 		}
 		else {
-			glm::vec3 trans{0,0,0};
-			Quaternion rot{1,0,0,0};
-			glm::vec3 scale{1,1,1};
+			glm::vec3 trans{ 0,0,0 };
+			Quaternion rot{ 1,0,0,0 };
+			glm::vec3 scale{ 1,1,1 };
 
 			if (node.scale.size() == 3)
 				scale = glm::vec3(static_cast<float>(node.scale[0]), static_cast<float>(node.scale[1]), static_cast<float>(node.scale[2]));
@@ -329,7 +355,7 @@ namespace REON::EDITOR {
 			REON_WARN("Sparse accessors are not supported yet (while processing template buffer)");
 	}
 
-	void GLTFProcessor::HandleGLTFIndices(const tg::Model& model, const tg::Accessor& accessor, int offset, std::vector<uint>& data) 
+	void GLTFProcessor::HandleGLTFIndices(const tg::Model& model, const tg::Accessor& accessor, int offset, std::vector<uint>& data)
 	{
 		const tinygltf::BufferView& bufferView = model.bufferViews.at(accessor.bufferView);
 		const tinygltf::Buffer& buffer = model.buffers.at(bufferView.buffer);
@@ -389,8 +415,14 @@ namespace REON::EDITOR {
 	{
 		nlohmann::ordered_json j;
 		j["GUID"] = data.modelUID;
-		j["rootNode"] = SerializeSceneNode(data.rootNode);
-		
+		j["sceneName"] = data.sceneName;
+
+		nlohmann::ordered_json nodeArray = nlohmann::ordered_json::array();
+		for (auto node : data.rootNodes) {
+			nodeArray.push_back(SerializeSceneNode(node));
+		}
+		j["rootNodes"] = nodeArray;
+
 		// Convert mesh data to JSON
 		nlohmann::ordered_json meshArray = nlohmann::ordered_json::array();
 		for (auto mesh : data.meshes) // Assuming `data.meshes` is a list of Mesh objects
@@ -410,6 +442,122 @@ namespace REON::EDITOR {
 		{
 			REON_ERROR("Failed to open companion file for writing: {}", outPath);
 		}
+	}
+
+	std::shared_ptr<Texture> GLTFProcessor::HandleGLTFTexture(const tg::Model& model, const tg::Texture& tgTexture, VkFormat format, int textureIndex)
+	{
+		const auto& image = model.images[tgTexture.source];
+
+		
+		
+
+		auto path = image.uri.empty() ? basePath.stem().string() + "_texture_" + std::to_string(textureIndex) : image.uri;
+
+
+		auto outPath = basePath.parent_path().string() + "\\" + path + ".img";
+
+		TextureHeader header{};
+		header.width = image.width;
+		header.height = image.height;
+		header.channels = image.component;
+		header.format = format;
+		// I know its ugly, but whatever, ill change it later
+		if (tgTexture.sampler >= 0) {
+			const auto& sampler = model.samplers[tgTexture.sampler];
+
+			switch (sampler.magFilter) {
+			case TINYGLTF_TEXTURE_FILTER_NEAREST:
+				header.magFilter = VK_FILTER_NEAREST;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_LINEAR:
+				header.magFilter = VK_FILTER_LINEAR;
+				break;
+			default:
+				REON_WARN("Unknown magfilter on texture");
+				break;
+			}
+			switch (sampler.minFilter) {
+			case TINYGLTF_TEXTURE_FILTER_NEAREST:
+				header.minFilter = VK_FILTER_NEAREST;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_LINEAR:
+				header.minFilter = VK_FILTER_LINEAR;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
+				header.minFilter = VK_FILTER_NEAREST;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
+				header.minFilter = VK_FILTER_NEAREST;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
+				header.minFilter = VK_FILTER_LINEAR;
+				break;
+			case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
+				header.minFilter = VK_FILTER_LINEAR;
+				break;
+			default:
+				REON_WARN("Unknown minFilter on texture");
+				break;
+			}
+			switch (sampler.wrapS) {
+			case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
+				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+				break;
+			case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
+				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+				break;
+			case TINYGLTF_TEXTURE_WRAP_REPEAT:
+				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+				break;
+			default:
+				REON_WARN("Unknown wrap U on texture");
+				break;
+			}
+			switch (sampler.wrapS) {
+			case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
+				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+				break;
+			case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
+				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+				break;
+			case TINYGLTF_TEXTURE_WRAP_REPEAT:
+				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+				break;
+			default:
+				REON_WARN("Unknown wrap V on texture");
+				break;
+			}
+		}
+		std::ofstream out(fullPath.parent_path().string() + "\\" + path + ".img", std::ios::binary);
+		if (out.is_open()) {
+			out.write(reinterpret_cast<const char*>(&header), sizeof(TextureHeader));
+			out.write(reinterpret_cast<const char*>(image.image.data()), image.image.size() * sizeof(image.image[0]));
+			out.close();
+		}
+
+		auto texture = ResourceManager::GetInstance().LoadResource<Texture>(outPath, std::make_tuple(header, image.image));
+
+
+		AssetInfo textureInfo{};
+		textureInfo.id = texture->GetID();
+		textureInfo.type = "Texture";
+		textureInfo.path = outPath;
+
+		nlohmann::ordered_json json;
+
+		json["Id"] = textureInfo.id;
+		json["Type"] = textureInfo.type;
+		json["Path"] = textureInfo.path.string();
+		json["Extra Data"] = textureInfo.extraInformation;
+
+		std::ofstream metaOut(fullPath.parent_path().string() + "\\" + path + ".img.meta");
+		if (metaOut.is_open()) {
+			metaOut << json.dump(4);
+			metaOut.close();
+		}
+
+		AssetRegistry::Instance().RegisterAsset(textureInfo);
+		return texture;
 	}
 
 

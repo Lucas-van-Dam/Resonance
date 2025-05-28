@@ -150,12 +150,16 @@ namespace REON {
 			scissor.extent = {m_Width, m_Height};
 			vkCmdSetScissor(m_OpaqueCommandBuffers[currentFrame], 0, 1, &scissor);
 
+
 			const auto& materialFromShader = pair.second;
 			for (const auto& material : materialFromShader) {
 				//set material wide buffers/textures
 				std::shared_ptr<Material> mat = ResourceManager::GetInstance().GetResource<Material>(material.first);
 
 				memcpy(mat->flatDataBuffersMapped[currentFrame], &mat->flatData, sizeof(mat->flatData));
+
+				vkCmdSetCullMode(m_OpaqueCommandBuffers[currentFrame], mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
+
 
 				for (const auto& renderer : material.second) {
 					//set object buffers (model matrix)
@@ -1144,7 +1148,8 @@ namespace REON {
 
 		std::vector<VkDynamicState> dynamicStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
-			VK_DYNAMIC_STATE_SCISSOR
+			VK_DYNAMIC_STATE_SCISSOR,
+			VK_DYNAMIC_STATE_CULL_MODE
 		};
 
 		VkPipelineDynamicStateCreateInfo dynamicState{};
