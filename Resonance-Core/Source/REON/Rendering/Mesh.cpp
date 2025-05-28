@@ -40,12 +40,12 @@ namespace REON {
     {
         nlohmann::ordered_json meshJson;
         meshJson["GUID"] = GetID();
-        meshJson["vertices"] = ConvertVec3Array(positions); // Convert glm::vec3 to JSON
-        meshJson["normals"] = ConvertVec3Array(normals);
-        meshJson["uvs"] = ConvertVec2Array(texCoords);
-        meshJson["tangents"] = ConvertVec4Array(tangents);
-        meshJson["colors"] = ConvertVec4Array(colors);
-        meshJson["indices"] = indices;
+        meshJson["vertices"] = encodeBase64(reinterpret_cast<const uint8_t*>(positions.data()), positions.size() * sizeof(positions[0]));
+        meshJson["normals"] = encodeBase64(reinterpret_cast<const uint8_t*>(normals.data()), normals.size() * sizeof(normals[0]));
+        meshJson["uvs"] = encodeBase64(reinterpret_cast<const uint8_t*>(texCoords.data()), texCoords.size() * sizeof(texCoords[0]));
+        meshJson["tangents"] = encodeBase64(reinterpret_cast<const uint8_t*>(tangents.data()), tangents.size() * sizeof(tangents[0]));
+        meshJson["colors"] = encodeBase64(reinterpret_cast<const uint8_t*>(colors.data()), colors.size() * sizeof(colors[0]));
+        meshJson["indices"] = encodeBase64(reinterpret_cast<const uint8_t*>(indices.data()), indices.size() * sizeof(indices[0]));
 
         // Serialize submeshes
         nlohmann::ordered_json subMeshArray = nlohmann::ordered_json::array();
@@ -64,12 +64,12 @@ namespace REON {
 
     void Mesh::DeSerialize(const nlohmann::ordered_json& meshJson)
     {
-        positions = ConvertJsonToVec3Array(meshJson["vertices"]);
-        normals = ConvertJsonToVec3Array(meshJson["normals"]);
-        texCoords = ConvertJsonToVec2Array(meshJson["uvs"]);
-        tangents = ConvertJsonToVec4Array(meshJson["tangents"]);
-        colors = ConvertJsonToVec4Array(meshJson["colors"]);
-        indices = meshJson["indices"].get<std::vector<uint32_t>>();
+        positions = decodeBase64<glm::vec3>(meshJson["vertices"]);
+        normals = decodeBase64<glm::vec3>(meshJson["normals"]);
+        texCoords = decodeBase64<glm::vec2>(meshJson["uvs"]);
+        tangents = decodeBase64<glm::vec4>(meshJson["tangents"]);
+        colors = decodeBase64<glm::vec4>(meshJson["colors"]);
+        indices = decodeBase64<uint>(meshJson["indices"]);
 
         // Deserialize subMeshes
         for (const auto& subMeshJson : meshJson["subMeshes"]) {
@@ -79,6 +79,10 @@ namespace REON {
             subMesh.materialIndex = subMeshJson["materialIndex"].get<int>();
             subMeshes.push_back(subMesh);
         }
+    }
+
+    std::string Mesh::encodeBase64(const uint8_t* data, size_t size) const{
+        return cppcodec::base64_rfc4648::encode(data, size);
     }
 
     nlohmann::ordered_json Mesh::ConvertVec3Array(const std::vector<glm::vec3>& vecs) const{

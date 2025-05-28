@@ -8,7 +8,7 @@
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
 #include <mikktspace.h>
-
+#include "cppcodec/base64_rfc4648.hpp"
 
 namespace REON {
 
@@ -35,6 +35,10 @@ namespace REON {
 
         nlohmann::ordered_json Serialize() const;
         void DeSerialize(const nlohmann::ordered_json& json);
+
+        std::string encodeBase64(const uint8_t* data, size_t size) const;
+        template<typename T>
+        std::vector<T> decodeBase64(const std::string& base64) const;
 
         nlohmann::ordered_json ConvertVec2Array(const std::vector<glm::vec2>& vecs) const;
         nlohmann::ordered_json ConvertVec3Array(const std::vector<glm::vec3>& vecs) const;
@@ -129,5 +133,15 @@ namespace REON {
 
 
 
+
+    template<typename T>
+    inline std::vector<T> Mesh::decodeBase64(const std::string& base64) const
+    {
+        std::vector<uint8_t> binary = cppcodec::base64_rfc4648::decode(base64);
+
+        std::vector<T> result(binary.size() / sizeof(T));
+        memcpy(result.data(), binary.data(), binary.size());
+        return result;
+    }
 
 }

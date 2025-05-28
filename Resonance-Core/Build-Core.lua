@@ -52,7 +52,7 @@ project "Core"
       "%{IncludeDir.Tracy}",
       "%{IncludeDir.Vulkan}",
       "%{IncludeDir.MikkTSpace}",
-      
+      "%{IncludeDir.cppcodec}"
    }
 
    links{

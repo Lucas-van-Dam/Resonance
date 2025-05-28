@@ -1,5 +1,6 @@
 #include "reonpch.h"
 #include "Shader.h"
+#include "Material.h"
 
 using Microsoft::WRL::ComPtr;
 
@@ -28,7 +29,7 @@ namespace REON {
 
 	}
 
-	std::vector<char> Shader::CompileHLSLToSPIRV(const std::string& source)
+	std::vector<char> Shader::CompileHLSLToSPIRV(const std::string& source, uint32_t flags)
 	{
 		std::wstring filename(source.begin(), source.end());
 
@@ -72,9 +73,14 @@ namespace REON {
 			L"-T", targetProfile,
 			// Compile to SPIRV
 			L"-spirv",
+			//L"-Fo", (filename + L".spv").c_str(),
 			//DXC_ARG_PACK_MATRIX_COLUMN_MAJOR,
 			L"-fspv-debug=vulkan-with-source"
 		};
+
+		if (flags & AlbedoTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_ALBEDO_TEXTURE"); };
+		if (flags & NormalTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_NORMAL_TEXTURE"); }
+		if (flags & MetallicRoughnessTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_METALLICROUGHNESS_TEXTURE"); }
 
 		DxcBuffer buffer{};
 		buffer.Encoding = DXC_CP_ACP;
@@ -93,7 +99,7 @@ namespace REON {
 			hres = result->GetErrorBuffer(&errorBlob);
 			if (SUCCEEDED(hres) && errorBlob) {
 				REON_CORE_ERROR("Shader compilation failed: \n\n{}", (const char*)errorBlob->GetBufferPointer());
-				throw std::runtime_error("Compilation failed");
+				//throw std::runtime_error("Compilation failed");
 			}
 		}
 

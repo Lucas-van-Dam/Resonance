@@ -66,13 +66,17 @@ namespace REON {
 		void createGlobalBuffers();
 		void createOpaqueMaterialDescriptorSets(const std::shared_ptr<Material>& material);
 		void createOpaqueObjectDescriptorSets(const std::shared_ptr<Renderer>& renderer);
-		void createOpaqueGraphicsPipeline();
-		VkPipeline createGraphicsPipeline(std::shared_ptr<Material> mat);
+		void createOpaqueGraphicsPipelines();
+		void createPipelineCache();
+		VkPipeline getPipelineFromFlags(uint32_t flags);
+		VkPipeline createGraphicsPipeline(VkPipeline basePipeline, uint32_t flags);
 
 	private:
 		const VulkanContext* m_Context;
 
-		std::unordered_map<std::string, VkPipeline> m_PipelineByShaderId;
+		VkPipelineCache m_PipelineCache; // TODO: STORE THIS ON DISK
+
+		std::unordered_map<uint32_t, VkPipeline> m_PipelineByMaterialPermutation;
 		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::shared_ptr<Renderer>>>> m_RenderersByShaderId;
 		std::set<std::weak_ptr<Material>> materials;
 

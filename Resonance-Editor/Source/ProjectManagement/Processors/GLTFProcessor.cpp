@@ -78,32 +78,41 @@ namespace REON::EDITOR {
 				static_cast<float>(pbrData.baseColorFactor[2]),
 				static_cast<float>(pbrData.baseColorFactor[3]));
 
+			uint32_t flags = 0;
+
 			if (pbrData.baseColorTexture.index >= 0) {
 				
 				mat->albedoTexture = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index], VK_FORMAT_R8G8B8A8_SRGB, pbrData.baseColorTexture.index);
-				mat->flatData.useAlbedoTexture = true;
+				flags |= AlbedoTexture;
 				if (pbrData.baseColorTexture.texCoord != 0)
 					REON_WARN("Albedo texture has non 0 texcoord and is not used");
 			}
 
+			mat->flatData.roughness = pbrData.roughnessFactor;
+			if (mat->flatData.roughness < 0 || mat->flatData.roughness > 1) {
+				mat->flatData.roughness = 1.0;
+			}
+			mat->flatData.metallic = pbrData.metallicFactor;
+			if (mat->flatData.metallic < 0 || mat->flatData.metallic > 1) {
+				mat->flatData.metallic = 0.0;
+			}
+
 			if (pbrData.metallicRoughnessTexture.index >= 0) {
-				mat->roughnessMetallicTexture = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index], VK_FORMAT_R8G8B8A8_SRGB, pbrData.metallicRoughnessTexture.index);
-				mat->flatData.useMetallicRoughnessTexture = true;
+				mat->metallicRoughnessTexture = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index], VK_FORMAT_R8G8B8A8_SRGB, pbrData.metallicRoughnessTexture.index);
+				flags |= MetallicRoughnessTexture;
 				if (pbrData.metallicRoughnessTexture.texCoord != 0)
 					REON_WARN("MetallicRoughness texture has non 0 texcoord and is not used");
-			}
-			else {
-				mat->flatData.roughness = pbrData.roughnessFactor;
-				mat->flatData.metallic = pbrData.metallicFactor;
 			}
 
 			if (srcMat.normalTexture.index >= 0) {
 				mat->normalTexture = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], VK_FORMAT_R8G8B8A8_UNORM, srcMat.normalTexture.index);
-				mat->flatData.useNormalTexture = true;
-				//TODO: add normal scalar
+				flags |= NormalTexture;
+				mat->flatData.normalScalar = srcMat.normalTexture.scale;
 				if (srcMat.normalTexture.texCoord != 0)
 					REON_WARN("Normal texture has non 0 texcoord and is not used");
 			}
+
+			mat->materialFlags = flags;
 
 			AssetRegistry::Instance().RegisterAsset({ mat->GetID(), "Material", mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + (basePath.parent_path().string())).string() });
 
@@ -473,7 +482,7 @@ namespace REON::EDITOR {
 				header.magFilter = VK_FILTER_LINEAR;
 				break;
 			default:
-				REON_WARN("Unknown magfilter on texture");
+				REON_WARN("Unknown magfilter on texture {}", sampler.magFilter);
 				break;
 			}
 			switch (sampler.minFilter) {
@@ -496,7 +505,7 @@ namespace REON::EDITOR {
 				header.minFilter = VK_FILTER_LINEAR;
 				break;
 			default:
-				REON_WARN("Unknown minFilter on texture");
+				REON_WARN("Unknown minFilter on texture {}", sampler.minFilter);
 				break;
 			}
 			switch (sampler.wrapS) {
@@ -510,10 +519,10 @@ namespace REON::EDITOR {
 				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 				break;
 			default:
-				REON_WARN("Unknown wrap U on texture");
+				REON_WARN("Unknown wrap U on texture {}", sampler.wrapS);
 				break;
 			}
-			switch (sampler.wrapS) {
+			switch (sampler.wrapT) {
 			case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
 				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 				break;
@@ -524,7 +533,7 @@ namespace REON::EDITOR {
 				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 				break;
 			default:
-				REON_WARN("Unknown wrap V on texture");
+				REON_WARN("Unknown wrap V on texture {}", sampler.wrapT);
 				break;
 			}
 		}

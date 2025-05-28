@@ -10,10 +10,15 @@ namespace REON {
         glm::vec4 albedo;       // float4 → 16 bytes
         float roughness;        // float → 4 bytes
         float metallic;         // float → 4 bytes
-        int useAlbedoTexture = false;    // bool → 4 bytes (no native bools in std140)
-        int useNormalTexture = false;    // bool → 4 bytes
-        int useMetallicRoughnessTexture = false;  // bool → 4 bytes
         float normalScalar; // float -> 4 bytes
+    };
+
+    enum MaterialShaderFlags {
+        AlbedoTexture = 1 << 0,
+        MetallicRoughnessTexture = 1 << 1,
+        NormalTexture = 1 << 2,
+        OcclusionTexture = 1 << 3,
+        EmissiveTexture = 1 << 4
     };
     
     class [[clang::annotate("serialize")]] Material : public ResourceBase {
@@ -39,10 +44,11 @@ namespace REON {
 
     public:
         ResourceHandle albedoTexture;
-        ResourceHandle roughnessMetallicTexture;
+        ResourceHandle metallicRoughnessTexture;
         ResourceHandle normalTexture;
         ResourceHandle shader;
         FlatData flatData;
+        uint32_t materialFlags;
 
         std::vector<VkBuffer> flatDataBuffers;
         std::vector<VkDescriptorSet> descriptorSets;

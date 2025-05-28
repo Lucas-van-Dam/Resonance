@@ -58,14 +58,18 @@ namespace REON {
 		json["Albedo"] = { flatData.albedo.r, flatData.albedo.g, flatData.albedo.b, flatData.albedo.a };
 		if (albedoTexture.Get<Texture>())
 			json["AlbedoTexture"] = albedoTexture.Get<Texture>()->GetID();
-		if (roughnessMetallicTexture.Get<Texture>())
-			json["RoughnessMetallicTexture"] = roughnessMetallicTexture.Get<Texture>()->GetID();
+		if (metallicRoughnessTexture.Get<Texture>())
+			json["MetallicRoughnessTexture"] = metallicRoughnessTexture.Get<Texture>()->GetID();
 
 		json["Roughness"] = flatData.roughness;
 		json["Metallic"] = flatData.metallic;
 
 		if (normalTexture.Get<Texture>())
 			json["NormalTexture"] = normalTexture.Get<Texture>()->GetID();
+
+		json["NormalScalar"] = flatData.normalScalar;
+
+		json["Flags"] = materialFlags;
 
 		if (shader.Get<Shader>())
 			json["Shader"] = shader.Get<Shader>()->GetID();
@@ -113,12 +117,14 @@ namespace REON {
 			flatData.albedo = glm::vec4(albedoArray[0], albedoArray[1], albedoArray[2], albedoArray[3]);
 		}
 
+		materialFlags = 0;
+
 		// Extract Albedo Texture
 		if (json.contains("AlbedoTexture")) {
 			std::string albedoTextureID = json["AlbedoTexture"].get<std::string>();
 			albedoTexture = Texture::getTextureFromId(albedoTextureID, basePath.string());
 			if (albedoTexture.Get<Texture>()) {
-				flatData.useAlbedoTexture = true;
+				materialFlags |= AlbedoTexture;
 			}
 			else {
 				REON_CORE_ERROR("Albedo texture load went wrong");
@@ -130,11 +136,12 @@ namespace REON {
 			flatData.roughness = json["Roughness"].get<float>();
 		}
 
-		if (json.contains("RoughnessMetallicTexture")) {
-			std::string roughnessMetallicTextureID = json["RoughnessMetallicTexture"].get<std::string>();
-			flatData.useRoughnessTexture = true;
-			flatData.useMetallicTexture = true;
-			roughnessMetallicTexture = Texture::getTextureFromId(roughnessMetallicTextureID, basePath.string());
+		if (json.contains("MetallicRoughnessTexture")) {
+			std::string roughnessMetallicTextureID = json["MetallicRoughnessTexture"].get<std::string>();
+			metallicRoughnessTexture = Texture::getTextureFromId(roughnessMetallicTextureID, basePath.string());
+			if (metallicRoughnessTexture.Get<Texture>()) {
+				materialFlags |= MetallicRoughnessTexture;
+			}
 		}
 
 		// Extract Metallic
@@ -145,9 +152,13 @@ namespace REON {
 		// Extract Normal Texture
 		if (json.contains("NormalTexture")) {
 			std::string normalTextureID = json["NormalTexture"].get<std::string>();
-			flatData.useNormalTexture = true;
 			normalTexture = Texture::getTextureFromId(normalTextureID, basePath.string());
+			if (normalTexture.Get<Texture>()) {
+				materialFlags |= NormalTexture;
+			}
 		}
+
+		flatData.normalScalar = json["NormalScalar"];
 
 		// Extract Shader
 		if (json.contains("Shader")) {
