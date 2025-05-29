@@ -4,7 +4,12 @@
 #include "glm/glm.hpp"
 #include "REON/ResourceManagement/Resource.h"
 
+#ifdef REON_PLATFORM_WINDOWS
+#include <Windows.h>
+#include <objidl.h>
 #include "dxc/dxcapi.h"
+#endif
+
 
 
 namespace REON {

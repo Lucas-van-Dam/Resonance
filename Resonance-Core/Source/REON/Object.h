@@ -1,9 +1,8 @@
 #pragma once
 
 #include "string"
-#include <rpc.h>
-#include <Windows.h>
 #include "REON/Logger.h"
+#include <uuid.h>
 
 namespace REON {
 
@@ -31,22 +30,33 @@ namespace REON {
 
 	private:
 		static std::string GenerateUUID() {
-			UUID uuid;
-			RPC_STATUS status = UuidCreate(&uuid);
+			//uuid empty;
+			std::random_device rd;
+			auto seed_data = std::array<int, std::mt19937::state_size> {};
+			std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
+			std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+			std::mt19937 generator(seq);
+			uuids::uuid_random_generator gen{ generator };
 
-			if (status == RPC_S_OK) {
-				std::string uuidStringOut;
-				RPC_CSTR uuidString;
-				UuidToStringA(&uuid, &uuidString);
-				uuidStringOut = (char*)uuidString;
-				RpcStringFreeA(&uuidString);
-				return uuidStringOut;
-			}
-			else {
-				REON_CORE_ERROR("Failed to create UUID. Error code: {}", status);
-			}
+			uuids::uuid const id = gen();
+			assert(!id.is_nil());
+			assert(id.as_bytes().size() == 16);
+			assert(id.version() == uuids::uuid_version::random_number_based);
+			assert(id.variant() == uuids::uuid_variant::rfc);
 
-			return 0;
+			//if (status == RPC_S_OK) {
+			//	std::string uuidStringOut;
+			//	RPC_CSTR uuidString;
+			//	UuidToStringA(&uuid, &uuidString);
+			//	uuidStringOut = (char*)uuidString;
+			//	RpcStringFreeA(&uuidString);
+			//	return uuidStringOut;
+			//}
+			//else {
+			//	REON_CORE_ERROR("Failed to create UUID. Error code: {}", status);
+			//}
+
+			return uuids::to_string(id);
 
 		}
 	};

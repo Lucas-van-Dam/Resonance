@@ -52,7 +52,8 @@ project "Core"
       "%{IncludeDir.Tracy}",
       "%{IncludeDir.Vulkan}",
       "%{IncludeDir.MikkTSpace}",
-      "%{IncludeDir.cppcodec}"
+      "%{IncludeDir.cppcodec}",
+      "%{IncludeDir.stduuid}",
    }
 
    links{
@@ -95,6 +96,24 @@ project "Core"
             "GLFW_INCLUDE_NONE",
             "GLFW_INCLUDE_VULKAN",
         }
+    filter "system:linux"
+        systemversion "latest"
+        defines
+        {
+            "REON_PLATFORM_LINUX",
+            "GLFW_INCLUDE_NONE",
+            "GLFW_INCLUDE_VULKAN",
+        }
+        links {
+        "pthread",     -- For multithreading
+        "dl",          -- For dynamic loading (e.g., dlsym, dlopen)
+        "X11",         -- Needed by GLFW on Linux
+        "Xrandr",      -- Required by GLFW
+        "Xi",          -- Required by GLFW
+        "Xxf86vm",     -- Sometimes needed for OpenGL
+        "Xcursor",     -- For mouse cursor support
+    }
+        
 
    filter "configurations:Debug"
        defines { "REON_DEBUG", "REON_ENABLE_ASSERTS" }

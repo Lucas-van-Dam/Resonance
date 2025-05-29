@@ -84,6 +84,7 @@ float MainShadowCalculation(float4 fragPosLightSpace, float3 normal)
     float currentDepth = projCoords.z;
     float bias = max(0.005 * (1.0 - abs(dot(normalize(normal), normalize(lights[0].direction.xyz)))), 0.0005);
     
+    //return bias;
     //PCF
     float shadow = 0.0;
     int sizex, sizey;
@@ -94,7 +95,8 @@ float MainShadowCalculation(float4 fragPosLightSpace, float3 normal)
         for (int y = -1; y <= 1; ++y)
         {
             float pcfDepth = DirectionalShadowMap.Sample(DirectionalShadowSampler, projCoords.xy + float2(x, y) * texelSize).r;
-            shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+            //return pcfDepth;
+            shadow += currentDepth > pcfDepth + bias ? 1.0 : 0.0;
         }
     }
     shadow /= 9.0;
@@ -113,11 +115,13 @@ float4 SRGBtoLINEAR(float4 srgbIn)
     return float4(linOut,srgbIn.w);;
 }
 
+//diffuse_brdf
 float3 diffuse(PBRInfo pbrInputs)
 {
     return pbrInputs.diffuseColor / M_PI;
 }
 
+//conductor_fresnel
 float3 specularReflection(PBRInfo pbrInputs)
 {
     return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
@@ -134,6 +138,7 @@ float geometricOcclusion(PBRInfo pbrInputs)
     return attenuationL * attenuationV;
 }
 
+// specular_brdf
 float microfacetDistribution(PBRInfo pbrInputs)
 {
     float roughnessSq = pbrInputs.alphaRoughness * pbrInputs.alphaRoughness;
@@ -147,7 +152,7 @@ float3 getNormal(float3x3 inTbn, float2 texCoord)
     
 #ifdef USE_NORMAL_TEXTURE
     float3 n = texture_normal.Sample(texture_sampler_normal, texCoord);
-    n.g = 1.0 - n.g;
+    //n.g = 1.0 - n.g;
     n = normalize(mul(float3(normalScalar, normalScalar, 1.0) * (2.0 * n - 1.0), tbn));
     //return float3(1.0, 0.0, 1.0);
 #else
@@ -209,9 +214,10 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
             
         if (lights[i].position.w == 1.0)
         {
-            l = normalize(lights[i].direction.xyz);
+            l = normalize(-lights[i].direction.xyz);
             radiance = lights[i].color.xyz;
-            //shadow = MainShadowCalculation(input.fragLightSpacePos, n);
+            shadow = MainShadowCalculation(input.fragLightSpacePos, n);
+            //return float4(shadow, 0.0, 0.0, 1.0);
         }
         else
         {
@@ -252,7 +258,7 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
         float3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
         float3 specularContrib = F * D * G / (4.0 * NdotL * NdotV);
         //return float4(radiance, 1.0);
-        color = (diffuseContrib + specularContrib) * radiance * NdotL;// * (1.0 - shadow);
+        color = (diffuseContrib + specularContrib) * radiance * NdotL * (1.0 - shadow);
     }
     
     return float4(color, 1.0);

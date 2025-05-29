@@ -21,6 +21,6 @@ cbuffer LightSpaceMatrix : register(b0)
 VS_Output main(VS_Input input)
 {
     VS_Output output;
-    output.Position = mul(lightSpaceMatrix, mul(model, float4(input.Position, 1.0)));
+    output.Position = mul(lightSpaceMatrix, float4(mul(model, float4(input.Position, 1.0)).xyz, 1.0));
     return output;
 }

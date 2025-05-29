@@ -1,0 +1,7 @@
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/CMakeFiles/RUN_TESTS.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/CMakeFiles/INSTALL.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/CMakeFiles/ALL_BUILD.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/CMakeFiles/ZERO_CHECK.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/test/CMakeFiles/test_stduuid.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/test/CMakeFiles/RUN_TESTS.dir
+C:/Projects/Cuttlefish/Resonance/Resonance-Core/vendor/stduuid/test/CMakeFiles/INSTALL.dir

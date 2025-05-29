@@ -32,6 +32,7 @@ project "Editor"
       "../Resonance-Core/%{IncludeDir.Vulkan}",
       "../Resonance-Core/%{IncludeDir.MikkTSpace}",
       "../Resonance-Core/%{IncludeDir.cppcodec}",
+      "../Resonance-Core/%{IncludeDir.stduuid}",
    }
 
    dependson
