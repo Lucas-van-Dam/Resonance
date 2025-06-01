@@ -17,6 +17,7 @@ namespace REON::EDITOR {
 	};
 
 	struct MetaFileData {
+		std::string originPath;
 		std::string modelUID; // e.g., assetInfo.id or similar unique identifier.
 		std::string sceneName;
 		std::vector<SceneNodeData> rootNodes;

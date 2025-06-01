@@ -137,11 +137,29 @@ namespace REON::EDITOR {
 			return;
 		}
 
-
 		//ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 		//ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
 		auto scene = SceneManager::Get()->GetCurrentScene();
+
+		bool ClearSelection = false;
+
+		ImGui::Begin("Scene Hierarchy");
+		if (ImGui::IsWindowHovered()) {
+			ClearSelection = true;
+		}
+		ImGui::End();
+
+		ImGui::Begin("Asset Browser");
+		if (ImGui::IsWindowHovered()) {
+			ClearSelection = true;
+		}
+		ImGui::End();
+
+		if (ClearSelection && ImGui::IsMouseClicked(0)) {
+			scene->selectedObject = nullptr;
+			m_AssetBrowser.clearSelectedFile();
+		}
 
 		if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse))
 		{
@@ -221,7 +239,12 @@ namespace REON::EDITOR {
 		//ImGui::End();
 
 		//ImGui::PopStyleVar(2);
-		Inspector::InspectObject(scene->selectedObject);
+		if (!m_AssetBrowser.getSelectedFile().empty()) {
+			Inspector::InspectObject(m_AssetBrowser.getSelectedFile());
+		}
+		else {
+			Inspector::InspectObject(scene->selectedObject);
+		}
 
 		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), scene->selectedObject);
 		m_AssetBrowser.RenderAssetBrowser();

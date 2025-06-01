@@ -20,6 +20,8 @@ namespace REON::EDITOR {
 		// Render fields dynamically based on reflection data
 		static void InspectObject(std::shared_ptr<GameObject>& object);
 
+		static void InspectObject(std::filesystem::path assetPath);
+
 	private:
 		// Static registry for handlers, maps type names to handler functions
 		static std::unordered_map<std::string, std::function<void(const FieldInfo&, void*)>> handlers;

@@ -19,9 +19,13 @@ namespace REON::EDITOR {
 
 		std::vector<std::string> GetSubdirectories(const std::string& directoryPath);
 
+		std::filesystem::path getSelectedFile() const { return m_SelectedFile; }
+		void clearSelectedFile() { m_SelectedFile = ""; m_SelectedDirectory = ""; }
+
 	private:
 		std::filesystem::path m_CurrentDirectory;
 		std::filesystem::path m_RootDirectory;
+		std::filesystem::path m_SelectedDirectory;
 		std::filesystem::path m_SelectedFile;
 
 		void RenderDirectoryTree(const fs::path& directory);

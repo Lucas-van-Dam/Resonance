@@ -16,13 +16,28 @@ namespace REON {
 
 	void RenderManager::Render() {
 		resized = false;
+		if (m_RenderersByShaderId.empty()) {
+			VkSemaphore signalSemaphores[] = { m_Context->getCurrentRenderFinishedSemaphore() };
+			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[m_Context->getCurrentFrame()] };
+			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+			VkSubmitInfo submitInfo{};
+			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			submitInfo.signalSemaphoreCount = 1;
+			submitInfo.waitSemaphoreCount = 2;
+			submitInfo.pSignalSemaphores = signalSemaphores;
+			submitInfo.pWaitSemaphores = waitSemaphores;
+			submitInfo.pWaitDstStageMask = waitStages;
+
+			vkQueueSubmit(m_Context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+			return;
+		}
 		setGlobalData();
 		GenerateShadows();
 		//glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
 		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		RenderOpaques();
 		//RenderSkyBox();
-		//RenderTransparents();
+		RenderTransparents();
 		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		//RenderPostProcessing();
 	}
@@ -67,23 +82,7 @@ namespace REON {
 		glDepthFunc(GL_LESS);
 	}
 
-	void RenderManager::RenderOpaques() {
-		if (m_RenderersByShaderId.empty()) {
-			VkSemaphore signalSemaphores[] = { m_Context->getCurrentRenderFinishedSemaphore() };
-			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[m_Context->getCurrentFrame()]};
-			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-			VkSubmitInfo submitInfo{};
-			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submitInfo.signalSemaphoreCount = 1;
-			submitInfo.waitSemaphoreCount = 2;
-			submitInfo.pSignalSemaphores = signalSemaphores;
-			submitInfo.pWaitSemaphores = waitSemaphores;
-			submitInfo.pWaitDstStageMask = waitStages;
-
-			vkQueueSubmit(m_Context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
-			return;
-		}
-			
+	void RenderManager::RenderOpaques() {			
 		int currentFrame = m_Context->getCurrentFrame();
 		int currentImageIndex = m_Context->getCurrentImageIndex();
 
@@ -103,9 +102,11 @@ namespace REON {
 			renderPassInfo.renderArea.offset = { 0,0 };
 			renderPassInfo.renderArea.extent = {m_Width, m_Height};
 
-			std::array<VkClearValue, 2> clearValues{};
+			std::array<VkClearValue, 4> clearValues{};
 			clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
 			clearValues[1].depthStencil = { 1.0f, 0 };
+			clearValues[2].color = { 0.1f, 0.1f, 0.1f, 1.0f };
+			clearValues[3].depthStencil = { 1.0f, 0 };
 			renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 			renderPassInfo.pClearValues = clearValues.data();
 
@@ -141,6 +142,9 @@ namespace REON {
 			for (const auto& material : materialFromShader) {
 				//set material wide buffers/textures
 				std::shared_ptr<Material> mat = ResourceManager::GetInstance().GetResource<Material>(material.first);
+				if (!(mat->blendingMode == Mask || mat->renderingMode == Opaque)) {
+					continue;
+				}
 				auto pipeline = getPipelineFromFlags(mat->materialFlags);
 				if (pipeline == VK_NULL_HANDLE) {
 					REON_CORE_WARN("Cant render because pipeline is not found");
@@ -213,7 +217,7 @@ namespace REON {
 			submitInfo.commandBufferCount = 1;
 			submitInfo.pCommandBuffers = &m_OpaqueCommandBuffers[currentFrame];
 
-			VkSemaphore signalSemaphores[] = { m_Context->getCurrentRenderFinishedSemaphore()};
+			VkSemaphore signalSemaphores[] = { m_OpaquePassDone[currentFrame]};
 			submitInfo.signalSemaphoreCount = 1;
 			submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -223,7 +227,9 @@ namespace REON {
 	}
 
 	void RenderManager::RenderTransparents() {
-
+		int currentFrame = m_Context->getCurrentFrame();
+		m_TransparentPass.render(m_Context, m_RenderersByShaderId, m_OpaquePassDone[currentFrame], m_Context->getCurrentRenderFinishedSemaphore(),
+			m_GlobalDescriptorSets[m_Context->getCurrentImageIndex()]);
 	}
 
 	void RenderManager::RenderPostProcessing() {
@@ -269,80 +275,17 @@ namespace REON {
 		createEndBufferSet();
 		createSyncObjects();
 
+		std::vector<VkDescriptorSetLayout> layouts;
+		layouts.push_back(m_OpaqueGlobalDescriptorSetLayout);
+		layouts.push_back(m_OpaqueMaterialDescriptorSetLayout);
+		layouts.push_back(m_OpaqueObjectDescriptorSetLayout);
+		m_TransparentPass.init(m_Context, m_Width, m_Height, layouts, m_PipelineCache, m_OpaqueResolveImageViews, m_EndImageViews, m_DepthResolveViews);
+
 		return;
-
-		//glGenFramebuffers(1, &m_DepthMapFBO);
-		//glGenTextures(1, &m_DepthMap);
-		//glBindTexture(GL_TEXTURE_2D, m_DepthMap);
-		//glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
-		//	MAIN_SHADOW_WIDTH, MAIN_SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		//glBindFramebuffer(GL_FRAMEBUFFER, m_DepthMapFBO);
-		//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_DepthMap, 0);
-		//glDrawBuffer(GL_NONE);
-		//glReadBuffer(GL_NONE);
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		//Initialize full screen shader
-		InitializeFboAndTexture(m_SceneFbo, m_SceneTexture, m_Width, m_Height);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
-
-		glGenTextures(1, &m_SceneDepthTex);
-		glBindTexture(GL_TEXTURE_2D, m_SceneDepthTex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, m_Width, m_Height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_SceneDepthTex, 0);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		InitializeFboAndTexture(m_PostProcessFbo, m_PostProcessTexture, m_Width, m_Height);
-
-
-		glGenVertexArrays(1, &QuadVAO);
-		glGenBuffers(1, &m_QuadVBO);
-		glBindVertexArray(QuadVAO);
-		glBindBuffer(GL_ARRAY_BUFFER, m_QuadVBO);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-		glEnableVertexAttribArray(0);
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-		glEnableVertexAttribArray(1);
-		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
-
-		//Initialize skybox
-		//InitializeSkyBox();
-	}
-
-	void RenderManager::InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height) {
-		glGenFramebuffers(1, &fbo);
-		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-		glGenTextures(1, &texture);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-		REON_CORE_ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "framebuffer is not complete!");
-
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 
 	void RenderManager::RenderFullScreenQuad()
 	{
-		glBindVertexArray(QuadVAO);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		glBindVertexArray(0);
 	}
 
 	void RenderManager::OnKeyPressed(const KeyPressedEvent& event)
@@ -494,12 +437,14 @@ namespace REON {
 	void RenderManager::createSyncObjects()
 	{
 		m_DirectionalShadowsGenerated.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+		m_OpaquePassDone.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
 		VkSemaphoreCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 		for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
 			vkCreateSemaphore(m_Context->getDevice(), &createInfo, nullptr, &m_DirectionalShadowsGenerated[i]);
+			vkCreateSemaphore(m_Context->getDevice(), &createInfo, nullptr, &m_OpaquePassDone[i]);
 		}
 	}
 
@@ -618,11 +563,12 @@ namespace REON {
 
 		res = vkCreateSampler(m_Context->getDevice(), &samplerInfo, nullptr, &m_EndSampler);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create texture sampler");
+		
 
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			VkDescriptorImageInfo endImageInfo{};
 			endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			endImageInfo.imageView = m_OpaqueResolveImageViews[i];
+			endImageInfo.imageView = m_EndImageViews[i];
 			endImageInfo.sampler = m_EndSampler;
 
 			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -683,11 +629,29 @@ namespace REON {
 			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_OpaqueResolveImages[i], m_OpaqueResolveImageAllocations[i]);
 			m_OpaqueResolveImageViews[i] = m_Context->createImageView(m_OpaqueResolveImages[i], VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 		}
+
+		m_EndImages.resize(swapChainImageCount);
+		m_EndImageViews.resize(swapChainImageCount);
+		m_EndImageAllocations.resize(swapChainImageCount);
+
+		for (int i = 0; i < swapChainImageCount; i++) {
+			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_EndImages[i], m_EndImageAllocations[i]);
+			m_EndImageViews[i] = m_Context->createImageView(m_EndImages[i], VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+		}
+
+		m_DepthResolveImages.resize(swapChainImageCount);
+		m_DepthResolveViews.resize(swapChainImageCount);
+		m_DepthResolveAllocations.resize(swapChainImageCount);
+
+		for (int i = 0; i < swapChainImageCount; i++) {
+			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_DepthResolveImages[i], m_DepthResolveAllocations[i]);
+			m_DepthResolveViews[i] = m_Context->createImageView(m_DepthResolveImages[i], m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+		}
 	}
 
 	void RenderManager::createOpaqueRenderPass()
 	{
-		VkAttachmentDescription colorAttachment{};
+		VkAttachmentDescription2 colorAttachment{};
 		colorAttachment.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachment.samples = m_Context->getSampleCount();
 		colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -696,18 +660,20 @@ namespace REON {
 		colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
 
-		VkAttachmentDescription depthAttachment{};
+		VkAttachmentDescription2 depthAttachment{};
 		depthAttachment.format = m_Context->findDepthFormat();
 		depthAttachment.samples = m_Context->getSampleCount();
 		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		depthAttachment.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
 
-		VkAttachmentDescription colorAttachmentResolve{};
+		VkAttachmentDescription2 colorAttachmentResolve{};
 		colorAttachmentResolve.format = VK_FORMAT_R16G16B16A16_SFLOAT;
 		colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
 		colorAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -716,37 +682,67 @@ namespace REON {
 		colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 		colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachmentResolve.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
 
-		VkAttachmentReference colorAttachmentRef{};
+		VkAttachmentDescription2 depthAttachmentResolve{};
+		depthAttachmentResolve.format = m_Context->findDepthFormat();
+		depthAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachmentResolve.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		depthAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		depthAttachmentResolve.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
+
+		VkAttachmentReference2 colorAttachmentRef{};
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachmentRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
 
-		VkAttachmentReference depthAttachmentRef{};
+		VkAttachmentReference2 depthAttachmentRef{};
 		depthAttachmentRef.attachment = 1;
 		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		depthAttachmentRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
 
-		VkAttachmentReference colorAttachmentResolveRef{};
+		VkAttachmentReference2 colorAttachmentResolveRef{};
 		colorAttachmentResolveRef.attachment = 2;
 		colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		colorAttachmentResolveRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
 
-		VkSubpassDependency dependency{};
+		VkAttachmentReference2 depthAttachmentResolveRef{};
+		depthAttachmentResolveRef.attachment = 3;
+		depthAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
+		depthAttachmentResolveRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
+
+		VkSubpassDependency2 dependency{};
 		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 		dependency.dstSubpass = 0;
 		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 		dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		dependency.sType = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2;
 
-		VkSubpassDescription subpass{};
+		VkSubpassDescriptionDepthStencilResolve depthResolve = {};
+		depthResolve.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE;
+		depthResolve.pDepthStencilResolveAttachment = &depthAttachmentResolveRef;
+		depthResolve.depthResolveMode = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
+		depthResolve.stencilResolveMode = VK_RESOLVE_MODE_NONE;
+
+		VkSubpassDescription2 subpass{};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
 		subpass.pDepthStencilAttachment = &depthAttachmentRef;
 		subpass.pResolveAttachments = &colorAttachmentResolveRef;
+		subpass.pNext = &depthResolve;
+		subpass.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
+	
 
-		std::array<VkAttachmentDescription, 3> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve };
-		VkRenderPassCreateInfo renderPassInfo{};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		std::array<VkAttachmentDescription2, 4> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve, depthAttachmentResolve };
+		VkRenderPassCreateInfo2 renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2;
 		renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 		renderPassInfo.pAttachments = attachments.data();
 		renderPassInfo.subpassCount = 1;
@@ -754,7 +750,7 @@ namespace REON {
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		VkResult res = vkCreateRenderPass(m_Context->getDevice(), &renderPassInfo, nullptr, &m_OpaqueRenderPass);
+		VkResult res = vkCreateRenderPass2(m_Context->getDevice(), &renderPassInfo, nullptr, &m_OpaqueRenderPass);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create render pass")
 	}
 
@@ -763,10 +759,11 @@ namespace REON {
 		m_OpaqueFramebuffers.resize(m_Context->getSwapChainImageViews().size());
 
 		for (size_t i = 0; i < m_Context->getSwapChainImageViews().size(); i++) {
-			std::array<VkImageView, 3> attachments = {
+			std::array<VkImageView, 4> attachments = {
 				m_ColorImageView,
 				m_DepthImageView,
 				m_OpaqueResolveImageViews[i],
+				m_DepthResolveViews[i]
 			};
 
 			VkFramebufferCreateInfo framebufferInfo{};
@@ -1394,6 +1391,8 @@ namespace REON {
 		m_PipelineByMaterialPermutation.clear();
 
 		createOpaqueGraphicsPipelines();
+
+		m_TransparentPass.hotReloadShaders(m_Context);
 	}
 
 	VkDescriptorSet RenderManager::GetEndBuffer()
@@ -1414,6 +1413,8 @@ namespace REON {
 			renderer->cleanup();
 		}
 
+		m_DirectionalShadowPass.cleanup(m_Context);
+
 		//vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_EndDescriptorSets.size(), m_EndDescriptorSets.data());
 
 		vkDestroyImage(m_Context->getDevice(), m_DummyImage, nullptr);
@@ -1423,10 +1424,14 @@ namespace REON {
 
 		//vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_GlobalDescriptorSets.size(), m_GlobalDescriptorSets.data());
 
-		for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+		for (int i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			vkDestroyBuffer(m_Context->getDevice(), m_GlobalDataBuffers[i], nullptr);
 			vmaUnmapMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i]);
 			vmaFreeMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i]);
+
+			vkDestroyBuffer(m_Context->getDevice(), m_LightDataBuffers[i], nullptr);
+			vmaUnmapMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i]);
+			vmaFreeMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i]);
 		}
 
 		vkDestroySampler(m_Context->getDevice(), m_EndSampler, nullptr);
@@ -1463,6 +1468,14 @@ namespace REON {
 			vkDestroyImage(m_Context->getDevice(), m_OpaqueResolveImages[i], nullptr);
 			vmaFreeMemory(m_Context->getAllocator(), m_OpaqueResolveImageAllocations[i]);
 			vkDestroyImageView(m_Context->getDevice(), m_OpaqueResolveImageViews[i], nullptr);
+
+			vkDestroyImage(m_Context->getDevice(), m_EndImages[i], nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), m_EndImageAllocations[i]);
+			vkDestroyImageView(m_Context->getDevice(), m_EndImageViews[i], nullptr);
+
+			vkDestroyImage(m_Context->getDevice(), m_DepthResolveImages[i], nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), m_DepthResolveAllocations[i]);
+			vkDestroyImageView(m_Context->getDevice(), m_DepthResolveViews[i], nullptr);
 		}
 
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
@@ -1487,7 +1500,7 @@ namespace REON {
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			VkDescriptorImageInfo endImageInfo{};
 			endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			endImageInfo.imageView = m_OpaqueResolveImageViews[i];
+			endImageInfo.imageView = m_EndImageViews[i];
 			endImageInfo.sampler = m_EndSampler;
 
 			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -1501,6 +1514,8 @@ namespace REON {
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
+
+		m_TransparentPass.resize(m_Context, width, height, m_EndImageViews, m_OpaqueResolveImageViews, m_DepthResolveViews);
 	}
 
 	int RenderManager::GetRenderWidth()

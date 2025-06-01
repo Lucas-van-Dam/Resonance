@@ -13,6 +13,7 @@
 #include "vulkan/vulkan.h"
 #include "REON/Platform/Vulkan/VulkanContext.h"
 #include "RenderPasses/DirectionalShadowPass.h"
+#include "RenderPasses/TransparentPass.h"
 
 
 namespace REON {
@@ -94,6 +95,10 @@ namespace REON {
 		VkDescriptorSetLayout m_EndDescriptorSetLayout; //
 		VkSampler m_EndSampler;
 
+		std::vector<VkImage> m_EndImages;
+		std::vector<VmaAllocation> m_EndImageAllocations;
+		std::vector<VkImageView> m_EndImageViews;
+
 		// OPAQUE PIPELINE
 		std::vector<VkCommandBuffer> m_OpaqueCommandBuffers; //
 		VkCommandPool m_OpaqueCommandPool; //
@@ -114,9 +119,16 @@ namespace REON {
 		std::vector<VmaAllocation> m_OpaqueResolveImageAllocations; //
 		std::vector<VkImageView> m_OpaqueResolveImageViews; //
 
+		std::vector<VkImage> m_DepthResolveImages;
+		std::vector<VmaAllocation> m_DepthResolveAllocations;
+		std::vector<VkImageView> m_DepthResolveViews;
+
 		// Directional Shadows
 		DirectionalShadowPass m_DirectionalShadowPass;
 		std::vector<VkSemaphore> m_DirectionalShadowsGenerated;
+
+		TransparentPass m_TransparentPass;
+		std::vector<VkSemaphore> m_OpaquePassDone;
 
 		bool resized = false;
 

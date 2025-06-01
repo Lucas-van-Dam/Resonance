@@ -11,6 +11,8 @@ namespace REON {
         float roughness;        // float → 4 bytes
         float metallic;         // float → 4 bytes
         float normalScalar; // float -> 4 bytes
+        int normalYScale = 1; // int -> 4 bytes
+        float alphaCutoff = 0.5f;
     };
 
     enum MaterialShaderFlags {
@@ -18,7 +20,18 @@ namespace REON {
         MetallicRoughnessTexture = 1 << 1,
         NormalTexture = 1 << 2,
         OcclusionTexture = 1 << 3,
-        EmissiveTexture = 1 << 4
+        EmissiveTexture = 1 << 4,
+        AlphaCutoff = 1 << 5,
+    };
+
+    enum RenderingModes {
+        Opaque = 0,
+        Transparent = 1
+    };
+
+    enum BlendingModes {
+        Mask, 
+        Blend
     };
     
     class [[clang::annotate("serialize")]] Material : public ResourceBase {
@@ -49,6 +62,8 @@ namespace REON {
         ResourceHandle shader;
         FlatData flatData;
         uint32_t materialFlags;
+        RenderingModes renderingMode = Opaque;
+        BlendingModes blendingMode = Blend;
 
         std::vector<VkBuffer> flatDataBuffers;
         std::vector<VkDescriptorSet> descriptorSets;

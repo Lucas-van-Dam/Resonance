@@ -48,6 +48,8 @@ namespace REON::EDITOR {
 		MetaFileData metaData;
 		metaData.modelUID = assetInfo.id;
 
+		metaData.originPath = basePath.string();
+
 		//std::shared_ptr<Mesh> mesh = std::make_shared<Mesh>();
 
 		//ResourceManager::GetInstance().AddResource(mesh);
@@ -60,13 +62,29 @@ namespace REON::EDITOR {
 			std::shared_ptr<Material> mat = std::make_shared<Material>();
 			mat->shader = litShader;
 
-
 			mat->SetName(srcMat.name.empty() ? "Material_" + mat->GetID() : srcMat.name);
 
 			materialIDs.push_back(mat->GetID());
+			
+			uint32_t flags = 0;
 
-			if (srcMat.alphaMode != "OPAQUE")
-				REON_WARN("Transparent materials are not supported yet, material: {}", srcMat.name);
+			if (srcMat.alphaMode == "OPAQUE") {
+				mat->renderingMode = Opaque;
+			}
+			else if (srcMat.alphaMode == "MASK") {
+				mat->renderingMode = Transparent;
+				mat->blendingMode = Mask;
+				flags |= AlphaCutoff;
+			}
+			else if (srcMat.alphaMode == "BLEND") {
+				mat->renderingMode = Transparent;
+				mat->blendingMode = Blend;
+			}
+			else {
+				REON_WARN("Unknown alpha mode, material: {}", srcMat.name);
+			}
+
+			mat->flatData.alphaCutoff = srcMat.alphaCutoff;
 
 			mat->setDoubleSided(srcMat.doubleSided);
 
@@ -78,7 +96,6 @@ namespace REON::EDITOR {
 				static_cast<float>(pbrData.baseColorFactor[2]),
 				static_cast<float>(pbrData.baseColorFactor[3]));
 
-			uint32_t flags = 0;
 
 			if (pbrData.baseColorTexture.index >= 0) {
 				
@@ -327,7 +344,7 @@ namespace REON::EDITOR {
 				const float* x = reinterpret_cast<const float*>(&buffer.data[i]);
 				const float* y = reinterpret_cast<const float*>(&buffer.data[i + sizeof(float)]);
 				const float* z = reinterpret_cast<const float*>(&buffer.data[i + 2 * sizeof(float)]);
-				data.push_back(glm::vec3((transform * glm::vec4(*x, *y, *z, 0.f))));
+				data.push_back(glm::vec3((/*transform **/ glm::vec4(*x, *y, *z, 0.f))));
 			}
 		}
 		else
@@ -337,7 +354,7 @@ namespace REON::EDITOR {
 				const float* x = reinterpret_cast<const float*>(&buffer.data[i]);
 				const float* y = reinterpret_cast<const float*>(&buffer.data[i + sizeof(float)]);
 				const float* z = reinterpret_cast<const float*>(&buffer.data[i + 2 * sizeof(float)]);
-				data.push_back(glm::vec3((transform * glm::vec4(*x, *y, *z, 1.f))));
+				data.push_back(glm::vec3((/*transform **/ glm::vec4(*x, *y, *z, 1.f))));
 			}
 		}
 
@@ -424,6 +441,7 @@ namespace REON::EDITOR {
 	{
 		nlohmann::ordered_json j;
 		j["GUID"] = data.modelUID;
+		j["Origin"] = data.originPath;
 		j["sceneName"] = data.sceneName;
 
 		nlohmann::ordered_json nodeArray = nlohmann::ordered_json::array();

@@ -33,17 +33,24 @@ namespace REON::EDITOR {
 				if (entry.path().extension() == ".meta")
 					continue;
 
+				bool selected = false;
+
+				if (selected = entry.path() == m_SelectedDirectory || entry.path() == m_SelectedFile)
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(58.0f / 255.0f, 146.0f / 255.0f, 250.0f / 255.0f, 1.0f));
+
 				std::string name = entry.path().filename().string();
 
 				ImGui::PushID(name.c_str());
 				if (ImGui::Button(name.c_str(), ImVec2(thumbnailSize, thumbnailSize))) {
 					if (entry.is_directory()) {
-						m_SelectedFile = entry.path();
+						m_SelectedDirectory = entry.path();
 					}
 					else {
-						// Handle file selection here
+						m_SelectedFile = entry.path();
 					}
 				}
+				if (selected)
+					ImGui::PopStyleColor();
 
 				if (entry.is_directory() && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
 					m_CurrentDirectory = entry.path();  // Navigate into the folder
@@ -86,7 +93,7 @@ namespace REON::EDITOR {
 		}
 		catch (const std::filesystem::filesystem_error& e) {
 			// Handle any errors, like invalid paths or permissions
-			REON_ERROR("Filesystem error while getting subdirectories in assetbrowser");
+			REON_ERROR("Filesystem error while getting subdirectories in assetbrowser: {}", e.what());
 		}
 
 		return subdirectories;

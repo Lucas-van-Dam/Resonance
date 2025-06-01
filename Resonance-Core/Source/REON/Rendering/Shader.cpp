@@ -81,6 +81,7 @@ namespace REON {
 		if (flags & AlbedoTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_ALBEDO_TEXTURE"); };
 		if (flags & NormalTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_NORMAL_TEXTURE"); }
 		if (flags & MetallicRoughnessTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_METALLICROUGHNESS_TEXTURE"); }
+		if (flags & AlphaCutoff) { arguments.push_back(L"-D"); arguments.push_back(L"ALPHA_CUTOFF"); }
 
 		DxcBuffer buffer{};
 		buffer.Encoding = DXC_CP_ACP;

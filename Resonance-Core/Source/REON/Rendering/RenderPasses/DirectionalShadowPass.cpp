@@ -136,6 +136,34 @@ namespace REON {
 
 	}
 
+	void DirectionalShadowPass::cleanup(const VulkanContext* context)
+	{
+		for (int i = 0; i < context->getAmountOfSwapChainImages(); i++) {
+			vkDestroyImage(context->getDevice(), m_DepthImages[i], nullptr);
+			vmaFreeMemory(context->getAllocator(), m_DepthImageAllocations[i]);
+			vkDestroyImageView(context->getDevice(), m_DepthImageViews[i], nullptr);
+			vkDestroyFramebuffer(context->getDevice(), m_Framebuffers[i], nullptr);
+		}
+
+		vkDestroySampler(context->getDevice(), m_DepthImageSampler, nullptr);
+
+		for (int i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
+			vkDestroyBuffer(context->getDevice(), m_PerLightBuffers[i], nullptr);
+			vmaUnmapMemory(context->getAllocator(), m_PerLightBufferAllocations[i]);
+			vmaFreeMemory(context->getAllocator(), m_PerLightBufferAllocations[i]);
+		}
+
+		vkDestroyDescriptorSetLayout(context->getDevice(), m_PerLightDescriptorSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(context->getDevice(), m_PerObjectDescriptorSetLayout, nullptr);
+
+		vkDestroyPipeline(context->getDevice(), m_GraphicsPipeline, nullptr);
+		vkDestroyPipelineLayout(context->getDevice(), m_PipelineLayout, nullptr);
+
+		vkDestroyRenderPass(context->getDevice(), m_RenderPass, nullptr);
+		
+		vkDestroyCommandPool(context->getDevice(), m_CommandPool, nullptr);
+	}
+
 	void DirectionalShadowPass::createCommandPool(const VulkanContext* context)
 	{
 		QueueFamilyIndices queueFamilyIndices = context->findQueueFamilies(context->getPhysicalDevice());

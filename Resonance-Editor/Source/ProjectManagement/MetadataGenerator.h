@@ -51,23 +51,6 @@ namespace REON::EDITOR {
 			CreateMetadataFile(assetPath, projectRoot);
 		}
 
-	private:
-		static bool IsValidMetadata(const fs::path& metaPath) {
-			std::ifstream metaFile(metaPath);
-			if (!metaFile.is_open()) return false;
-
-			json metaData;
-			try {
-				metaFile >> metaData;
-			}
-			catch (...) {
-				REON_CORE_WARN("Not valid Json structure in asset metafile: {}", metaPath.string());
-				return false;
-			}
-
-			return metaData.contains("Id") && metaData.contains("Type") && metaData.contains("Path");
-		}
-
 		static void CreateMetadataFile(const fs::path& assetPath, const fs::path& projectRoot) {
 			auto metaPath = assetPath.string() + ".meta";
 
@@ -95,6 +78,23 @@ namespace REON::EDITOR {
 				metaFile << metaData.dump(4);
 				metaFile.close();
 			}
+		}
+
+	private:
+		static bool IsValidMetadata(const fs::path& metaPath) {
+			std::ifstream metaFile(metaPath);
+			if (!metaFile.is_open()) return false;
+
+			json metaData;
+			try {
+				metaFile >> metaData;
+			}
+			catch (...) {
+				REON_CORE_WARN("Not valid Json structure in asset metafile: {}", metaPath.string());
+				return false;
+			}
+
+			return metaData.contains("Id") && metaData.contains("Type") && metaData.contains("Path");
 		}
 	};
 }

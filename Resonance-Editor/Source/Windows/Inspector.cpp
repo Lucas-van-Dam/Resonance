@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <REON/Math/Quaternion.h>
+#include <EditorWrappers/AssetDrawers.h>
 
 namespace REON::EDITOR {
 
@@ -79,6 +80,12 @@ namespace REON::EDITOR {
 		}
 	}
 
+#define DISPATCH_DRAW_INSPECTOR(pointer, type)				\
+		do{													\
+			auto wrapper = EditorWrapper_##type(pointer);	\
+			wrapper.DrawInspector();						\
+		}while(0)											\
+
 	// Render all fields of an object
 	void Inspector::InspectObject(std::shared_ptr<GameObject>& object) {
 		ImGui::Begin("Inspector");
@@ -105,6 +112,21 @@ namespace REON::EDITOR {
 				const FieldInfo& field = reflection.fields[i];
 				RenderField(field, component.get());  // Automatically calls the correct handler based on the type
 			}
+		}
+
+		ImGui::End();
+	}
+
+	void Inspector::InspectObject(std::filesystem::path assetPath)
+	{
+		ImGui::Begin("Inspector");
+		auto extension = assetPath.extension().string();
+
+		if (extension == ".gltf" || extension == ".glb") {
+			AssetDrawers::DrawInspector_Model(assetPath);
+		}
+		else if (extension == ".material") {
+			AssetDrawers::DrawInspector_Material(assetPath);
 		}
 
 		ImGui::End();

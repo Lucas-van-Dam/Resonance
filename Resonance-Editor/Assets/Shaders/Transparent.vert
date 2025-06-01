@@ -1,23 +1,62 @@
-#version 460 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec2 aTexCoords;
-layout (location = 2) in vec3 aNormal;
-
-out vec2 TexCoords;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-out vec3 fragPosition;
-out vec3 fragNormal;
-out vec3 fragViewDir;
-
-void main()
+struct VS_Input
 {
-    TexCoords = aTexCoords;
-    fragPosition = vec3(model * vec4(aPos, 1.0));
-    fragNormal = mat3(transpose(inverse(model))) * aNormal;
-    fragViewDir = normalize(vec3(inverse(view)[3]) - fragPosition);
-    gl_Position = projection * view * vec4(fragPosition, 1.0);
+    float3 position : POSITION;
+    float4 color : COLOR;
+    float3 normal : NORMAL;
+    float2 texcoord : TEXCOORD;
+    float4 tangent : TANGENT;
+};
+
+struct PS_Input
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+    float3 normal : NORMAL;
+    float2 tex : TEXCOORD;
+    float3x3 tbn : TBN;
+    float3 fragPosition : FRAG_POSITION;
+    float3 fragViewPos : FRAG_VIEW_POS;
+    float4 fragLightSpacePos : FRAG_LIGHT_SPACE_POS;
+};
+
+struct Light
+{
+    float4 position;
+    float4 direction;
+    float4 color;
+    float4x4 mainViewProj;
+};
+
+cbuffer ObjectBuffer : register(b2, space2)
+{
+    float4x4 model;
+    float4x4 transposeInverseModel;
+};
+
+cbuffer GlobalBuffer : register(b0)
+{
+    float4x4 viewProj;
+    float4x4 inverseView;
+    int lightCount;
+    float3 _padding;
+};
+
+StructuredBuffer<Light> lights : register(t1);
+
+PS_Input main(VS_Input input)
+{
+    PS_Input output;
+    
+    output.position = mul(viewProj, mul(model, float4(input.position, 1.0f)));
+    output.color = input.color;
+    output.tex = input.texcoord;
+    output.normal = normalize(mul(transposeInverseModel, float4(input.normal, 0.0f)).xyz);
+    float3 tangent = normalize(mul(transposeInverseModel, float4(input.tangent.xyz, 0.0)).xyz);
+    tangent = normalize(tangent - dot(tangent, output.normal) * output.normal);
+    float3 bitangent = cross(output.normal, tangent) * input.tangent.w;
+    output.tbn = float3x3(tangent, bitangent, output.normal);
+    output.fragPosition = mul(model, float4(input.position, 1.0)).xyz;
+    output.fragViewPos = float3(inverseView[0][3], inverseView[1][3], inverseView[2][3]);
+    output.fragLightSpacePos = mul(lights[0].mainViewProj, float4(output.fragPosition, 1.0f));
+    return output;
 }

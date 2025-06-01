@@ -175,7 +175,7 @@ namespace REON {
 		std::vector<VkDescriptorSet> m_DescriptorSets;
 		std::vector<VkFramebuffer> m_SwapChainFramebuffers;
 		VkCommandPool m_CommandPool;
-		std::vector<VkCommandBuffer> m_CommandBuffers;
+		//std::vector<VkCommandBuffer> m_CommandBuffers;
 
 		uint32_t m_ImageIndex;
 
@@ -198,6 +198,7 @@ namespace REON {
 
 		const std::vector<const char*> m_DeviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+			VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME
 			/*VK_NV_PER_STAGE_DESCRIPTOR_SET_EXTENSION_NAME*/
 		};
 

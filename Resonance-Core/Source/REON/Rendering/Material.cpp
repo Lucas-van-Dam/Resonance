@@ -55,6 +55,11 @@ namespace REON {
 		json["GUID"] = GetID();
 		json["Name"] = GetName();
 
+		json["Rendering Mode"] = renderingMode;
+		json["Blend Mode"] = blendingMode;
+
+		json["Double Sided"] = m_DoubleSided;
+
 		json["Albedo"] = { flatData.albedo.r, flatData.albedo.g, flatData.albedo.b, flatData.albedo.a };
 		if (albedoTexture.Get<Texture>())
 			json["AlbedoTexture"] = albedoTexture.Get<Texture>()->GetID();
@@ -68,6 +73,8 @@ namespace REON {
 			json["NormalTexture"] = normalTexture.Get<Texture>()->GetID();
 
 		json["NormalScalar"] = flatData.normalScalar;
+
+		json["AlphaCutoff"] = flatData.alphaCutoff;
 
 		json["Flags"] = materialFlags;
 
@@ -111,6 +118,18 @@ namespace REON {
 			SetName(json["Name"].get<std::string>());
 		}
 
+		if (json.contains("Rendering Mode")) {
+			renderingMode = json["Rendering Mode"].get<RenderingModes>();
+		}
+
+		if (json.contains("Blend Mode")) {
+			blendingMode = json["Blend Mode"].get<BlendingModes>();
+		}
+
+		if (json.contains("Double Sided")) {
+			m_DoubleSided = json["Double Sided"].get<bool>();
+		}
+
 		// Extract Albedo Color
 		if (json.contains("Albedo")) {
 			auto albedoArray = json["Albedo"];
@@ -118,6 +137,14 @@ namespace REON {
 		}
 
 		materialFlags = 0;
+
+		if (json.contains("Flags")) {
+			materialFlags = json["Flags"].get<int>();
+		}
+
+		if (json.contains("AlphaCutoff")) {
+			flatData.alphaCutoff = json["AlphaCutoff"].get<float>();
+		}
 
 		// Extract Albedo Texture
 		if (json.contains("AlbedoTexture")) {

@@ -42,6 +42,8 @@ cbuffer flatData : register(b1, space1)
     float u_Roughness;
     float u_Metallic;
     float normalScalar;
+    int u_FlipNormalY; // 0 = no flip, 1 = flip Y normal
+    float u_AlphaCutoff;
 };
 
 //#define USE_NORMAL_TEXTURE
@@ -152,7 +154,7 @@ float3 getNormal(float3x3 inTbn, float2 texCoord)
     
 #ifdef USE_NORMAL_TEXTURE
     float3 n = texture_normal.Sample(texture_sampler_normal, texCoord);
-    //n.g = 1.0 - n.g;
+    n.g = lerp(n.g, 1.0 - n.g, u_FlipNormalY);
     n = normalize(mul(float3(normalScalar, normalScalar, 1.0) * (2.0 * n - 1.0), tbn));
     //return float3(1.0, 0.0, 1.0);
 #else
@@ -183,6 +185,11 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
     float4 baseColor = SRGBtoLINEAR(texture_albedo.Sample(texture_sampler_albedo, input.tex)) * u_BaseColorFactor; // TODO: look into maybe srgb to linear color
 #else
     float4 baseColor = u_BaseColorFactor;
+#endif
+    
+#ifdef ALPHA_CUTOFF
+    if(baseColor.a < u_AlphaCutoff)
+        discard;
 #endif
     
     float3 f0 = 0.04.xxx;
