@@ -840,7 +840,14 @@ namespace REON {
 		roughnessMetallicLayoutBinding.pImmutableSamplers = nullptr;
 		roughnessMetallicLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		std::array<VkDescriptorSetLayoutBinding, 4> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessMetallicLayoutBinding };
+		VkDescriptorSetLayoutBinding emissiveLayoutBinding{};
+		emissiveLayoutBinding.binding = 6;
+		emissiveLayoutBinding.descriptorCount = 1;
+		emissiveLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		emissiveLayoutBinding.pImmutableSamplers = nullptr;
+		emissiveLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		std::array<VkDescriptorSetLayoutBinding, 5> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessMetallicLayoutBinding, emissiveLayoutBinding };
 		VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
 		materialLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		materialLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -985,7 +992,13 @@ namespace REON {
 			roughnessMetallicImageInfo.imageView = roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImageView;
 			roughnessMetallicImageInfo.sampler = roughnessMetallicTexture ? roughnessMetallicTexture->getSampler() : m_DummySampler;
 
-			std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+			VkDescriptorImageInfo emissiveImageInfo{};
+			const auto& emissiveTexture = material->emissiveTexture.Get<Texture>();
+			emissiveImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			emissiveImageInfo.imageView = emissiveTexture ? emissiveTexture->getTextureView() : m_DummyImageView;
+			emissiveImageInfo.sampler = emissiveTexture ? emissiveTexture->getSampler() : m_DummySampler;
+
+			std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			descriptorWrites[0].dstSet = material->descriptorSets[i];
 			descriptorWrites[0].dstBinding = 1;
@@ -1017,6 +1030,14 @@ namespace REON {
 			descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorWrites[3].descriptorCount = 1;
 			descriptorWrites[3].pImageInfo = &roughnessMetallicImageInfo;
+
+			descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[4].dstSet = material->descriptorSets[i];
+			descriptorWrites[4].dstBinding = 6; //MIGHT BE WRONG
+			descriptorWrites[4].dstArrayElement = 0;
+			descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[4].descriptorCount = 1;
+			descriptorWrites[4].pImageInfo = &emissiveImageInfo;
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}

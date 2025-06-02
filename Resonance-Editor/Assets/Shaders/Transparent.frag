@@ -43,7 +43,7 @@ cbuffer flatData : register(b1, space1)
     float u_Metallic;
     float normalScalar;
     int u_FlipNormalY; // 0 = no flip, 1 = flip Y normal
-    float u_AlphaCutoff;
+    float4 u_EmissiveFactor; // W = alpha cutoff
 };
 
 //#define USE_NORMAL_TEXTURE

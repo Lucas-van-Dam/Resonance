@@ -84,7 +84,7 @@ namespace REON::EDITOR {
 				REON_WARN("Unknown alpha mode, material: {}", srcMat.name);
 			}
 
-			mat->flatData.alphaCutoff = srcMat.alphaCutoff;
+			mat->flatData.emissiveFactor.w = srcMat.alphaCutoff;
 
 			mat->setDoubleSided(srcMat.doubleSided);
 
@@ -112,6 +112,16 @@ namespace REON::EDITOR {
 			mat->flatData.metallic = pbrData.metallicFactor;
 			if (mat->flatData.metallic < 0 || mat->flatData.metallic > 1) {
 				mat->flatData.metallic = 0.0;
+			}
+
+			auto emissiveFactor = srcMat.emissiveFactor;
+			mat->flatData.emissiveFactor.r = emissiveFactor[0];
+			mat->flatData.emissiveFactor.g = emissiveFactor[1];
+			mat->flatData.emissiveFactor.b = emissiveFactor[2];
+
+			if (srcMat.emissiveTexture.index >= 0) {
+				mat->emissiveTexture = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], VK_FORMAT_R8G8B8A8_SRGB, srcMat.emissiveTexture.index);
+				flags |= EmissiveTexture;
 			}
 
 			if (pbrData.metallicRoughnessTexture.index >= 0) {

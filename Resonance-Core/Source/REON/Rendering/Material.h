@@ -12,7 +12,7 @@ namespace REON {
         float metallic;         // float → 4 bytes
         float normalScalar; // float -> 4 bytes
         int normalYScale = 1; // int -> 4 bytes
-        float alphaCutoff = 0.5f;
+        glm::vec4 emissiveFactor = glm::vec4(0,0,0,0.5f); // w = alphaCutoff
     };
 
     enum MaterialShaderFlags {
@@ -59,6 +59,7 @@ namespace REON {
         ResourceHandle albedoTexture;
         ResourceHandle metallicRoughnessTexture;
         ResourceHandle normalTexture;
+        ResourceHandle emissiveTexture;
         ResourceHandle shader;
         FlatData flatData;
         uint32_t materialFlags;

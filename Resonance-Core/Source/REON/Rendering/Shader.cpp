@@ -75,13 +75,17 @@ namespace REON {
 			L"-spirv",
 			//L"-Fo", (filename + L".spv").c_str(),
 			//DXC_ARG_PACK_MATRIX_COLUMN_MAJOR,
-			L"-fspv-debug=vulkan-with-source"
+#ifdef REON_DEBUG
+			L"-fspv-debug=vulkan-with-source",
+			L"-Zi"
+#endif
 		};
 
 		if (flags & AlbedoTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_ALBEDO_TEXTURE"); };
 		if (flags & NormalTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_NORMAL_TEXTURE"); }
 		if (flags & MetallicRoughnessTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_METALLICROUGHNESS_TEXTURE"); }
 		if (flags & AlphaCutoff) { arguments.push_back(L"-D"); arguments.push_back(L"ALPHA_CUTOFF"); }
+		if (flags & EmissiveTexture) { arguments.push_back(L"-D"); arguments.push_back(L"USE_EMISSIVE_TEXTURE"); }
 
 		DxcBuffer buffer{};
 		buffer.Encoding = DXC_CP_ACP;

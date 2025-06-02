@@ -43,7 +43,7 @@ cbuffer flatData : register(b1, space1)
     float u_Metallic;
     float normalScalar;
     int u_FlipNormalY; // 0 = no flip, 1 = flip Y normal
-    float u_AlphaCutoff;
+    float4 u_EmissiveFactor; // W = alpha cutoff
 };
 
 //#define USE_NORMAL_TEXTURE
@@ -59,6 +59,10 @@ SamplerState texture_sampler_normal : register(s4, space1);
 #ifdef USE_METALLICROUGHNESS_TEXTURE
 Texture2D texture_roughness : register(t5, space1);
 SamplerState texture_sampler_roughness : register(s5, space1);
+#endif
+#ifdef USE_EMISSIVE_TEXTURE
+Texture2D texture_emissive : register(t6, space1);
+SamplerState texture_sampler_emissive : register(s6, space1);
 #endif
 
 struct PBRInfo
@@ -111,10 +115,10 @@ float4 SRGBtoLINEAR(float4 srgbIn)
 #ifdef SRGB_FAST_APPROXIMATION
     float3 linOut = pow(srgbIn.xyz,2.2.xxx);
 #else //SRGB_FAST_APPROXIMATION
-    float3 bLess = step(0.04045.xxx,srgbIn.xyz);
+    float3 bLess = step(0.04045.xxx, srgbIn.xyz);
     float3 linOut = lerp(srgbIn.xyz / 12.92.xxx, pow((srgbIn.xyz + 0.055.xxx) / 1.055.xxx, 2.4.xxx), bLess);
 #endif //SRGB_FAST_APPROXIMATION
-    return float4(linOut,srgbIn.w);;
+    return float4(linOut, srgbIn.w);;
 }
 
 //diffuse_brdf
@@ -188,7 +192,7 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 #endif
     
 #ifdef ALPHA_CUTOFF
-    if(baseColor.a < u_AlphaCutoff)
+    if(baseColor.a < u_EmissiveFactor.w)
         discard;
 #endif
     
@@ -267,6 +271,10 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
         //return float4(radiance, 1.0);
         color = (diffuseContrib + specularContrib) * radiance * NdotL * (1.0 - shadow);
     }
+    
+#ifdef USE_EMISSIVE_TEXTURE
+    color += SRGBtoLINEAR(texture_emissive.Sample(texture_sampler_emissive, input.tex)).rgb * u_EmissiveFactor.rgb;
+#endif
     
     return float4(color, 1.0);
 }

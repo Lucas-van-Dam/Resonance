@@ -65,6 +65,8 @@ namespace REON {
 			json["AlbedoTexture"] = albedoTexture.Get<Texture>()->GetID();
 		if (metallicRoughnessTexture.Get<Texture>())
 			json["MetallicRoughnessTexture"] = metallicRoughnessTexture.Get<Texture>()->GetID();
+		if (emissiveTexture.Get<Texture>())
+			json["EmissiveTexture"] = emissiveTexture.Get<Texture>()->GetID();
 
 		json["Roughness"] = flatData.roughness;
 		json["Metallic"] = flatData.metallic;
@@ -74,7 +76,9 @@ namespace REON {
 
 		json["NormalScalar"] = flatData.normalScalar;
 
-		json["AlphaCutoff"] = flatData.alphaCutoff;
+		json["AlphaCutoff"] = flatData.emissiveFactor.w;
+		
+		json["EmissiveFactor"] = { flatData.emissiveFactor.r, flatData.emissiveFactor.g, flatData.emissiveFactor.b };
 
 		json["Flags"] = materialFlags;
 
@@ -143,7 +147,14 @@ namespace REON {
 		}
 
 		if (json.contains("AlphaCutoff")) {
-			flatData.alphaCutoff = json["AlphaCutoff"].get<float>();
+			flatData.emissiveFactor.w = json["AlphaCutoff"].get<float>();
+		}
+
+		if (json.contains("EmissiveFactor")) {
+			auto emissiveArray = json["EmissiveFactor"];
+			flatData.emissiveFactor.r = emissiveArray[0];
+			flatData.emissiveFactor.g = emissiveArray[1];
+			flatData.emissiveFactor.b = emissiveArray[2];
 		}
 
 		// Extract Albedo Texture
@@ -186,6 +197,14 @@ namespace REON {
 		}
 
 		flatData.normalScalar = json["NormalScalar"];
+
+		if (json.contains("EmissiveFactor")) {
+			std::string emissiveTextureID = json["EmissiveFactor"].get<std::string>();
+			emissiveTexture = Texture::getTextureFromId(emissiveTextureID, basePath.string());
+			if (emissiveTexture.Get<Texture>()) {
+				materialFlags |= EmissiveTexture;
+			}
+		}
 
 		// Extract Shader
 		if (json.contains("Shader")) {
