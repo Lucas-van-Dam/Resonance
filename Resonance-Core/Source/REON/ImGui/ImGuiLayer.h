@@ -28,6 +28,8 @@ namespace REON {
 		void End();
 
 	private:
+		void SetupImGuiStyle();
+
 		VulkanContext* m_Context; // TODO: CHANGE LATER TO BE ABSTRACT;
 		VkRenderPass m_RenderPass;
 		std::vector<VkCommandBuffer> m_CommandBuffers;
