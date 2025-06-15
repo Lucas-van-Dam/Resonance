@@ -44,6 +44,7 @@ namespace REON {
                 return it->second(info, projectPath.string() + "\\" + info->path.string(), projectPath);
             }
             REON_WARN("No resource converter for type {}", info->type);
+            return nullptr;
         }
 
     private:

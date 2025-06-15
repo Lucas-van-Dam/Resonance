@@ -25,6 +25,7 @@ namespace REON::EDITOR {
 	private:
 		// Static registry for handlers, maps type names to handler functions
 		static std::unordered_map<std::string, std::function<void(const FieldInfo&, void*)>> handlers;
+		static std::unordered_map<std::string, std::function<void(const std::shared_ptr<GameObject>&)>> componentMap;
 	};
 }
 

@@ -16,6 +16,7 @@ namespace REON {
     class Transform;
     class GameObject;
     class EditorCamera;
+    struct DrawCommand;
 
     struct alignas(16) GlobalRenderData {
         glm::mat4 viewProj;
@@ -32,7 +33,7 @@ namespace REON {
     class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>, public std::enable_shared_from_this<Renderer> {
     public:
         static_assert(sizeof(GlobalRenderData)%16 == 0, "Global is not aligned");
-        Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> materials);
+        Renderer(std::shared_ptr<Mesh> mesh, std::vector<ResourceHandle> materials);
         Renderer();
         ~Renderer();
         void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, std::vector<VkDescriptorSet> descriptorSets);
@@ -45,15 +46,25 @@ namespace REON {
 
         void cleanup() override;
 
+        glm::mat4 getModelMatrix() { return m_ModelMatrix; }
+        glm::mat4 getTransposeInverseModelMatrix() { return m_TransposeInverseModelMatrix; }
+
         void OnGameObjectAddedToScene() override;
         void OnComponentDetach() override;
 
+        void RebuildDrawCommands();
+        void MarkDrawCommandsDirty();
+
+        void SetMaterial(size_t index, const ResourceHandle& material);
+
     public:
         ResourceHandle mesh;
-        ResourceHandle material;
+        std::vector<ResourceHandle> materials;
 
         static glm::mat4 ViewProjMatrix;
 
+        std::vector<DrawCommand> drawCommands;
+        bool drawCommandsDirty = true;
 
         std::vector<VkDescriptorSet> objectDescriptorSets;
         std::vector<VkBuffer> objectDataBuffers;
@@ -67,13 +78,21 @@ namespace REON {
 
     private:
         glm::mat4 m_ModelMatrix{};
-
-
+        glm::mat4 m_TransposeInverseModelMatrix{};
 
         std::shared_ptr<Transform> m_Transform = nullptr;
 
         template <typename ClassType, typename FieldType, FieldType ClassType::* field>
         friend struct ReflectionAccessor;
+    };
+
+    struct DrawCommand {
+        Shader* shader;
+        Material* material;
+        Mesh* mesh;
+        uint32_t startIndex;
+        uint32_t indexCount;
+        Renderer* owner;
     };
 
 }

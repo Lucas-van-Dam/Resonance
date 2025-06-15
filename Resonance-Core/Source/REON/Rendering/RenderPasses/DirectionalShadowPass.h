@@ -23,7 +23,6 @@ namespace REON {
 		void cleanup(const VulkanContext* context);
 
 	private:
-		void createCommandPool(const VulkanContext* context);
 		void createCommandBuffers(const VulkanContext* context);
 		void createImages(const VulkanContext* context);
 		void createRenderPass(const VulkanContext* context);

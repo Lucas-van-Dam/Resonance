@@ -12,6 +12,8 @@
 #include "ProjectManagement/Processors/PrimaryProcessors.h"
 #include "REON/Rendering/PostProcessing/BloomEffect.h"
 #include "vulkan/vulkan.h"
+#include <Commands/CommandManager.h>
+#include <Commands/PropertyChangeCommand.h>
 
 namespace REON::EDITOR {
 
@@ -83,8 +85,22 @@ namespace REON::EDITOR {
 				}
 				ImGui::EndMenu();
 			}
-			if (ImGui::BeginMenu("Window")) {
-				ImGui::EndMenu();
+			if (m_ProjectLoaded)
+			{
+				if (ImGui::BeginMenu("Window")) {
+					ImGui::EndMenu();
+				}
+				if (ImGui::BeginMenu("GameObject")) {
+					if (ImGui::Button("PointLight")) {
+						std::shared_ptr<GameObject> lightObject = std::make_shared<GameObject>();
+						SceneManager::Get()->GetCurrentScene()->AddGameObject(lightObject);
+						lightObject->SetName("point light");
+						std::shared_ptr<Light> light = std::make_shared<Light>();
+						light->type = LightType::Point;
+						lightObject->AddComponent<Light>(light);
+					}
+					ImGui::EndMenu();
+				}
 			}
 			ImGui::EndMenuBar();
 		}
@@ -169,6 +185,34 @@ namespace REON::EDITOR {
 			bool wasResized = (currentSize.x != lastSize.x || currentSize.y != lastSize.y);
 			lastSize = currentSize;
 
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
+			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 4));
+
+			ImGui::BeginChild("SceneToolbar", ImVec2(0, 32), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+			{
+				static const char* modeNames[] = { "Lit", "Unlit", "Wireframe" };
+				int currentIndex = static_cast<int>(scene->renderManager->renderMode);
+				ImGui::PushItemWidth(80);
+				ImGui::SetNextWindowSizeConstraints(ImVec2(80, IM_ARRAYSIZE(modeNames)* ImGui::GetTextLineHeightWithSpacing() + 12), ImVec2(FLT_MAX, FLT_MAX));
+				if (ImGui::BeginCombo("###ViewMode", modeNames[currentIndex], ImGuiComboFlags_NoArrowButton)) {
+					for (int i = 0; i < IM_ARRAYSIZE(modeNames); ++i) {
+						bool isSelected = (currentIndex == i);
+						if (ImGui::Selectable(modeNames[i], isSelected)) {
+							scene->renderManager->renderMode = static_cast<RenderMode>(i);
+						}
+						if (isSelected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+				}
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Choose how to render the scene view");
+				ImGui::PopItemWidth();
+			}
+			ImGui::EndChild();
+
+			ImGui::PopStyleVar(2);
+
 			auto size = ImGui::GetContentRegionAvail();
 
 			if (wasResized)
@@ -176,13 +220,17 @@ namespace REON::EDITOR {
 
 			m_SceneHovered = ImGui::IsWindowHovered();
 
+			ImVec2 viewportStart = ImGui::GetCursorScreenPos();
+
+
+
 			auto texId = scene->renderManager->GetEndBuffer();
 
 			if(texId != nullptr)
 				ImGui::Image((ImTextureID)texId, size, ImVec2(0, 1), ImVec2(1, 0));
 			if (scene->selectedObject) {
-				ImVec2 windowSize = ImGui::GetWindowSize();
-				ImVec2 pos = ImGui::GetWindowPos();
+				ImVec2 windowSize = size;
+				ImVec2 pos = viewportStart;
 
 				ImGuizmo::SetDrawlist();
 
@@ -206,12 +254,33 @@ namespace REON::EDITOR {
 					break;
 				}
 
-				if (ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
-					operation, ImGuizmo::LOCAL, glm::value_ptr(worldMatrix)))
-				{
+				static bool wasUsingGizmo = false;
+
+				ImGuizmo::Manipulate(glm::value_ptr(viewMatrix), glm::value_ptr(projMatrix),
+					operation, ImGuizmo::LOCAL, glm::value_ptr(worldMatrix));
+
+				if (ImGuizmo::IsUsing()) {
+					auto transform = scene->selectedObject->GetTransform();
+					if (!wasUsingGizmo) {
+						CommandManager::startBatch(std::make_unique<PropertyChangeCommand<glm::mat4>>(
+							[transform](const glm::mat4& mat) {transform->SetWorldTransform(mat);
+															   transform->eulerDirty = true; },
+							[transform]() {return transform->GetWorldTransform(); },
+							worldMatrix));
+					}
+					else {
+						CommandManager::updateBatch([&](ICommand* cmd) {static_cast<PropertyChangeCommand<glm::mat4>*>(cmd)->UpdateValue(worldMatrix); });
+					}
+
 					scene->selectedObject->GetTransform()->SetWorldTransform(worldMatrix);
+					scene->selectedObject->GetTransform()->eulerDirty = true;
 				}
 
+				if (wasUsingGizmo && !ImGuizmo::IsUsing()) {
+					CommandManager::endBatch();
+				}
+
+				wasUsingGizmo = ImGuizmo::IsUsing();
 			}
 		}
 		ImGui::End();
@@ -264,6 +333,18 @@ namespace REON::EDITOR {
 		}
 		if (event.GetKeyCode() == REON_KEY_3) {
 			m_Gizmotype = GizmoType::Scale;
+		}
+
+		if(event.GetKeyCode() == REON_KEY_Z && event.GetRepeatCount() == 0) {
+			if(Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canUndo) {
+				CommandManager::undo();
+			}
+		}
+
+		if (event.GetKeyCode() == REON_KEY_Y && event.GetRepeatCount() == 0) {
+			if (Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canRedo) {
+				CommandManager::redo();
+			}
 		}
 	}
 

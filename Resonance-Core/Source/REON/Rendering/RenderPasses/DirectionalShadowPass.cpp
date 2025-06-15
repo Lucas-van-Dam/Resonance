@@ -6,7 +6,7 @@
 namespace REON {
 	void DirectionalShadowPass::Init(const VulkanContext* context)
 	{
-		createCommandPool(context);
+		context->createCommandPool(m_CommandPool, context->findQueueFamilies(context->getPhysicalDevice()).graphicsFamily.value());
 		createCommandBuffers(context);
 		createImages(context);
 		createRenderPass(context);
@@ -85,8 +85,28 @@ namespace REON {
 		memcpy(m_PerLightBuffersMapped[currentFrame], &mainLightViewProj, sizeof(mainLightViewProj));
 
 		for (const auto& renderer : renderers) {
+
+			for (const auto& cmd : renderer->drawCommands) {
+				if (!(cmd.material->blendingMode == Mask || cmd.material->renderingMode == Opaque))
+					continue;
+
+				std::array<VkDescriptorSet, 2> descriptorSets{ m_PerLightDescriptorSets[currentFrame], cmd.owner->shadowObjectDescriptorSets[context->getCurrentFrame()] };
+				auto modelMatrix = cmd.owner->getModelMatrix();
+				memcpy(cmd.owner->shadowObjectDataBuffersMapped[context->getCurrentFrame()], &modelMatrix, sizeof(glm::mat4));
+
+				VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+				VkDeviceSize offsets[] = { 0 };
+				vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
+
+				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+				vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+				vkCmdDrawIndexed(m_CommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
+			}
+
+
+
 			//set object buffers (model matrix)
-			renderer->Draw(m_CommandBuffers[currentFrame], m_PipelineLayout, m_PerLightDescriptorSets[currentFrame]);
 		}
 
 		vkCmdEndRenderPass(m_CommandBuffers[currentFrame]);
@@ -119,11 +139,6 @@ namespace REON {
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = {  };
-		VkPipelineStageFlags waitStages[] = { };
-		submitInfo.waitSemaphoreCount = 0;
-		submitInfo.pWaitSemaphores = waitSemaphores;
-		submitInfo.pWaitDstStageMask = waitStages;
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &m_CommandBuffers[currentFrame];
 
@@ -162,19 +177,6 @@ namespace REON {
 		vkDestroyRenderPass(context->getDevice(), m_RenderPass, nullptr);
 		
 		vkDestroyCommandPool(context->getDevice(), m_CommandPool, nullptr);
-	}
-
-	void DirectionalShadowPass::createCommandPool(const VulkanContext* context)
-	{
-		QueueFamilyIndices queueFamilyIndices = context->findQueueFamilies(context->getPhysicalDevice());
-
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-		VkResult res = vkCreateCommandPool(context->getDevice(), &poolInfo, nullptr, &m_CommandPool);
-		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create command pool");
 	}
 
 	void DirectionalShadowPass::createCommandBuffers(const VulkanContext* context)

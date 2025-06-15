@@ -44,6 +44,8 @@ cbuffer flatData : register(b1, space1)
     float normalScalar;
     int u_FlipNormalY; // 0 = no flip, 1 = flip Y normal
     float4 u_EmissiveFactor; // W = alpha cutoff
+    float4 u_SpecularFactor;
+    float preCompF0;
 };
 
 //#define USE_NORMAL_TEXTURE
@@ -63,6 +65,12 @@ SamplerState texture_sampler_roughness : register(s5, space1);
 #ifdef USE_EMISSIVE_TEXTURE
 Texture2D texture_emissive : register(t6, space1);
 SamplerState texture_sampler_emissive : register(s6, space1);
+#endif
+#ifdef USE_SPECULAR_TEXTURE
+Texture2D texture_specular : register(t7, space1);
+SamplerState texture_sampler_specular : register(s7, space1);
+Texture2D texture_specular_color : register(t8, space1);
+SamplerState texture_sampler_specular_color : register(s8, space1);
 #endif
 
 struct PBRInfo
@@ -162,7 +170,7 @@ float3 getNormal(float3x3 inTbn, float2 texCoord)
     n = normalize(mul(float3(normalScalar, normalScalar, 1.0) * (2.0 * n - 1.0), tbn));
     //return float3(1.0, 0.0, 1.0);
 #else
-    float3 n = normalize(float3(tbn[0][2], tbn[1][2], tbn[2][2]));
+    float3 n = normalize(tbn[2]);
 #endif
     
     return n;
@@ -190,32 +198,41 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 #else
     float4 baseColor = u_BaseColorFactor;
 #endif
-    
+
 #ifdef ALPHA_CUTOFF
     if(baseColor.a < u_EmissiveFactor.w)
         discard;
 #endif
     
-    float3 f0 = 0.04.xxx;
+    float3 f0 = preCompF0.xxx;
     float3 diffuseColor = baseColor.rgb * (1.xxx - f0);
     diffuseColor *= 1.0 - metallic;
+#ifdef USE_SPECULAR_TEXTURE
+    float3 specularColor = u_SpecularFactor.rgb * SRGBtoLINEAR(texture_specular_color.Sample(texture_sampler_specular_color, input.tex)).rgb;
+    float specular = u_SpecularFactor.a * texture_specular.Sample(texture_sampler_specular, input.tex).a;
+    f0 = min(f0 * specularColor, float3(1.xxx)) * specular;
+    float reflectance90 = specular;
+#else
     float3 specularColor = lerp(f0, baseColor.rgb, metallic);
     float3 clampedSpecular = saturate(specularColor);
     
     float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
     
     float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
+#endif
     float3 specularEnvironmentR0 = specularColor.rgb;
     float3 specularEnvironmentR90 = 1.0.xxx * reflectance90;
     
     //return float4(reflectance90, 0.0, 0.0, 1.0);
     
     float3 n = getNormal(input.v_TBN, input.tex);
+
+    //return float4(n, 1.0);
     
     //return float4(n, 1.0);
     float3 v = normalize(input.fragViewPos - input.fragPosition);
     
-    float3 color;
+    float3 color = float3(0, 0, 0);
     
     for (int i = 0; i < lightCount; i++)
     {
@@ -226,7 +243,7 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
         if (lights[i].position.w == 1.0)
         {
             l = normalize(-lights[i].direction.xyz);
-            radiance = lights[i].color.xyz;
+            radiance = lights[i].color.xyz * lights[i].color.w;
             shadow = MainShadowCalculation(input.fragLightSpacePos, n);
             //return float4(shadow, 0.0, 0.0, 1.0);
         }
@@ -235,10 +252,22 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
             l = normalize(lights[i].position.xyz - input.fragPosition);
             float distance = length(lights[i].position.xyz - input.fragPosition);
             float attenuation = 1.0 / (distance * distance);
-            radiance = lights[i].color.xyz * attenuation;
+            radiance = lights[i].color.xyz * lights[i].color.w * attenuation;
         }
         
         float3 h = normalize(l + v);
+        
+        float3 halfVectorTS = mul(input.v_TBN, h);
+        float2 halfVector2D = halfVectorTS.xy;
+        float2 deltaU = ddx(halfVector2D), deltaV = ddy(halfVector2D);
+        
+        float footprint = abs(deltaU.x * deltaV.y - deltaU.y * deltaV.x);
+        
+        float k = 5;
+        
+        float adjustedRoughness = clamp(perceptualRoughness, c_MinRoughness, sqrt(footprint) * k);
+        
+        //return float4(adjustedRoughness, 0.0, 0.0, 1.0);
         
         float NdotL = clamp(dot(n, l), 0.001, 1.0);
         float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
@@ -269,11 +298,13 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
         float3 diffuseContrib = (1.0 - F) * diffuse(pbrInputs);
         float3 specularContrib = F * D * G / (4.0 * NdotL * NdotV);
         //return float4(radiance, 1.0);
-        color = (diffuseContrib + specularContrib) * radiance * NdotL * (1.0 - shadow);
+        color += (diffuseContrib + specularContrib) * radiance * NdotL * (1.0 - shadow);
     }
     
 #ifdef USE_EMISSIVE_TEXTURE
     color += SRGBtoLINEAR(texture_emissive.Sample(texture_sampler_emissive, input.tex)).rgb * u_EmissiveFactor.rgb;
+#else
+    color += u_EmissiveFactor.rgb;
 #endif
     
     return float4(color, 1.0);

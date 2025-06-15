@@ -41,7 +41,10 @@ namespace REON {
     public:
         glm::vec3 localPosition; // Position (translation)
         Quaternion localRotation; // Quaternion for rotation
+        glm::vec3 eulerCache;
         glm::vec3 localScale;    // Scale factors (x, y, z)
+
+        bool eulerDirty = true;
 
     private:
         // Create the rotation matrix from a quaternion

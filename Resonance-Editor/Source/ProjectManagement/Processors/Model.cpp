@@ -172,7 +172,8 @@ namespace REON::EDITOR {
 	{
 		static int objectCount = 1;
 
-		std::vector<std::shared_ptr<Material>> materials;
+		std::vector<std::string> materialIDs;
+		std::vector<ResourceHandle> materials;
 
 		std::string defaultName = "Unnamed" + std::to_string(objectCount++);
 		std::string name = nodeJson.value("name", defaultName);
@@ -200,7 +201,10 @@ namespace REON::EDITOR {
 					}
 				}
 				REON_CORE_ASSERT(mat);
-				materials.push_back(mat);
+				if(std::find(materialIDs.begin(), materialIDs.end(), materialID.get<std::string>()) == materialIDs.end()) {
+					materialIDs.push_back(materialID);
+					materials.push_back(mat);
+				}
 			}
 		}
 
@@ -228,7 +232,7 @@ namespace REON::EDITOR {
 					ResourceManager::GetInstance().AddResource(mesh);
 				}
 
-				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials[0]);
+				std::shared_ptr<Renderer> renderer = std::make_shared<Renderer>(mesh, materials);
 				nodeObject->AddComponent(renderer);
 			}
 		}

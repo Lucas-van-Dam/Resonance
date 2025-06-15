@@ -33,6 +33,8 @@ float4 main(float4 pos : SV_Position) : SV_Target
     
     float4 accumulation = accumTex.Load(int3(uv, 0));
     
+    //return accumulation;
+    
     if(isinf(max3(abs(accumulation.rgb))))
         accumulation.rgb = float3(accumulation.a.xxx);
     

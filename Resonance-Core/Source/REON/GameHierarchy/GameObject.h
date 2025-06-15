@@ -37,6 +37,15 @@ namespace REON {
             return nullptr;
         }
 
+        bool HasComponent(const std::string& componentName) const {
+            for (const auto& component : m_Components) {
+                if (component->GetTypeName() == componentName) {
+                    return true;
+                }
+            }
+            return false;
+		}
+
         const std::vector<std::shared_ptr<Component>>& GetComponents() const;
 
         const std::vector<std::shared_ptr<GameObject>>& GetChildren() const;

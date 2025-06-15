@@ -16,7 +16,7 @@ namespace REON {
     
     class [[clang::annotate("serialize")]] Light : public ComponentBase<Light>, public std::enable_shared_from_this<Light> {
     public:
-        explicit Light(LightType type = LightType::Spot, float intensity = 1, glm::vec3 color = glm::vec3(1, 1, 1), float innerCutOff = -1, float outerCutOff = -1);
+        explicit Light(LightType type = LightType::Point, float intensity = 1, glm::vec3 color = glm::vec3(1, 1, 1), float innerCutOff = -1, float outerCutOff = -1);
 
         void Update(float deltaTime) override;
 

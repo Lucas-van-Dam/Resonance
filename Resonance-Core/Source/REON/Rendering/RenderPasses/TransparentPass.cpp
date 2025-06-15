@@ -3,6 +3,7 @@
 #include "REON/Rendering/Material.h"
 #include "REON/Rendering/Structs/Vertex.h"
 #include "REON/ResourceManagement/ResourceManager.h"
+#include "OpaquePass.h"
 
 namespace REON {
 	void TransparentPass::init(const VulkanContext* context, uint width, uint height, 
@@ -14,8 +15,9 @@ namespace REON {
 		m_Height = height;
 		m_Layouts = layouts;
 		m_PipelineCache = cache;
-		createCommandPool(context);
-		createCommandBuffers(context);
+		context->createCommandPool(m_CommandPool, context->findQueueFamilies(context->getPhysicalDevice()).graphicsFamily.value());
+		context->createCommandBuffers(m_CommandBuffers, m_CommandPool, context->MAX_FRAMES_IN_FLIGHT);
+		context->createCommandBuffers(m_CompositeCommandBuffers, m_CommandPool, context->MAX_FRAMES_IN_FLIGHT);
 		createImages(context);
 		createBuffers(context);
 		createRenderPasses(context);
@@ -25,8 +27,8 @@ namespace REON {
 		createSyncObjects(context);
 	}
 
-	void TransparentPass::render(const VulkanContext* context, 
-		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::shared_ptr<Renderer>>>> rendererMap, 
+	void TransparentPass::render(const VulkanContext* context,
+		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>> rendererMap, 
 		VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkDescriptorSet globalDescriptorSet)
 	{
 		int currentFrame = context->getCurrentFrame();
@@ -118,9 +120,22 @@ namespace REON {
 				vkCmdSetCullMode(m_CommandBuffers[currentFrame], mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
 
-				for (const auto& renderer : material.second) {
-					//set object buffers (model matrix)
-					renderer->Draw(m_CommandBuffers[currentFrame], m_GraphicsPipelineLayout, { globalDescriptorSet, mat->descriptorSets[currentFrame] });
+				for (const auto& cmd : material.second) {
+					std::vector<VkDescriptorSet> descriptorSets = { globalDescriptorSet, mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[context->getCurrentFrame()] };
+
+					ObjectRenderData data{};
+					data.model = cmd.owner->getModelMatrix();
+					data.transposeInverseModel = glm::transpose(glm::inverse(data.model));
+					memcpy(cmd.owner->objectDataBuffersMapped[context->getCurrentFrame()], &data, sizeof(data));
+
+					VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+					VkDeviceSize offsets[] = { 0 };
+					vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
+
+					vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+					vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+					vkCmdDrawIndexed(m_CommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
 				}
 			}
 
@@ -323,38 +338,6 @@ namespace REON {
 		m_PipelineByMaterialPermutation.clear();
 
 		createGraphicsPipelines(context);
-	}
-
-	void TransparentPass::createCommandPool(const VulkanContext* context)
-	{
-		QueueFamilyIndices queueFamilyIndices = context->findQueueFamilies(context->getPhysicalDevice());
-
-		VkCommandPoolCreateInfo poolInfo{};
-		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
-
-		VkResult res = vkCreateCommandPool(context->getDevice(), &poolInfo, nullptr, &m_CommandPool);
-		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create command pool");
-	}
-
-	void TransparentPass::createCommandBuffers(const VulkanContext* context)
-	{
-		m_CommandBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
-
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.commandPool = m_CommandPool;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
-
-		VkResult res = vkAllocateCommandBuffers(context->getDevice(), &allocInfo, m_CommandBuffers.data());
-		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
-
-		m_CompositeCommandBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
-
-		res = vkAllocateCommandBuffers(context->getDevice(), &allocInfo, m_CompositeCommandBuffers.data());
-		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
 	}
 
 	void TransparentPass::createImages(const VulkanContext* context)

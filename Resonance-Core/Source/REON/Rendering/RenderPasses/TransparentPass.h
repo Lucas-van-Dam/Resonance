@@ -13,7 +13,7 @@ namespace REON {
 			std::vector<VkImageView> opaqueViews, std::vector<VkImageView>& resultViews, std::vector<VkImageView> depthImageViews);
 
 		void render(const VulkanContext* context, 
-			std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::shared_ptr<Renderer>>>> rendererMap, 
+			std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>> rendererMap, 
 			VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkDescriptorSet globalDescriptorSet);
 
 		void resize(const VulkanContext* context, uint width, uint height, std::vector<VkImageView>& endViews, 
@@ -24,8 +24,6 @@ namespace REON {
 		void hotReloadShaders(const VulkanContext* context);
 
 	private:
-		void createCommandPool(const VulkanContext* context);
-		void createCommandBuffers(const VulkanContext* context);
 		void createImages(const VulkanContext* context);
 		void createBuffers(const VulkanContext* context);
 		void createRenderPasses(const VulkanContext* context);

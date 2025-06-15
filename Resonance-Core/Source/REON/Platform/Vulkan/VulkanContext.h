@@ -110,7 +110,8 @@ namespace REON {
 		void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 		VkShaderModule createShaderModule(const std::vector<char>& code) const;
 		VkFormat findDepthFormat() const;
-
+		void createCommandPool(VkCommandPool& commandPool, uint32_t queueFamilyIndex) const;
+		void createCommandBuffers(std::vector<VkCommandBuffer>& commandBuffers, VkCommandPool commandPool, size_t amountOfBuffers) const;
 
 	private:
 		void createInstance();
@@ -198,7 +199,8 @@ namespace REON {
 
 		const std::vector<const char*> m_DeviceExtensions = {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-			VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME
+			VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+			VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME
 			/*VK_NV_PER_STAGE_DESCRIPTOR_SET_EXTENSION_NAME*/
 		};
 

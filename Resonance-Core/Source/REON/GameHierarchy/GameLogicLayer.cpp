@@ -104,7 +104,10 @@ namespace REON {
 	{
 		if (!Input::IsMouseButtonPressed(REON_MOUSE_BUTTON_2))
 			return;
-		auto camera = SceneManager::Get()->GetCurrentScene()->GetEditorCamera();
+		std::shared_ptr<Scene> scene;
+		if (!(scene = SceneManager::Get()->GetCurrentScene()))
+			return;
+		auto camera = scene->GetEditorCamera();
 
 		if (Input::IsKeyPressed(REON_KEY_W)) {
 			camera->ProcessKeyboard(FORWARD, deltaTime);

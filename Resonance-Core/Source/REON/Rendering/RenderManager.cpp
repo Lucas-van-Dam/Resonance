@@ -16,7 +16,8 @@ namespace REON {
 
 	void RenderManager::Render() {
 		resized = false;
-		if (m_RenderersByShaderId.empty()) {
+		prepareDrawCommands(m_Context->getCurrentFrame());
+		if (m_DrawCommandsByShaderMaterial.empty()) {
 			VkSemaphore signalSemaphores[] = { m_Context->getCurrentRenderFinishedSemaphore() };
 			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[m_Context->getCurrentFrame()] };
 			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -32,27 +33,18 @@ namespace REON {
 			return;
 		}
 		setGlobalData();
+
+		if (renderMode != LIT) {
+			m_UnlitPass.render(m_Context, m_DrawCommandsByShaderMaterial, m_GlobalDescriptorSets[m_Context->getCurrentImageIndex()], m_Context->getCurrentRenderFinishedSemaphore(), renderMode);
+			return;
+		}
 		GenerateShadows();
-		//glBindFramebuffer(GL_FRAMEBUFFER, m_SceneFbo);
-		//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		RenderOpaques();
-		//RenderSkyBox();
 		RenderTransparents();
-		//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		//RenderPostProcessing();
 	}
 
 	void RenderManager::AddRenderer(const std::shared_ptr<Renderer>& renderer) {
-		//m_ShaderToRenderer[renderer->material.Get<Material>()->shader].push_back(renderer);
-		if (m_RenderersByShaderId.find(renderer->material.Get<Material>()->shader.Get<Shader>()->GetID()) == m_RenderersByShaderId.end()) {
-			createOpaqueGlobalDescriptorSets();
-			createOpaqueMaterialDescriptorSets(renderer->material.Get<Material>());
-		}
-		if (m_RenderersByShaderId[renderer->material.Get<Material>()->shader.Get<Shader>()->GetID()].find(renderer->material.Get<Material>()->GetID()) == m_RenderersByShaderId[renderer->material.Get<Material>()->shader.Get<Shader>()->GetID()].end()) {
-			createOpaqueMaterialDescriptorSets(renderer->material.Get<Material>());
-		}
 		m_Renderers.push_back(renderer);
-		m_RenderersByShaderId[renderer->material.Get<Material>()->shader.Get<Shader>()->GetID()][renderer->material.Get<Material>()->GetID()].push_back(renderer);
 		createOpaqueObjectDescriptorSets(renderer);
 	}
 
@@ -66,27 +58,13 @@ namespace REON {
 	}
 
 	void RenderManager::RenderSkyBox() {
-		glDepthFunc(GL_LEQUAL);
-		glDepthMask(GL_FALSE);
-		//m_SkyboxShader->use();
-		//m_SkyboxShader->setMat4("view", glm::mat4(glm::mat3(m_Camera->GetViewMatrix())));
-		//m_SkyboxShader->setMat4("projection", m_Camera->GetProjectionMatrix());
-
-		glBindVertexArray(m_SkyboxVAO);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_CUBE_MAP, m_SkyboxTexture);
-		//m_SkyboxShader->setInt("skybox", 0);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-		glBindVertexArray(0);
-		glDepthMask(GL_TRUE);
-		glDepthFunc(GL_LESS);
 	}
 
 	void RenderManager::RenderOpaques() {			
 		int currentFrame = m_Context->getCurrentFrame();
 		int currentImageIndex = m_Context->getCurrentImageIndex();
 
-		for (const auto& pair : m_RenderersByShaderId) {
+		for (const auto& pair : m_DrawCommandsByShaderMaterial) {
 			VkCommandBufferBeginInfo beginInfo{};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = 0;
@@ -171,13 +149,24 @@ namespace REON {
 				vkCmdSetCullMode(m_OpaqueCommandBuffers[currentFrame], mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
 
-				for (const auto& renderer : material.second) {
-					//set object buffers (model matrix)
-					renderer->Draw(m_OpaqueCommandBuffers[currentFrame], m_OpaquePipelineLayout, { m_GlobalDescriptorSets[currentImageIndex], mat->descriptorSets[currentFrame] });
+				for (const auto& cmd : material.second) {
+					std::vector<VkDescriptorSet> descriptorSets = { m_GlobalDescriptorSets[currentFrame], mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[m_Context->getCurrentFrame()]};
+
+					ObjectRenderData data{};
+					data.model = cmd.owner->getModelMatrix();
+					data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
+					memcpy(cmd.owner->objectDataBuffersMapped[m_Context->getCurrentFrame()], &data, sizeof(data));
+
+					VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+					VkDeviceSize offsets[] = { 0 };
+					vkCmdBindVertexBuffers(m_OpaqueCommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
+
+					vkCmdBindIndexBuffer(m_OpaqueCommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+					vkCmdBindDescriptorSets(m_OpaqueCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+					vkCmdDrawIndexed(m_OpaqueCommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
 				}
 			}
-
-
 
 			vkCmdEndRenderPass(m_OpaqueCommandBuffers[currentFrame]);
 
@@ -228,14 +217,13 @@ namespace REON {
 
 	void RenderManager::RenderTransparents() {
 		int currentFrame = m_Context->getCurrentFrame();
-		m_TransparentPass.render(m_Context, m_RenderersByShaderId, m_OpaquePassDone[currentFrame], m_Context->getCurrentRenderFinishedSemaphore(),
+		m_TransparentPass.render(m_Context, m_DrawCommandsByShaderMaterial, m_OpaquePassDone[currentFrame], m_Context->getCurrentRenderFinishedSemaphore(),
 			m_GlobalDescriptorSets[m_Context->getCurrentImageIndex()]);
 	}
 
 	void RenderManager::RenderPostProcessing() {
 		m_RenderResultTexture = m_PostProcessingStack.Render(m_SceneTexture, m_SceneDepthTex);
 	}
-
 
 	void RenderManager::GenerateShadows() {
 		auto light = m_LightManager->mainLight;
@@ -256,11 +244,14 @@ namespace REON {
 		m_Height = Application::Get().GetWindow().GetHeight();
 
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<KeyPressedEvent>(REON_BIND_EVENT_FN(RenderManager::OnKeyPressed));
+		//EventBus::Get().subscribe<MaterialChangedEvent>(REON_BIND_EVENT_FN(RenderManager::OnMaterialChanged));
 
 		//Initialize main light shadow maps
 		this->m_Camera = std::move(camera);
 
 		m_DirectionalShadowPass.Init(m_Context);
+
+		//m_DrawCommandsByShaderMaterial.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
 		createPipelineCache();
 		createGlobalBuffers();
@@ -274,14 +265,14 @@ namespace REON {
 		createOpaqueGraphicsPipelines();
 		createEndBufferSet();
 		createSyncObjects();
+		createOpaqueGlobalDescriptorSets();
 
 		std::vector<VkDescriptorSetLayout> layouts;
 		layouts.push_back(m_OpaqueGlobalDescriptorSetLayout);
 		layouts.push_back(m_OpaqueMaterialDescriptorSetLayout);
 		layouts.push_back(m_OpaqueObjectDescriptorSetLayout);
 		m_TransparentPass.init(m_Context, m_Width, m_Height, layouts, m_PipelineCache, m_OpaqueResolveImageViews, m_EndImageViews, m_DepthResolveViews);
-
-		return;
+		m_UnlitPass.init(m_Context, m_Width, m_Height, m_EndImageViews, m_PipelineCache, layouts);
 	}
 
 	void RenderManager::RenderFullScreenQuad()
@@ -291,48 +282,17 @@ namespace REON {
 	void RenderManager::OnKeyPressed(const KeyPressedEvent& event)
 	{
 		if (event.GetKeyCode() == REON_KEY_I && event.GetRepeatCount() == 0) {
-			m_PostProcessingStack.StartProfiling();
+			//m_PostProcessingStack.StartProfiling();
 		}
 		if (event.GetKeyCode() == REON_KEY_O && event.GetRepeatCount() == 0) {
-			m_PostProcessingStack.ExportFrameDataToCSV("BloomFrameData.csv", "Bloom");
+			//m_PostProcessingStack.ExportFrameDataToCSV("BloomFrameData.csv", "Bloom");
 		}
 		if (event.GetKeyCode() == REON_KEY_K && event.GetRepeatCount() == 0) {
-			m_PostProcessingStack.ExportFrameDataToCSV("DepthOfFieldFrameData.csv", "Depth of Field");
+			//m_PostProcessingStack.ExportFrameDataToCSV("DepthOfFieldFrameData.csv", "Depth of Field");
 		}
 	}
 
-
-
 	void RenderManager::GenerateMainLightShadows() {
-		std::shared_ptr<Light> light = m_LightManager->mainLight;
-		if (light == nullptr) {
-			printf("No main light found\n");
-			return;
-		}
-		glm::mat4 lightSpaceMatrix;
-		float near_plane = -50.0f, far_plane = 100;
-		m_MainLightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);
-
-		m_MainLightView = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f), (light->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, 1.0f)), (light->GetOwner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
-		lightSpaceMatrix = m_MainLightProj * m_MainLightView;
-
-
-
-		glViewport(0, 0, MAIN_SHADOW_WIDTH, MAIN_SHADOW_HEIGHT);
-		glBindFramebuffer(GL_FRAMEBUFFER, m_DepthMapFBO);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		m_DirectionalShadowShader->use();
-		//m_DirectionalShadowShader->setMat4("lightSpaceMatrix", lightSpaceMatrix);
-		glDisable(GL_CULL_FACE);
-		glDepthFunc(GL_LESS);
-		for (const auto& renderer : m_Renderers) {
-			renderer->Draw(m_MainLightView, m_MainLightProj, -1, -1, -1, -1, std::vector<int>(), 0, m_DirectionalShadowShader);
-		}
-		glEnable(GL_CULL_FACE);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		glViewport(0, 0, m_Width, m_Height);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	}
 
 	void RenderManager::GenerateAdditionalShadows() {
@@ -432,6 +392,27 @@ namespace REON {
 		memcpy(m_GlobalDataBuffersMapped[m_Context->getCurrentImageIndex()], &data, sizeof(data));
 
 		memcpy(m_LightDataBuffersMapped[m_Context->getCurrentImageIndex()], lights.data(), lights.size() * sizeof(LightData));
+	}
+
+	void RenderManager::prepareDrawCommands(int currentFrame)
+	{
+		m_DrawCommandsByShaderMaterial.clear();
+		for (auto& renderer : m_Renderers) {
+			if (renderer->drawCommandsDirty)
+				renderer->RebuildDrawCommands();
+			
+			for (DrawCommand& cmd : renderer->drawCommands) {
+				auto shaderID = cmd.shader->GetID();
+				auto materialID = cmd.material->GetID();
+
+				if (materials.find(materialID) == materials.end()) {
+					materials.insert(materialID);
+					createOpaqueMaterialDescriptorSets(*cmd.material);
+				}
+
+				m_DrawCommandsByShaderMaterial[shaderID][materialID].push_back(cmd);
+			}
+		}
 	}
 
 	void RenderManager::createSyncObjects()
@@ -847,7 +828,21 @@ namespace REON {
 		emissiveLayoutBinding.pImmutableSamplers = nullptr;
 		emissiveLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		std::array<VkDescriptorSetLayoutBinding, 5> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessMetallicLayoutBinding, emissiveLayoutBinding };
+		VkDescriptorSetLayoutBinding specularLayoutBinding{};
+		specularLayoutBinding.binding = 7;
+		specularLayoutBinding.descriptorCount = 1;
+		specularLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		specularLayoutBinding.pImmutableSamplers = nullptr;
+		specularLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		VkDescriptorSetLayoutBinding specularColorLayoutBinding{};
+		specularColorLayoutBinding.binding = 8;
+		specularColorLayoutBinding.descriptorCount = 1;
+		specularColorLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		specularColorLayoutBinding.pImmutableSamplers = nullptr;
+		specularColorLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		std::array<VkDescriptorSetLayoutBinding, 7> bindings = { flatDataBinding, albedoLayoutBinding, normalLayoutBinding, roughnessMetallicLayoutBinding, emissiveLayoutBinding, specularLayoutBinding, specularColorLayoutBinding };
 		VkDescriptorSetLayoutCreateInfo materialLayoutInfo{};
 		materialLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		materialLayoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -954,9 +949,9 @@ namespace REON {
 		}
 	}
 
-	void RenderManager::createOpaqueMaterialDescriptorSets(const std::shared_ptr<Material>& material)
+	void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
 	{
-		material->descriptorSets.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+		material.descriptorSets.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
 		std::vector<VkDescriptorSetLayout> materialLayouts(m_Context->MAX_FRAMES_IN_FLIGHT, m_OpaqueMaterialDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo materialAllocInfo{};
@@ -965,42 +960,54 @@ namespace REON {
 		materialAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->MAX_FRAMES_IN_FLIGHT);
 		materialAllocInfo.pSetLayouts = materialLayouts.data();
 
-		VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &materialAllocInfo, material->descriptorSets.data());
+		VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &materialAllocInfo, material.descriptorSets.data());
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate descriptor sets");
 
 		for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo materialBufferInfo{};
-			materialBufferInfo.buffer = material->flatDataBuffers[i];
+			materialBufferInfo.buffer = material.flatDataBuffers[i];
 			materialBufferInfo.offset = 0;
 			materialBufferInfo.range = sizeof(FlatData);
 
 			VkDescriptorImageInfo albedoImageInfo{};
-			const auto& albedoTexture = material->albedoTexture.Get<Texture>();
+			const auto& albedoTexture = material.albedoTexture.Get<Texture>();
 			albedoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			albedoImageInfo.imageView = albedoTexture ? albedoTexture->getTextureView() : m_DummyImageView;
 			albedoImageInfo.sampler = albedoTexture ? albedoTexture->getSampler() : m_DummySampler;
 
 			VkDescriptorImageInfo normalImageInfo{};
-			const auto& normalTexture = material->normalTexture.Get<Texture>();
+			const auto& normalTexture = material.normalTexture.Get<Texture>();
 			normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			normalImageInfo.imageView = normalTexture ? normalTexture->getTextureView() : m_DummyImageView;
 			normalImageInfo.sampler = normalTexture ? normalTexture->getSampler() : m_DummySampler;
 
 			VkDescriptorImageInfo roughnessMetallicImageInfo{};
-			const auto& roughnessMetallicTexture = material->metallicRoughnessTexture.Get<Texture>();
+			const auto& roughnessMetallicTexture = material.metallicRoughnessTexture.Get<Texture>();
 			roughnessMetallicImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			roughnessMetallicImageInfo.imageView = roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImageView;
 			roughnessMetallicImageInfo.sampler = roughnessMetallicTexture ? roughnessMetallicTexture->getSampler() : m_DummySampler;
 
 			VkDescriptorImageInfo emissiveImageInfo{};
-			const auto& emissiveTexture = material->emissiveTexture.Get<Texture>();
+			const auto& emissiveTexture = material.emissiveTexture.Get<Texture>();
 			emissiveImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			emissiveImageInfo.imageView = emissiveTexture ? emissiveTexture->getTextureView() : m_DummyImageView;
 			emissiveImageInfo.sampler = emissiveTexture ? emissiveTexture->getSampler() : m_DummySampler;
 
-			std::array<VkWriteDescriptorSet, 5> descriptorWrites{};
+			VkDescriptorImageInfo specularImageInfo{};
+			const auto& specularTexture = material.specularTexture.Get<Texture>();
+			specularImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			specularImageInfo.imageView = specularTexture ? specularTexture->getTextureView() : m_DummyImageView;
+			specularImageInfo.sampler = specularTexture ? specularTexture->getSampler() : m_DummySampler;
+
+			VkDescriptorImageInfo specularColorImageInfo{};
+			const auto& specularColorTexture = material.specularColorTexture.Get<Texture>();
+			specularColorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			specularColorImageInfo.imageView = specularColorTexture ? specularColorTexture->getTextureView() : m_DummyImageView;
+			specularColorImageInfo.sampler = specularColorTexture ? specularColorTexture->getSampler() : m_DummySampler;
+
+			std::array<VkWriteDescriptorSet, 7> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = material->descriptorSets[i];
+			descriptorWrites[0].dstSet = material.descriptorSets[i];
 			descriptorWrites[0].dstBinding = 1;
 			descriptorWrites[0].dstArrayElement = 0;
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1008,7 +1015,7 @@ namespace REON {
 			descriptorWrites[0].pBufferInfo = &materialBufferInfo;
 
 			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = material->descriptorSets[i];
+			descriptorWrites[1].dstSet = material.descriptorSets[i];
 			descriptorWrites[1].dstBinding = 3;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1016,7 +1023,7 @@ namespace REON {
 			descriptorWrites[1].pImageInfo = &albedoImageInfo;
 
 			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[2].dstSet = material->descriptorSets[i];
+			descriptorWrites[2].dstSet = material.descriptorSets[i];
 			descriptorWrites[2].dstBinding = 4; //MIGHT BE WRONG
 			descriptorWrites[2].dstArrayElement = 0;
 			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1024,7 +1031,7 @@ namespace REON {
 			descriptorWrites[2].pImageInfo = &normalImageInfo;
 
 			descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[3].dstSet = material->descriptorSets[i];
+			descriptorWrites[3].dstSet = material.descriptorSets[i];
 			descriptorWrites[3].dstBinding = 5; //MIGHT BE WRONG
 			descriptorWrites[3].dstArrayElement = 0;
 			descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1032,12 +1039,28 @@ namespace REON {
 			descriptorWrites[3].pImageInfo = &roughnessMetallicImageInfo;
 
 			descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[4].dstSet = material->descriptorSets[i];
+			descriptorWrites[4].dstSet = material.descriptorSets[i];
 			descriptorWrites[4].dstBinding = 6; //MIGHT BE WRONG
 			descriptorWrites[4].dstArrayElement = 0;
 			descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorWrites[4].descriptorCount = 1;
 			descriptorWrites[4].pImageInfo = &emissiveImageInfo;
+
+			descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[5].dstSet = material.descriptorSets[i];
+			descriptorWrites[5].dstBinding = 7; //MIGHT BE WRONG
+			descriptorWrites[5].dstArrayElement = 0;
+			descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[5].descriptorCount = 1;
+			descriptorWrites[5].pImageInfo = &specularImageInfo;
+
+			descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[6].dstSet = material.descriptorSets[i];
+			descriptorWrites[6].dstBinding = 8; //MIGHT BE WRONG
+			descriptorWrites[6].dstArrayElement = 0;
+			descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[6].descriptorCount = 1;
+			descriptorWrites[6].pImageInfo = &specularColorImageInfo;
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
@@ -1190,7 +1213,7 @@ namespace REON {
 		std::vector<VkDynamicState> dynamicStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR,
-			VK_DYNAMIC_STATE_CULL_MODE
+			VK_DYNAMIC_STATE_CULL_MODE,
 		};
 
 		VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -1364,7 +1387,7 @@ namespace REON {
 		std::vector<VkDynamicState> dynamicStates = {
 			VK_DYNAMIC_STATE_VIEWPORT,
 			VK_DYNAMIC_STATE_SCISSOR,
-			VK_DYNAMIC_STATE_CULL_MODE
+			VK_DYNAMIC_STATE_CULL_MODE,
 		};
 
 		VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -1418,7 +1441,7 @@ namespace REON {
 
 	VkDescriptorSet RenderManager::GetEndBuffer()
 	{
-		if (resized || m_RenderersByShaderId.empty()) {
+		if (resized || m_DrawCommandsByShaderMaterial.empty()) {
 			return nullptr;
 		}
 		return m_EndDescriptorSets[m_Context->getCurrentImageIndex()];
@@ -1537,6 +1560,7 @@ namespace REON {
 		}
 
 		m_TransparentPass.resize(m_Context, width, height, m_EndImageViews, m_OpaqueResolveImageViews, m_DepthResolveViews);
+		m_UnlitPass.resize(m_Context, width, height, m_EndImageViews);
 	}
 
 	int RenderManager::GetRenderWidth()

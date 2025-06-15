@@ -78,6 +78,9 @@ namespace REON {
         float MouseSensitivity;
         float Zoom;
 
+        float zNear = 0.1f;
+        float zFar = 100.0f;
+
     private:
         // calculates the front vector from the Camera's (updated) Euler Angles
         void updateCameraVectors();

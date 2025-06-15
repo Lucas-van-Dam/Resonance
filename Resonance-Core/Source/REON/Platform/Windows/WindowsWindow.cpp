@@ -40,6 +40,7 @@ namespace REON {
 		}
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 		//glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
 		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);

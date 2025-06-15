@@ -9,16 +9,26 @@
 #include "PostProcessing/DepthOfField.h"
 #include "REON/Events/EventBus.h"
 #include "REON/Events/KeyEvent.h"
+#include "REON/Events/RenderEvent.h"
 #include <set>
 #include "vulkan/vulkan.h"
 #include "REON/Platform/Vulkan/VulkanContext.h"
 #include "RenderPasses/DirectionalShadowPass.h"
 #include "RenderPasses/TransparentPass.h"
+#include "RenderPasses/UnlitPass.h"
 
 
 namespace REON {
 	class GameObject;
 	class EditorCamera;
+
+	enum RenderMode {
+		LIT = 0,
+		UNLIT = 1,
+		WIREFRAME = 2
+	};
+
+	using DrawCommandByShaderMaterial = std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>>;
 
 	class RenderManager {
 	public:
@@ -35,9 +45,13 @@ namespace REON {
 		static void InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height);
 		static void RenderFullScreenQuad();
 		void OnKeyPressed(const KeyPressedEvent& event);
+		void OnMaterialChanged(const MaterialChangedEvent& event);
 		void cleanup();
 
 		void setMainLight(std::shared_ptr<Light> light);
+
+		RenderMode renderMode = LIT;
+
 
 	private:
 		void RenderOpaques();
@@ -50,6 +64,7 @@ namespace REON {
 		void InitializeSkyBox();
 		std::vector<LightData> GetLightingBuffer();
 		void setGlobalData();
+		void prepareDrawCommands(int currentFrame);
 
 		void deleteForResize();
 
@@ -65,21 +80,24 @@ namespace REON {
 		void createOpaqueDescriptorSetLayout();
 		void createOpaqueGlobalDescriptorSets();
 		void createGlobalBuffers();
-		void createOpaqueMaterialDescriptorSets(const std::shared_ptr<Material>& material);
+		void createOpaqueMaterialDescriptorSets(Material& material);
 		void createOpaqueObjectDescriptorSets(const std::shared_ptr<Renderer>& renderer);
 		void createOpaqueGraphicsPipelines();
 		void createPipelineCache();
 		VkPipeline getPipelineFromFlags(uint32_t flags);
 		VkPipeline createGraphicsPipeline(VkPipeline basePipeline, uint32_t flags);
 
+
 	private:
 		const VulkanContext* m_Context;
 
 		VkPipelineCache m_PipelineCache; // TODO: STORE THIS ON DISK
 
+		PFN_vkCmdSetPolygonModeEXT vkCmdSetPolygonModeEXT;
+
 		std::unordered_map<uint32_t, VkPipeline> m_PipelineByMaterialPermutation;
-		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<std::shared_ptr<Renderer>>>> m_RenderersByShaderId;
-		std::set<std::weak_ptr<Material>> materials;
+		DrawCommandByShaderMaterial m_DrawCommandsByShaderMaterial;
+		std::set<std::string> materials;
 
 		std::vector<VkDescriptorSet> m_GlobalDescriptorSets;
 		std::vector<VkBuffer> m_GlobalDataBuffers;
@@ -129,6 +147,8 @@ namespace REON {
 
 		TransparentPass m_TransparentPass;
 		std::vector<VkSemaphore> m_OpaquePassDone;
+
+		UnlitPass m_UnlitPass;
 
 		bool resized = false;
 

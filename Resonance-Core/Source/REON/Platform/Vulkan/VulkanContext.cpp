@@ -361,6 +361,31 @@ namespace REON {
 		);
 	}
 
+	void VulkanContext::createCommandPool(VkCommandPool& commandPool, uint32_t queueFamilyIndex) const
+	{
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		poolInfo.queueFamilyIndex = queueFamilyIndex;
+
+		VkResult res = vkCreateCommandPool(m_Device, &poolInfo, nullptr, &commandPool);
+		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create command pool");
+	}
+
+	void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBuffers, VkCommandPool commandPool, size_t amountOfBuffers) const
+	{
+		commandBuffers.resize(amountOfBuffers);
+
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.commandPool = commandPool;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandBufferCount = static_cast<uint32_t>(amountOfBuffers);
+
+		VkResult res = vkAllocateCommandBuffers(m_Device, &allocInfo, commandBuffers.data());
+		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
+	}
+
 	bool VulkanContext::hasStencilComponent(VkFormat format) const
 	{
 		return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -699,6 +724,7 @@ namespace REON {
 		notSuitable |= !deviceFeatures.samplerAnisotropy;
 		notSuitable |= !deviceFeatures.independentBlend;
 		notSuitable |= !deviceFeatures.sampleRateShading;
+		notSuitable |= !deviceFeatures.fillModeNonSolid;
 		notSuitable |= !findQueueFamilies(device).isComplete();
 		bool extensionsSupported = checkDeviceExtensions(device);
 		notSuitable |= !extensionsSupported;
@@ -770,6 +796,11 @@ namespace REON {
 		deviceFeatures.samplerAnisotropy = VK_TRUE;
 		deviceFeatures.sampleRateShading = VK_TRUE;
 		deviceFeatures.independentBlend = VK_TRUE;
+		deviceFeatures.fillModeNonSolid = VK_TRUE;
+
+		VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features{};
+		dynamicState3Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
+		dynamicState3Features.extendedDynamicState3PolygonMode = VK_TRUE;
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -778,6 +809,7 @@ namespace REON {
 		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(m_DeviceExtensions.size());
 		createInfo.ppEnabledExtensionNames = m_DeviceExtensions.data();
+		createInfo.pNext = &dynamicState3Features;
 
 		VkResult res = vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create logical device");

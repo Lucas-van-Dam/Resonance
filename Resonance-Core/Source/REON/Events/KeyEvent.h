@@ -15,6 +15,7 @@ namespace REON {
 		int m_KeyCode;
 	};
 
+	//TODO: Add Modifiers to event
 	class  KeyPressedEvent : public KeyEvent {
 	public:
 		KeyPressedEvent(int keycode, int repeatCount)

@@ -13,6 +13,8 @@ namespace REON {
         float normalScalar; // float -> 4 bytes
         int normalYScale = 1; // int -> 4 bytes
         glm::vec4 emissiveFactor = glm::vec4(0,0,0,0.5f); // w = alphaCutoff
+        glm::vec4 specularFactor = glm::vec4(1, 1, 1, 1);
+        float preCompF0 = 0.04f; // float -> 4 bytes
     };
 
     enum MaterialShaderFlags {
@@ -22,6 +24,7 @@ namespace REON {
         OcclusionTexture = 1 << 3,
         EmissiveTexture = 1 << 4,
         AlphaCutoff = 1 << 5,
+        Specular = 1 << 6
     };
 
     enum RenderingModes {
@@ -60,6 +63,8 @@ namespace REON {
         ResourceHandle metallicRoughnessTexture;
         ResourceHandle normalTexture;
         ResourceHandle emissiveTexture;
+        ResourceHandle specularTexture;
+        ResourceHandle specularColorTexture;
         ResourceHandle shader;
         FlatData flatData;
         uint32_t materialFlags;

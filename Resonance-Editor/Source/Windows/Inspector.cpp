@@ -4,10 +4,12 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <REON/Math/Quaternion.h>
 #include <EditorWrappers/AssetDrawers.h>
+#include <EditorWrappers/ComponentDrawers.h>
 
 namespace REON::EDITOR {
 
 	std::unordered_map<std::string, std::function<void(const FieldInfo&, void*)>> Inspector::handlers;
+	std::unordered_map<std::string, std::function<void(const std::shared_ptr<GameObject>&)>> Inspector::componentMap;
 
 	// Register handler for a specific type
 	template<typename T>
@@ -17,6 +19,17 @@ namespace REON::EDITOR {
 
 	void Inspector::Initialize()
 	{
+		componentMap.clear();
+		componentMap["Light"] = [](const std::shared_ptr<GameObject>& object) {
+			auto light = std::make_shared<Light>();
+			object->AddComponent<Light>(light);
+			};
+
+		componentMap["Renderer"] = [](const std::shared_ptr<GameObject>& object) {
+			auto renderer = std::make_shared<Renderer>();
+			object->AddComponent<Renderer>(renderer);
+			};
+
 		handlers.clear();
 		Inspector::RegisterHandler<int>("int", [](const FieldInfo& field, void* instance) {
 			int* ptr = reinterpret_cast<int*>(field.getter(instance));
@@ -94,24 +107,44 @@ namespace REON::EDITOR {
 			return;
 		}
 
-		ImGui::Text("Transform");
-
-		auto reflectionClass = *ReflectionRegistry::Instance().GetClass("Transform");
-
-		for (size_t i = 0; i < reflectionClass.field_count; ++i) {
-			const FieldInfo& field = reflectionClass.fields[i];
-			RenderField(field, object->GetTransform().get());  // Automatically calls the correct handler based on the type
-		}
+		ComponentDrawers::DrawInspector_Transform(object->GetTransform());
 
 		for (std::shared_ptr<REON::Component> component : object->GetComponents())
 		{
 			auto name = component->GetTypeName();
+			if (name == "Transform") continue;
+			if (name == "Light") {
+				ComponentDrawers::DrawInspector_Light(std::dynamic_pointer_cast<REON::Light>(component));
+				continue;
+			}
+			else if (name == "Renderer") {
+				ComponentDrawers::DrawInspector_Renderer(std::dynamic_pointer_cast<Renderer>(component));
+				continue;
+			}
+
 			auto reflection = *ReflectionRegistry::Instance().GetClass(name);
 			ImGui::Text(name.c_str());
 			for (size_t i = 0; i < reflection.field_count; ++i) {
 				const FieldInfo& field = reflection.fields[i];
 				RenderField(field, component.get());  // Automatically calls the correct handler based on the type
 			}
+		}
+		const float buttonWidth = 150.0f;
+		const float contentWidth = ImGui::GetContentRegionAvail().x;
+		const float xOffset = (contentWidth - buttonWidth) * 0.5f;
+
+		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + xOffset);
+		if (ImGui::Button("Add Component", ImVec2(buttonWidth, 0))) {
+			ImGui::OpenPopup("AddComponentPopup");
+		}
+
+		if (ImGui::BeginPopup("AddComponentPopup")) {
+			for (const auto& [name, createFunc] : componentMap) {
+				if (!object->HasComponent(name) && ImGui::MenuItem(name.c_str())) {
+					createFunc(object);
+				}
+			}
+			ImGui::EndPopup();
 		}
 
 		ImGui::End();

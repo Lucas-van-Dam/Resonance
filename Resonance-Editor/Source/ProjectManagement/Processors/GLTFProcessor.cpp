@@ -55,6 +55,12 @@ namespace REON::EDITOR {
 		//ResourceManager::GetInstance().AddResource(mesh);
 
 		materialIDs.clear();
+		
+		if (model.extensionsUsed.size() > 0)
+			REON_INFO("Model: {} uses extensions:", basePath.string());
+		for (auto khrExtension : model.extensionsUsed) {
+			REON_INFO("\t{}", khrExtension);
+		}
 
 		for (auto& srcMat : model.materials) {
 			auto litShader = ResourceManager::GetInstance().LoadResource<Shader>("DefaultLit", std::make_tuple("PBR.vert", "PBR.frag", std::optional<std::string>{}));
@@ -118,6 +124,31 @@ namespace REON::EDITOR {
 			mat->flatData.emissiveFactor.r = emissiveFactor[0];
 			mat->flatData.emissiveFactor.g = emissiveFactor[1];
 			mat->flatData.emissiveFactor.b = emissiveFactor[2];
+
+			for (auto khrExtension : srcMat.extensions) {
+				if (khrExtension.first == "KHR_materials_emissive_strength") {
+					float emissiveStrength = khrExtension.second.Get("emissiveStrength").GetNumberAsDouble();
+					mat->flatData.emissiveFactor.r *= emissiveStrength;
+					mat->flatData.emissiveFactor.g *= emissiveStrength;
+					mat->flatData.emissiveFactor.b *= emissiveStrength;
+				}
+				else if (khrExtension.first == "KHR_materials_ior") {
+					float ior = khrExtension.second.Get("ior").GetNumberAsDouble();
+					mat->flatData.preCompF0 = pow(((ior - 1.0f) / (ior + 1.0f)), 2.0f);
+				}
+				//else if (khrExtension.first == "KHR_materials_specular") {
+				//	if (khrExtension.second.Has("specularFactor")) {
+				//		mat->flatData.specularFactor.a = khrExtension.second.Get("specularFactor").GetNumberAsDouble();
+				//	}
+				//	else {
+				//		continue;
+				//	}
+				//	flags |= Specular;
+				//}
+				else {
+					REON_WARN("Extension: {} is not supported yet", khrExtension.first);
+				}
+			}
 
 			if (srcMat.emissiveTexture.index >= 0) {
 				mat->emissiveTexture = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], VK_FORMAT_R8G8B8A8_SRGB, srcMat.emissiveTexture.index);

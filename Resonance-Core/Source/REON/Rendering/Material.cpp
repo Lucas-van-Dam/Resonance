@@ -53,7 +53,6 @@ namespace REON {
 	std::filesystem::path Material::Serialize(std::filesystem::path path) {
 		nlohmann::ordered_json json;
 		json["GUID"] = GetID();
-		json["Name"] = GetName();
 
 		json["Rendering Mode"] = renderingMode;
 		json["Blend Mode"] = blendingMode;
@@ -80,12 +79,21 @@ namespace REON {
 		
 		json["EmissiveFactor"] = { flatData.emissiveFactor.r, flatData.emissiveFactor.g, flatData.emissiveFactor.b };
 
+		json["preCompF0"] = flatData.preCompF0;
+
 		json["Flags"] = materialFlags;
 
 		if (shader.Get<Shader>())
 			json["Shader"] = shader.Get<Shader>()->GetID();
 
-		std::string writePath = path.string() + "\\" + GetName() + ".material";
+		std::string name = GetName();
+
+		std::replace_if(name.begin(), name.end(), [](char c) {    static std::string forbiddenChars("\\/:?\"<>|");  return std::string::npos != forbiddenChars.find(c); }, '_');
+
+		SetName(name);
+		json["Name"] = GetName();
+
+		std::string writePath = path.string() + "\\" + name + ".material";
 
 		std::ofstream file(writePath);
 		if (file.is_open())
@@ -198,12 +206,16 @@ namespace REON {
 
 		flatData.normalScalar = json["NormalScalar"];
 
-		if (json.contains("EmissiveFactor")) {
-			std::string emissiveTextureID = json["EmissiveFactor"].get<std::string>();
+		if (json.contains("EmissiveTexture")) {
+			std::string emissiveTextureID = json["EmissiveTexture"].get<std::string>();
 			emissiveTexture = Texture::getTextureFromId(emissiveTextureID, basePath.string());
 			if (emissiveTexture.Get<Texture>()) {
 				materialFlags |= EmissiveTexture;
 			}
+		}
+
+		if (json.contains("preCompF0")) {
+			flatData.preCompF0 = json["preCompF0"];
 		}
 
 		// Extract Shader

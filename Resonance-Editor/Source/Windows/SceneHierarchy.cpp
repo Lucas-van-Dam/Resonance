@@ -16,8 +16,14 @@ namespace REON::EDITOR {
 			flags |= ImGuiTreeNodeFlags_Selected;
 		}
 
+		bool nodeOpen = false;
+
 		// Render the tree node for this game object
-		bool nodeOpen = ImGui::TreeNodeEx(gameObject->GetName().c_str(), flags);
+		std::string display = gameObject->GetName() + "##" + gameObject->GetID();
+		if (gameObject->GetChildren().size() > 0)
+			nodeOpen = ImGui::TreeNodeEx(display.c_str(), flags);
+		else
+			ImGui::Button(display.c_str());
 
 		// Handle selection logic
 		if (ImGui::IsItemClicked()) {

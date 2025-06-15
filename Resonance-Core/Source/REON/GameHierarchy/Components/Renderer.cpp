@@ -103,6 +103,7 @@ namespace REON {
             m_Transform = GetOwner()->GetTransform();
         }
         m_ModelMatrix = m_Transform->GetWorldTransform();
+        m_TransposeInverseModelMatrix = glm::transpose(glm::inverse(m_ModelMatrix));
     }
 
     void Renderer::SetOwner(std::shared_ptr<GameObject> owner)
@@ -129,7 +130,7 @@ namespace REON {
         }
     }
 
-    Renderer::Renderer(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material) : mesh(std::move(mesh)), material(material)
+    Renderer::Renderer(std::shared_ptr<Mesh> mesh, std::vector<ResourceHandle> materials) : mesh(std::move(mesh)), materials(materials)
     {
         const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
 
@@ -203,5 +204,43 @@ namespace REON {
     void Renderer::OnComponentDetach()
     {
         GetOwner()->GetScene()->renderManager->RemoveRenderer(shared_from_this());
+    }
+
+    void Renderer::RebuildDrawCommands()
+    {
+        drawCommands.clear();
+
+        if (!mesh.Get<Mesh>())
+            return;
+
+        for (auto submesh : mesh.Get<Mesh>()->subMeshes) {
+            if (submesh.materialIndex >= materials.size() || submesh.materialIndex < 0)
+                continue;
+
+            Material* mat = materials[submesh.materialIndex].Get<Material>().get();
+            DrawCommand cmd;
+            cmd.mesh = mesh.Get<Mesh>().get();
+            cmd.material = mat;
+            cmd.shader = mat->shader.Get<Shader>().get();
+            cmd.startIndex = submesh.indexOffset;
+            cmd.indexCount = submesh.indexCount;
+            cmd.owner = this;
+
+            drawCommands.push_back(cmd);
+        }
+    }
+    void Renderer::MarkDrawCommandsDirty()
+    {
+        drawCommandsDirty = true;
+    }
+    void Renderer::SetMaterial(size_t index, const ResourceHandle& material)
+    {
+        if (index >= materials.size()) {
+            REON_CORE_ERROR("Tried to set material of renderer {}, but index: {}, is outside of material list size: {}", GetName(), index, materials.size());
+            return;
+        }
+
+        materials[index] = material;
+        MarkDrawCommandsDirty();
     }
 }

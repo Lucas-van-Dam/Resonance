@@ -11,12 +11,24 @@ namespace REON {
         Quaternion(float w, float x, float y, float z) : glm::quat(w, x, y, z) {}
         // Set the quaternion using Euler angles (in radians)
         void setFromEulerAngles(float roll, float pitch, float yaw);
+        void setFromEulerAngles(glm::vec3 euler);
 
-        // Get Euler angles (roll, pitch, yaw) from the quaternion
+        /// <summary>
+        /// Get euler angles from quaternion
+        /// </summary>
+        /// <returns>Euler angles in Radians</returns>
         glm::vec3 getEulerAngles() const;
 
         Quaternion& operator*=(const glm::quat other) {
             glm::quat::operator*=(other);
+            return *this;
+        }
+
+        Quaternion& operator=(const glm::quat& other) {
+            this->x = other.x;
+            this->y = other.y;
+            this->z = other.z;
+            this->w = other.w;
             return *this;
         }
 

@@ -4,43 +4,72 @@
 namespace REON {
 
     glm::vec3 Quaternion::getEulerAngles() const {
-        // Extract Euler angles using glm::eulerAngles
-        glm::vec3 angles;
+        // Convert quaternion to matrix
+        glm::mat3 m = glm::mat3_cast(glm::quat(w, x, y, z));
 
-        // roll (x-axis rotation)
-        double sinr_cosp = 2 * (this->w * this->x + this->y * this->z);
-        double cosr_cosp = 1 - 2 * (this->x * this->x + this->y * this->y);
-        angles.x = std::atan2(sinr_cosp, cosr_cosp);
+        float eulerX, eulerY, eulerZ;
 
-        // pitch (y-axis rotation)
-        double sinp = std::sqrt(1 + 2 * (this->w * this->y - this->x * this->z));
-        double cosp = std::sqrt(1 - 2 * (this->w * this->y - this->x * this->z));
-        angles.y = 2 * std::atan2(sinp, cosp) - std::numbers::pi / 2;
+        // y = yaw (Y), x = pitch (X), z = roll (Z)
+        eulerY = std::asin(glm::clamp(-m[0][2], -1.0f, 1.0f));
 
-        // yaw (z-axis rotation)
-        double siny_cosp = 2 * (this->w * this->z + this->x * this->y);
-        double cosy_cosp = 1 - 2 * (this->y * this->y + this->z * this->z);
-        angles.z = std::atan2(siny_cosp, cosy_cosp);
+        if (std::abs(m[0][2]) < 0.999f) {
+            eulerX = std::atan2(m[1][2], m[2][2]); // pitch
+            eulerZ = std::atan2(m[0][1], m[0][0]); // roll
+        }
+        else {
+            // Gimbal lock
+            eulerX = std::atan2(-m[2][1], m[1][1]);
+            eulerZ = 0.0f;
+        }
 
-        return glm::degrees(angles);
+        return glm::vec3(eulerX, eulerY, eulerZ); // pitch, yaw, roll
     }
 
     // roll, pitch and yaw in degrees
     void Quaternion::setFromEulerAngles(float roll, float pitch, float yaw) {
-        roll = glm::radians(roll);
-        pitch = glm::radians(pitch);
-        yaw = glm::radians(yaw);
-        double cr = cos(roll * 0.5);
-        double sr = sin(roll * 0.5);
-        double cp = cos(pitch * 0.5);
-        double sp = sin(pitch * 0.5);
-        double cy = cos(yaw * 0.5);
-        double sy = sin(yaw * 0.5);
+        // roll  = Z
+        // pitch = X
+        // yaw   = Y
 
-        this->w = (float)(cr * cp * cy + sr * sp * sy);
-        this->x = (float)(sr * cp * cy - cr * sp * sy);
-        this->y = (float)(cr * sp * cy + sr * cp * sy);
-        this->z = (float)(cr * cp * sy - sr * sp * cy);
+        float halfX = glm::radians(pitch) * 0.5f; // X (pitch)
+        float halfY = glm::radians(yaw) * 0.5f; // Y (yaw)
+        float halfZ = glm::radians(roll) * 0.5f; // Z (roll)
+
+        float cx = cos(halfX);
+        float sx = sin(halfX);
+        float cy = cos(halfY);
+        float sy = sin(halfY);
+        float cz = cos(halfZ);
+        float sz = sin(halfZ);
+
+        // Quaternion multiplication: q = qy * qx * qz
+        this->w = cy * cx * cz + sy * sx * sz;
+        this->x = sy * cx * cz - cy * sx * sz;
+        this->y = cy * sx * cz + sy * cx * sz;
+        this->z = cy * cx * sz - sy * sx * cz;
+    }
+
+    void Quaternion::setFromEulerAngles(glm::vec3 euler) {
+        // roll  = Z
+        // pitch = X
+        // yaw   = Y
+
+        float halfX = euler.x * 0.5f; // X (pitch)
+        float halfY = euler.y * 0.5f; // Y (yaw)
+        float halfZ = euler.z * 0.5f; // Z (roll)
+
+        float cx = cos(halfX);
+        float sx = sin(halfX);
+        float cy = cos(halfY);
+        float sy = sin(halfY);
+        float cz = cos(halfZ);
+        float sz = sin(halfZ);
+
+        // Quaternion multiplication: q = qy * qx * qz
+        this->w = cy * cx * cz + sy * sx * sz;
+        this->x = sy * cx * cz - cy * sx * sz;
+        this->y = cy * sx * cz + sy * cx * sz;
+        this->z = cy * cx * sz - sy * sx * cz;
     }
 
 }
