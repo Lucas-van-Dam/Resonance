@@ -2,6 +2,7 @@
 #include "Application.h"
 
 #include "Input.h"
+#include <REON/Audio/AudioLayer.h>
 
 #include "glad/glad.h"
 #include "REON/GameHierarchy/SceneManager.h"
@@ -15,7 +16,7 @@
 
 void* operator new(std::size_t count)
 {
-	auto ptr = malloc(count);
+	void* ptr = malloc(count);
 	TracyAlloc(ptr, count);
 	return ptr;
 }
@@ -43,12 +44,14 @@ namespace REON {
 		m_Context = new VulkanContext(static_cast<GLFWwindow*>(m_Window->GetNativeWindow()));
 		m_Context->init();
 
+		PushLayer(new AUDIO::AudioLayer());
+
 		m_GameLogicLayer = new GameLogicLayer();
 		PushLayer(m_GameLogicLayer);
 
 		m_RenderLayer = new RenderLayer();
 		PushLayer(m_RenderLayer);
-		//
+		
 		m_ImGuiLayer = new ImGuiLayer(static_cast<VulkanContext*>(m_Context));
 		PushOverLay(m_ImGuiLayer);
 	}
@@ -77,30 +80,35 @@ namespace REON {
 	void Application::Run() {
 		m_FrameNumber = 0;
 		while (m_Running) {
-			m_FrameNumber++;
-			FrameStartEvent frameStartEvent;
-			EventBus::Get().publish(frameStartEvent);
-			{
-				m_Context->startFrame();
-				////glClear(GL_COLOR_BUFFER_BIT);
-				for (Layer* layer : m_LayerStack)
-					layer->OnUpdate();
+			try {
+				m_FrameNumber++;
+				FrameStartEvent frameStartEvent;
+				EventBus::Get().publish(frameStartEvent);
+				{
+					m_Context->startFrame();
+					////glClear(GL_COLOR_BUFFER_BIT);
+					for (Layer* layer : m_LayerStack)
+						layer->OnUpdate();
 
-				//m_Context->render();
-				m_ImGuiLayer->Begin();
-				for (Layer* layer : m_LayerStack)
-					layer->OnImGuiRender();
-				m_ImGuiLayer->End();
+					//m_Context->render();
+					m_ImGuiLayer->Begin();
+					for (Layer* layer : m_LayerStack)
+						layer->OnImGuiRender();
+					m_ImGuiLayer->End();
 
-				m_Window->PollEvents();
-				m_Context->endFrame();
+					m_Window->PollEvents();
+					m_Context->endFrame();
 
-				if(auto scene = SceneManager::Get()->GetCurrentScene())
-					scene->ProcessGameObjectAddingAndDeletion();
+					if (auto scene = SceneManager::Get()->GetCurrentScene())
+						scene->ProcessGameObjectAddingAndDeletion();
+				}
+				FrameEndEvent frameEndEvent;
+				EventBus::Get().publish(frameEndEvent);
+				FrameMark;
 			}
-			FrameEndEvent frameEndEvent;
-			EventBus::Get().publish(frameEndEvent);
-			FrameMark;
+			catch (std::exception ex) {
+				REON_CORE_ERROR("Error: {}", ex.what());
+			}
 		}
 	}
 
