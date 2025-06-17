@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <mutex>
 #include "nlohmann/json.hpp"
 
 namespace fs = std::filesystem;
@@ -38,6 +39,8 @@ namespace REON {
     private:
         std::unordered_map<std::string, AssetInfo> assetMap;   // Maps asset IDs to AssetInfo
         std::unordered_map<fs::path, std::string> pathToIdMap; // Maps paths to asset IDs
+
+        std::mutex assetRegistrationMutex;
 
         static std::unordered_map<std::string, std::unique_ptr<IAssetProcessor>> processors;
 

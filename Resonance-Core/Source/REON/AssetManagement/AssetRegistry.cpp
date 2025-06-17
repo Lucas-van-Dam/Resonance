@@ -13,6 +13,7 @@ namespace REON {
     }
 
     void AssetRegistry::RegisterAsset(const AssetInfo& assetInfo) {
+        std::unique_lock<std::mutex> lock(assetRegistrationMutex);
         assetMap[assetInfo.id] = assetInfo;
         pathToIdMap[assetInfo.path] = assetInfo.id;
     }

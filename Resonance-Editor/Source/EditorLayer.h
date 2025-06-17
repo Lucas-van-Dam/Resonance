@@ -6,6 +6,7 @@
 #include "REON/Layer.h"
 #include "Windows/Inspector.h"
 #include "Windows/SceneHierarchy.h"
+#include <future>
 
 #include "ImGuiFileDialog.h"
 
@@ -40,6 +41,11 @@ namespace REON::EDITOR {
 		void OnProjectLoaded(const ProjectOpenedEvent& event);
 
 	private:
+		void RegisterAsset(const std::filesystem::path& assetPath, const std::filesystem::path& projectPath);
+
+		void CheckAssetsRegistered();
+
+	private:
 		std::shared_ptr<REON::GameObject> m_SelectedObject;
 
 		enum class GizmoType {
@@ -61,6 +67,9 @@ namespace REON::EDITOR {
 		CallbackID m_ProjectOpenedCallbackID;
 
 		AssetBrowser m_AssetBrowser;
+
+		std::vector<std::future<void>> futures;
+		std::future<void> futureCheckingFuture;
 	};
 
 }

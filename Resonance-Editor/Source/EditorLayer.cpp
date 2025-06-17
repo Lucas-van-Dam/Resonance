@@ -193,7 +193,7 @@ namespace REON::EDITOR {
 				static const char* modeNames[] = { "Lit", "Unlit", "Wireframe" };
 				int currentIndex = static_cast<int>(scene->renderManager->renderMode);
 				ImGui::PushItemWidth(80);
-				ImGui::SetNextWindowSizeConstraints(ImVec2(80, IM_ARRAYSIZE(modeNames)* ImGui::GetTextLineHeightWithSpacing() + 12), ImVec2(FLT_MAX, FLT_MAX));
+				ImGui::SetNextWindowSizeConstraints(ImVec2(80, IM_ARRAYSIZE(modeNames) * ImGui::GetTextLineHeightWithSpacing() + 12), ImVec2(FLT_MAX, FLT_MAX));
 				if (ImGui::BeginCombo("###ViewMode", modeNames[currentIndex], ImGuiComboFlags_NoArrowButton)) {
 					for (int i = 0; i < IM_ARRAYSIZE(modeNames); ++i) {
 						bool isSelected = (currentIndex == i);
@@ -226,7 +226,7 @@ namespace REON::EDITOR {
 
 			auto texId = scene->renderManager->GetEndBuffer();
 
-			if(texId != nullptr)
+			if (texId != nullptr)
 				ImGui::Image((ImTextureID)texId, size, ImVec2(0, 1), ImVec2(1, 0));
 			if (scene->selectedObject) {
 				ImVec2 windowSize = size;
@@ -264,9 +264,9 @@ namespace REON::EDITOR {
 					if (!wasUsingGizmo) {
 						CommandManager::startBatch(std::make_unique<PropertyChangeCommand<glm::mat4>>(
 							[transform](const glm::mat4& mat) {transform->SetWorldTransform(mat);
-															   transform->eulerDirty = true; },
+						transform->eulerDirty = true; },
 							[transform]() {return transform->GetWorldTransform(); },
-							worldMatrix));
+							worldMatrix, &worldMatrix));
 					}
 					else {
 						CommandManager::updateBatch([&](ICommand* cmd) {static_cast<PropertyChangeCommand<glm::mat4>*>(cmd)->UpdateValue(worldMatrix); });
@@ -335,8 +335,8 @@ namespace REON::EDITOR {
 			m_Gizmotype = GizmoType::Scale;
 		}
 
-		if(event.GetKeyCode() == REON_KEY_Z && event.GetRepeatCount() == 0) {
-			if(Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canUndo) {
+		if (event.GetKeyCode() == REON_KEY_Z && event.GetRepeatCount() == 0) {
+			if (Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canUndo) {
 				CommandManager::undo();
 			}
 		}
@@ -375,46 +375,81 @@ namespace REON::EDITOR {
 	void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 	{
 		auto assets = AssetScanner::scanAssets(event.GetProjectDirectory());
+		
 		for (const auto& asset : assets) {
-			if (AssetScanner::primaryAssetExtensions.find(asset.extension().string()) != AssetScanner::primaryAssetExtensions.end()) {
-				std::ifstream primaryFile(asset);
-				if (primaryFile.is_open()) {
-					nlohmann::json j;
-					primaryFile >> j;
-					REON::AssetInfo assetInfo;
-					assetInfo.id = j["GUID"];
-					auto extension = asset.extension().string();
-					bool shouldBreak = assetInfo.id == "84a05ca5-48cb-4890-a4cd-026528ee74eb";
-					extension.erase(0, 1);
-					assetInfo.type = extension;
-					assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
-					REON::AssetRegistry::ProcessAsset(assetInfo);
-					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
-				}
-			}
-			else {
-				MetadataGenerator::EnsureMetadataExists(asset, event.GetProjectDirectory());
-
-				auto metaPath = asset.string() + ".meta";
-				if (fs::exists(metaPath)) {
-					std::ifstream metaFile(metaPath);
-					if (metaFile.is_open()) {
-						json metaData;
-						metaFile >> metaData;
-
-						REON::AssetInfo assetInfo;
-						assetInfo.id = metaData["Id"].get<std::string>();
-						assetInfo.type = metaData["Type"].get<std::string>();
-						assetInfo.path = fs::relative(asset, event.GetProjectDirectory());
-
-						REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
-					}
-				}
-			}
+			futures.push_back(std::async(std::launch::async, [&, asset, event]() {
+				RegisterAsset(asset, event.GetProjectDirectory());
+				}));
 		}
+
+		futureCheckingFuture = std::async(std::launch::async, [&]() {
+			CheckAssetsRegistered();
+			});
+
 		//auto list = REON::AssetRegistry::Instance().GetAllAssets();
 		Inspector::Initialize();
 		m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
 		m_ProjectLoaded = true;
+	}
+
+	void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const std::filesystem::path& projectPath)
+	{
+		if (AssetScanner::primaryAssetExtensions.find(assetPath.extension().string()) != AssetScanner::primaryAssetExtensions.end()) {
+			std::ifstream primaryFile(assetPath);
+			if (primaryFile.is_open()) {
+				nlohmann::json j;
+				primaryFile >> j;
+				REON::AssetInfo assetInfo;
+				assetInfo.id = j["GUID"];
+				auto extension = assetPath.extension().string();
+				extension.erase(0, 1);
+				assetInfo.type = extension;
+				assetInfo.path = fs::relative(assetPath, projectPath);
+				REON::AssetRegistry::ProcessAsset(assetInfo);
+				REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+			}
+			else {
+				REON_WARN("Could not open primary file on project load: {}", assetPath.string());
+			}
+		}
+		else {
+			MetadataGenerator::EnsureMetadataExists(assetPath, projectPath);
+
+			auto metaPath = assetPath.string() + ".meta";
+			if (fs::exists(metaPath)) {
+				std::ifstream metaFile(metaPath);
+				if (metaFile.is_open()) {
+					json metaData;
+					metaFile >> metaData;
+
+					REON::AssetInfo assetInfo;
+					assetInfo.id = metaData["Id"].get<std::string>();
+					assetInfo.type = metaData["Type"].get<std::string>();
+					assetInfo.path = fs::relative(assetPath, projectPath);
+					REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+				}
+				else {
+					REON_WARN("Could not open meta file on project load: {}", metaPath);
+				}
+			}
+			else {
+				REON_WARN("Could not find meta path for file: {}", assetPath.string());
+			}
+		}
+	}
+	void EditorLayer::CheckAssetsRegistered()
+	{
+		while (!futures.empty()) {
+			for (auto it = futures.begin(); it != futures.end(); ) {
+				auto& f = *it;
+				if (f.valid() && f.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+					it = futures.erase(it); // remove finished future
+				}
+				else {
+					++it;
+				}
+			}
+			Sleep(100);
+		}
 	}
 }

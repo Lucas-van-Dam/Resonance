@@ -35,6 +35,11 @@ namespace REON::EDITOR {
 	void CommandManager::execute(std::unique_ptr<ICommand> command)
 	{
 		command->execute();
+		if (!m_UndoStack.empty()) {
+			if (m_UndoStack.back()->MergeWith(command.get())) {
+				return;
+			}
+		}
 		m_UndoStack.push_back(std::move(command));
 		m_RedoStack.clear();
 	}

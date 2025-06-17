@@ -4,29 +4,14 @@
 #include <Commands/PropertyChangeCommand.h>
 
 namespace REON::EDITOR {
-
-
-
     bool DrawFuncs::DrawVec3WithUndoRedo(const std::string& label, glm::vec3& values, std::function<void(const glm::vec3&)> setter, std::function<glm::vec3()> getter, float speed, float columnWidth)
     {
-        static bool wasActive = false;
         bool isEditing = false;
-		bool changed = DrawVec3(label, values, speed, columnWidth, &isEditing);
+		auto tempValues = values; // Create a temporary copy for undo/redo
+		bool changed = DrawVec3(label, tempValues, speed, columnWidth, &isEditing);
 
         if (changed) {
-            if (!wasActive && isEditing) {
-                CommandManager::startBatch(std::make_unique<PropertyChangeCommand<glm::vec3>>(
-                    setter, getter, values));
-                wasActive = true;
-            }
-            else if (isEditing) {
-                CommandManager::updateBatch([&](ICommand* cmd) { static_cast<PropertyChangeCommand<glm::vec3>*>(cmd)->UpdateValue(values); });
-            }
-        }
-
-        if (wasActive && !isEditing) {
-			CommandManager::endBatch();
-			wasActive = false;
+            CommandManager::execute(std::make_unique<PropertyChangeCommand<glm::vec3>>(setter, getter, tempValues, &values));
         }
 
         return changed;
