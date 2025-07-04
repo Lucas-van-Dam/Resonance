@@ -20,7 +20,7 @@ namespace REON::EDITOR {
         bool MergeWith(const ICommand* other) override {
 			auto cmd = dynamic_cast<const PropertyChangeCommand<T>*>(other);
             if (cmd && cmd->valuePtr == valuePtr
-                && std::abs(std::chrono::duration_cast<std::chrono::milliseconds>(cmd->time - time).count()) < 200) {
+                && std::abs(std::chrono::duration_cast<std::chrono::milliseconds>(cmd->time - time).count()) < 300) {
                 m_NewValue = cmd->m_NewValue;
                 return true;
             } else {

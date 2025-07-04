@@ -8,7 +8,7 @@ namespace REON {
         return instance;
     }
 
-    EditorCamera::EditorCamera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), ShiftSpeed(SHIFTSPEED), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM), Speed(SPEED)
+    EditorCamera::EditorCamera(glm::vec3 position, glm::vec3 up, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), ShiftSpeed(SHIFTSPEED), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM), Speed(SPEED), Camera()
     {
         Position = position;
         WorldUp = up;
@@ -28,7 +28,7 @@ namespace REON {
     }
 
 
-    glm::mat4 EditorCamera::GetProjectionMatrix()
+    glm::mat4 EditorCamera::GetProjectionMatrix() const
     {
         //   std::cout << "test" << Zoom;
        //    Zoom =45;

@@ -17,7 +17,7 @@ namespace REON {
 	class  Application
 	{
 	public:
-		Application();
+		Application(const WindowProperties& properties = WindowProperties());
 		virtual ~Application();
 
 		void Run();

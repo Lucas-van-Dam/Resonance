@@ -57,6 +57,9 @@ namespace REON {
 
         void SetMaterial(size_t index, const ResourceHandle& material);
 
+        nlohmann::ordered_json Serialize() const override;
+        void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
+
     public:
         ResourceHandle mesh;
         std::vector<ResourceHandle> materials;

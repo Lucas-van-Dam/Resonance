@@ -5,7 +5,7 @@ project "Editor"
    targetdir "Binaries/%{cfg.buildcfg}"
    staticruntime "on"
 
-   files { "Source/**.h", "Source/**.cpp", "vendor/imguifiledialog/ImGuiFileDialog.cpp", "vendor/imguifiledialog/ImGuiFileDialog.h", "vendor/tinygltf/tiny_gltf.h"}
+   files { "Source/**.h", "Source/**.cpp", "vendor/imgui-node-editor/*.h", "vendor/imgui-node-editor/*.cpp", "vendor/imgui-node-editor/utilities/*.h", "vendor/imgui-node-editor/utilities/*.cpp", "vendor/imguifiledialog/ImGuiFileDialog.cpp", "vendor/imguifiledialog/ImGuiFileDialog.h", "vendor/tinygltf/tiny_gltf.h"}
 
    includedirs
    {
@@ -13,6 +13,7 @@ project "Editor"
       "Assets",
 
       "Vendor/ImGuiFileDialog",
+      "Vendor/imgui-node-editor",
       "Vendor/libstud-uuid",
       "Vendor/tinygltf",
       

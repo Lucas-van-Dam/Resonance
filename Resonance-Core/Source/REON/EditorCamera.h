@@ -5,6 +5,7 @@
 #include <glm/ext/matrix_clip_space.hpp>
 #include "REON/Platform/Windows/WindowsInput.h"
 #include "REON/GameHierarchy/SceneManager.h"
+#include <REON/GameHierarchy/Components/Camera.h>
 
 namespace REON {
 
@@ -30,7 +31,7 @@ namespace REON {
 
 
     // An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL
-    class EditorCamera
+    class EditorCamera : public Camera
     {
     public:
         static std::shared_ptr<EditorCamera> GetInstance();
@@ -46,9 +47,9 @@ namespace REON {
         glm::vec3 GetPosition();
 
         // returns the view matrix calculated using Euler Angles and the LookAt Matrix
-        glm::mat4 GetViewMatrix() const;
+        glm::mat4 GetViewMatrix() const override;
 
-        glm::mat4 GetProjectionMatrix();
+        glm::mat4 GetProjectionMatrix() const override;
 
         // processes input received from any keyboard-like input system. Accepts input parameter in the form of camera defined ENUM (to abstract it from windowing systems)
         void ProcessKeyboard(Camera_Movement direction, float deltaTime);

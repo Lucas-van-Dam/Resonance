@@ -28,6 +28,9 @@ namespace REON {
 		m_Data.Title = properties.Title;
 		m_Data.Width = properties.Width;
 		m_Data.Height = properties.Height;
+		m_Data.VSync = properties.VSync;
+		m_Data.Resizable = properties.Resizable;
+		m_Data.FullScreen = properties.FullScreen;
 
 		REON_CORE_INFO("Creating window  {0} ({1}, {2})", m_Data.Title, m_Data.Width, m_Data.Height);
 
@@ -43,12 +46,18 @@ namespace REON {
 
 		//glfwWindowHint(GLFW_SRGB_CAPABLE, GLFW_TRUE);
 
-		//glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		glfwWindowHint(GLFW_RESIZABLE, properties.Resizable);
 
-		m_Window = glfwCreateWindow(m_Data.Width, m_Data.Height, m_Data.Title.c_str(), nullptr, nullptr);
+		GLFWmonitor* monitor = nullptr;
+
+		if (m_Data.FullScreen) {
+			monitor = glfwGetPrimaryMonitor();
+		}
+
+		m_Window = glfwCreateWindow(m_Data.Width, m_Data.Height, m_Data.Title.c_str(), monitor, nullptr);
 
 		glfwSetWindowUserPointer(m_Window, &m_Data);
-		SetVSync(false);
+		SetVSync(properties.VSync);
 
 		glfwSetWindowSizeCallback(m_Window, [](GLFWwindow* window, int width, int height) {
 

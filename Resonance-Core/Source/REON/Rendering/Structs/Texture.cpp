@@ -66,11 +66,11 @@ namespace REON {
 
 		VkSamplerCreateInfo samplerInfo{};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		samplerInfo.magFilter = imageData.magFilter;
-		samplerInfo.minFilter = imageData.minFilter;
-		samplerInfo.addressModeU = imageData.addressModeU;
-		samplerInfo.addressModeV = imageData.addressModeV;
-		samplerInfo.addressModeW = imageData.addressModeW;
+		samplerInfo.magFilter = imageData.samplerData.magFilter;
+		samplerInfo.minFilter = imageData.samplerData.minFilter;
+		samplerInfo.addressModeU = imageData.samplerData.addressModeU;
+		samplerInfo.addressModeV = imageData.samplerData.addressModeV;
+		samplerInfo.addressModeW = imageData.samplerData.addressModeW;
 		samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
 

@@ -24,7 +24,8 @@ namespace REON {
         std::shared_ptr<EditorCamera> GetEditorCamera();
 
     public:
-        std::shared_ptr<EditorCamera> camera;
+        //std::shared_ptr<EditorCamera> camera;
+        std::vector<std::shared_ptr<Camera>> cameras;
         std::shared_ptr<LightManager> lightManager;
         std::unique_ptr<RenderManager> renderManager;
         std::shared_ptr<GameObject> selectedObject;

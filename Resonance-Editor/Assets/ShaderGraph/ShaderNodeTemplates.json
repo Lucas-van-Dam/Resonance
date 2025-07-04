@@ -1,0 +1,130 @@
+{
+  "nodes": [
+    {
+      "name": "Add",
+      "codeTemplate": "{type} {result} = {A} + {B};",
+      "inputs": [{ "name": "A" }, { "name": "B" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4", "int"]
+    },
+    {
+      "name": "Subtract",
+      "codeTemplate": "{type} {result} = {A} + {B};",
+      "inputs": [{ "name": "A" }, { "name": "B" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4", "int"]
+    },
+    {
+      "name": "Multiply",
+      "codeTemplate": "{type} {result} = {A} * {B};",
+      "inputs": [{ "name": "A" }, { "name": "B" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4", "int"]
+    },
+    {
+      "name": "Dot",
+      "codeTemplate": "float {result} = dot({A}, {B});",
+      "inputs": [{ "name": "A" }, { "name": "B" }],
+      "outputs": [{ "name": "result", "type": "float" }],
+      "variants": ["float2", "float3", "float4"]
+    },
+    {
+      "name": "Cross",
+      "codeTemplate": "float3 {result} = cross({A}, {B});",
+      "inputs": [
+        { "name": "A", "type": "float3" },
+        { "name": "B", "type": "float3" }
+      ],
+      "outputs": [{ "name": "result", "type": "float3" }]
+    },
+    {
+      "name": "Normalize",
+      "codeTemplate": "{type} {result} = normalize({input});",
+      "inputs": [{ "name": "input" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float2", "float3", "float4"]
+    },
+    {
+      "name": "Saturate",
+      "codeTemplate": "{type} {result} = saturate({input});",
+      "inputs": [{ "name": "input" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float2", "float3", "float4"]
+    },
+    {
+      "name": "Lerp",
+      "codeTemplate": "{type} {result} = lerp({A}, {B}, {T});",
+      "inputs": [
+        { "name": "A" },
+        { "name": "B" },
+        { "name": "T", "type": "float", "defaultValue": "0.5" }
+      ],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4"]
+    },
+    {
+      "name": "Clamp",
+      "codeTemplate": "{type} {result} = clamp({input}, {min}, {max});",
+      "inputs": [
+        { "name": "input" },
+        { "name": "min" },
+        { "name": "max" }
+      ],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4"]
+    },
+    {
+      "name": "Time",
+      "codeTemplate": "float {result} = _Time;",
+      "inputs": [],
+      "outputs": [{ "name": "result", "type": "float" }]
+    },
+    {
+      "name": "Float",
+      "codeTemplate": "float {result} = {value};",
+      "inputs": [
+        { "name": "value", "type": "float", "defaultValue": "0.0" }
+      ],
+      "outputs": [{ "name": "result", "type": "float" }]
+    },
+    {
+      "name": "Float3",
+      "codeTemplate": "float3 {result} = float3({x}, {y}, {z});",
+      "inputs": [
+        { "name": "x", "type": "float", "defaultValue": "0.0" },
+        { "name": "y", "type": "float", "defaultValue": "0.0" },
+        { "name": "z", "type": "float", "defaultValue": "0.0" }
+      ],
+      "outputs": [{ "name": "result", "type": "float3" }]
+    },
+    {
+      "name": "SplitFloat3",
+      "codeTemplate": "float {result} = {input}.{component};",
+      "inputs": [
+        { "name": "input", "type": "float3" }
+      ],
+      "outputs": [{ "name": "x", "type": "float" },
+                  { "name": "y", "type": "float" },
+                  { "name": "z", "type": "float" }]
+    },
+    {
+      "name": "Abs",
+      "codeTemplate": "{type} {result} = abs({input});",
+      "inputs": [{ "name": "input" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4"]
+    },
+    {
+      "name": "Negate",
+      "codeTemplate": "{type} {result} = -{input};",
+      "inputs": [{ "name": "input" }],
+      "outputs": [{ "name": "result" }],
+      "variants": ["float", "float2", "float3", "float4"]
+    },
+    {
+      "name": "Bool",
+      "codeTemplate": "bool {result} = {value};",
+      "outputs": [{"name": "result", "type": "bool"}]
+    }
+  ]
+}

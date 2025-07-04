@@ -64,12 +64,12 @@ namespace REON {
 
     void Mesh::DeSerialize(const nlohmann::ordered_json& meshJson)
     {
-        positions = decodeBase64<glm::vec3>(meshJson["vertices"]);
-        normals = decodeBase64<glm::vec3>(meshJson["normals"]);
-        texCoords = decodeBase64<glm::vec2>(meshJson["uvs"]);
-        tangents = decodeBase64<glm::vec4>(meshJson["tangents"]);
-        colors = decodeBase64<glm::vec4>(meshJson["colors"]);
-        indices = decodeBase64<uint>(meshJson["indices"]);
+        decodeBase64<glm::vec3>(meshJson["vertices"], positions);
+        decodeBase64<glm::vec3>(meshJson["normals"], normals);
+        decodeBase64<glm::vec2>(meshJson["uvs"], texCoords);
+        decodeBase64<glm::vec4>(meshJson["tangents"], tangents);
+        decodeBase64<glm::vec4>(meshJson["colors"], colors);
+        decodeBase64<uint>(meshJson["indices"], indices);
 
         // Deserialize subMeshes
         for (const auto& subMeshJson : meshJson["subMeshes"]) {

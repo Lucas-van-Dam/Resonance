@@ -30,7 +30,7 @@ namespace REON {
 
 	Application* Application::s_Instance = nullptr;
 
-	Application::Application()
+	Application::Application(const WindowProperties& properties)
 	{
 		REON_CORE_ASSERT(!s_Instance, "Application already exists")
 		s_Instance = this;
@@ -44,7 +44,7 @@ namespace REON {
 		m_Context = new VulkanContext(static_cast<GLFWwindow*>(m_Window->GetNativeWindow()));
 		m_Context->init();
 
-		PushLayer(new AUDIO::AudioLayer());
+		//PushLayer(new AUDIO::AudioLayer());
 
 		m_GameLogicLayer = new GameLogicLayer();
 		PushLayer(m_GameLogicLayer);

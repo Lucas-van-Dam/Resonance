@@ -38,7 +38,7 @@ namespace REON {
 
         std::string encodeBase64(const uint8_t* data, size_t size) const;
         template<typename T>
-        std::vector<T> decodeBase64(const std::string& base64) const;
+        void decodeBase64(const std::string& base64, std::vector<T>& out) const;
 
         nlohmann::ordered_json ConvertVec2Array(const std::vector<glm::vec2>& vecs) const;
         nlohmann::ordered_json ConvertVec3Array(const std::vector<glm::vec3>& vecs) const;
@@ -135,13 +135,23 @@ namespace REON {
 
 
     template<typename T>
-    inline std::vector<T> Mesh::decodeBase64(const std::string& base64) const
+    inline void Mesh::decodeBase64(const std::string& base64, std::vector<T>& out) const
     {
         std::vector<uint8_t> binary = cppcodec::base64_rfc4648::decode(base64);
 
-        std::vector<T> result(binary.size() / sizeof(T));
-        memcpy(result.data(), binary.data(), binary.size());
-        return result;
+        if (binary.size() % sizeof(T) != 0) {
+            REON_CORE_ERROR("Invalid base64 data: size mismatch for type");
+        }
+        size_t count = binary.size() / sizeof(T);
+
+        std::cout << "binary.size(): " << binary.size() << std::endl;
+        std::cout << "sizeof(T): " << sizeof(T) << std::endl;
+        std::cout << "Count: " << count << std::endl;
+        std::cout << "Assigning vector of size " << count << std::endl;
+
+        std::vector<T> temp(count);
+        std::memcpy(temp.data(), binary.data(), count * sizeof(T));
+        out = std::move(temp);
     }
 
 }

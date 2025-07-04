@@ -13,6 +13,8 @@ namespace REON {
 		std::string Title;
 		unsigned int Width = 0, Height = 0;
 		bool VSync = false;
+		bool Resizable = true;
+		bool FullScreen = false;
 
 		std::function<void(Event&)> EventCallBack;
 	};
@@ -30,6 +32,10 @@ namespace REON {
 		inline void SetEventCallback(const EventCallBackFn& callback) override { m_Data.EventCallBack = callback; }
 		void SetVSync(bool enabled) override;
 		bool IsVSync() const override;
+		void SetFullScreen(bool enabled) override { m_Data.FullScreen = enabled; } // implement later (needs full recreation of context)
+		bool IsFullScreen() const override { return m_Data.FullScreen; }
+		void SetResizable(bool enabled) override { m_Data.Resizable = enabled; }
+		bool IsResizable() const override { return m_Data.Resizable; }
 
 		inline void* GetNativeWindow() const override { return m_Window; }
 	private:

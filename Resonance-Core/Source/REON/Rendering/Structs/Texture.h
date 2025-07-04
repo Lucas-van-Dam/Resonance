@@ -10,17 +10,21 @@
 
 namespace REON {
 #pragma pack(push, 1)
+    struct SamplerData {
+        VkFilter magFilter = VK_FILTER_LINEAR;
+        VkFilter minFilter = VK_FILTER_LINEAR;
+        VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    };
+
     struct TextureHeader {
         uint width;
         uint height;
         uint channels;
         //std::vector<uint8_t> pixels;
         VkFormat format = VK_FORMAT_R8G8B8A8_SRGB;
-        VkFilter magFilter = VK_FILTER_LINEAR;
-        VkFilter minFilter = VK_FILTER_LINEAR;
-        VkSamplerAddressMode addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkSamplerAddressMode addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        VkSamplerAddressMode addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		SamplerData samplerData;
     };
 #pragma pack(pop)
 

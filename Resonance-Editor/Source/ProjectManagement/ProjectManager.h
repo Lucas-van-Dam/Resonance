@@ -3,6 +3,7 @@
 #include <memory>
 #include <filesystem>
 #include <nlohmann/json.hpp>
+#include <unordered_set>
 
 #include "Reon.h"
 
@@ -30,6 +31,10 @@ namespace REON::EDITOR {
         bool SaveProject();
 
         void LoadScene(const std::filesystem::path& path);
+
+        bool BuildProject(const std::filesystem::path& buildDirectory);
+
+        std::unordered_set<std::string> getUsedAssetsFromScene(const std::shared_ptr<Scene>& scene);
 
         const std::string& GetCurrentProjectPath() const { return m_CurrentProjectPath; }
         bool IsProjectOpen() const { return isProjectOpen; }
@@ -90,6 +95,8 @@ namespace REON::EDITOR {
 
         std::string m_CurrentProjectPath;
         bool isProjectOpen;
+
+		ProjectSettings m_ProjectSettings;
 
         std::unordered_map<std::string, std::function<std::string(const void*)>> serializers;
         std::unordered_map<std::string, std::function<void*(const std::string&)>> deserializers; 

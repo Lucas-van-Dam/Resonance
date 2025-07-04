@@ -24,6 +24,40 @@ namespace REON {
     {
     }
 
+    nlohmann::ordered_json Light::Serialize() const
+    {
+		nlohmann::ordered_json json;
+
+		json["Type"] = GetTypeName();
+		json["LightType"] = static_cast<int>(type);
+		json["Intensity"] = intensity;
+		json["Color"] = { color.r, color.g, color.b };
+		json["InnerCutOff"] = innerCutOff;
+		json["OuterCutOff"] = outerCutOff;
+
+		return json;
+    }
+
+    void Light::Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath)
+    {
+        if (json.contains("LightType")) {
+            type = static_cast<LightType>(json["LightType"].get<int>());
+        }
+        if (json.contains("Intensity")) {
+            intensity = json["Intensity"].get<float>();
+        }
+        if (json.contains("Color")) {
+            auto colorArray = json["Color"];
+            color = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
+        }
+        if (json.contains("InnerCutOff")) {
+            innerCutOff = json["InnerCutOff"].get<float>();
+        }
+        if (json.contains("OuterCutOff")) {
+            outerCutOff = json["OuterCutOff"].get<float>();
+		}
+    }
+
     void Light::OnComponentDetach()
     {
     }

@@ -49,13 +49,13 @@ namespace REON {
 
 
     std::shared_ptr<EditorCamera> Scene::GetEditorCamera() {
-        return camera;
+        return std::dynamic_pointer_cast<EditorCamera>(cameras[0]);
     }
 
     Scene::Scene(const std::string& name) : Object(name) {
-        this->camera = EditorCamera::GetInstance();
+        cameras.push_back(EditorCamera::GetInstance());
         lightManager = std::make_unique<LightManager>(5);
-        renderManager = std::make_unique<RenderManager>(lightManager, camera);
+        renderManager = std::make_unique<RenderManager>(lightManager, std::dynamic_pointer_cast<EditorCamera>(cameras[0]));
     }
 
     Scene::~Scene() {

@@ -28,9 +28,9 @@ namespace REON::EDITOR {
 			transform->localRotation.setFromEulerAngles(transform->eulerCache);
 			transform->eulerDirty = false; },
 				[transform]() {return glm::degrees(transform->eulerCache); })) {
-				transform->eulerCache = glm::radians(eulerDegrees);
-				transform->localRotation.setFromEulerAngles(transform->eulerCache);
-				transform->eulerDirty = false;
+				//transform->eulerCache = glm::radians(eulerDegrees);
+				//transform->localRotation.setFromEulerAngles(transform->eulerCache);
+				//transform->eulerDirty = false;
 			}
 
 			DrawFuncs::DrawVec3WithUndoRedo("Scale", transform->localScale,

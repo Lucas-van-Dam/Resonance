@@ -4,6 +4,8 @@
 #include <typeindex>
 
 #include "REON/Object.h"
+#include "nlohmann/json.hpp"
+#include <filesystem>
 
 namespace REON {
 
@@ -27,6 +29,9 @@ namespace REON {
 
         virtual void OnGameObjectAddedToScene() = 0;
         virtual void OnComponentDetach() = 0;
+
+		virtual nlohmann::ordered_json Serialize() const = 0;
+		virtual void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) = 0;
 
         virtual std::string GetTypeName() const = 0;
         virtual std::type_index GetTypeIndex() const = 0;

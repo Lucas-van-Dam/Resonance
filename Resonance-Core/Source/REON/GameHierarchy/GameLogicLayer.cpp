@@ -133,11 +133,11 @@ namespace REON {
 
 	void GameLogicLayer::OnKeyPressed(const KeyPressedEvent& event)
 	{
-		if (event.GetKeyCode() == REON_KEY_DELETE && event.GetRepeatCount() == 0) {
-			auto obj = SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
-			if (obj != nullptr) {
-				SceneManager::Get()->GetCurrentScene()->DeleteGameObject(obj);
-			}
-		}
+		//if (event.GetKeyCode() == REON_KEY_DELETE && event.GetRepeatCount() == 0) {
+		//	auto obj = SceneManager::Get()->GetCurrentScene()->GetGameObject(0);
+		//	if (obj != nullptr) {
+		//		SceneManager::Get()->GetCurrentScene()->DeleteGameObject(obj);
+		//	}
+		//}
 	}
 }

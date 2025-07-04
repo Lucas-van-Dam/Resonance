@@ -17,7 +17,7 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
       {
          "-m64",
          --"-Wno-pragma-pack"
-         "/W4"
+         "/W4",
          --"/WX"
       }
       defines
@@ -25,7 +25,6 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
          "_WIN32",
          "_CRT_SECURE_NO_WARNINGS",
          "_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS",
-         "REON_EDITOR",
          "GLM_ENABLE_EXPERIMENTAL",
          "GLM_FORCE_DEPTH_ZERO_TO_ONE",
          "VK_USE_PLATFORM_WIN32_KHR",
@@ -41,7 +40,7 @@ group "Core"
 group ""
 
 include "Resonance-Editor/Build-Editor.lua"
---include "Resonance-Runtime/Build-Runtime.lua"
+include "Resonance-Runtime/Build-Runtime.lua"
 
 
 

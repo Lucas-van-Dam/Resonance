@@ -64,6 +64,15 @@ namespace REON {
     {
     }
 
+    nlohmann::ordered_json Transform::Serialize() const
+    {
+        return nlohmann::ordered_json();
+    }
+
+    void Transform::Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath)
+    {
+    }
+
     void Transform::OnGameObjectAddedToScene()
     {
     }

@@ -219,8 +219,6 @@ namespace REON {
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffer");
 
 		createFrameBuffers();
-
-		ImGui_ImplVulkan_CreateFontsTexture();
 	}
 
 

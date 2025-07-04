@@ -22,6 +22,8 @@ project "Core"
     "vendor/ImGuizmo/**.cpp",
     "vendor/imgui/*.cpp",
     "vendor/imgui/*.h",
+    "vendor/imgui/misc/cpp/*.h",
+    "vendor/imgui/misc/cpp/*.cpp",
     "vendor/imgui/backends/imgui_impl_glfw.cpp",
     "vendor/imgui/backends/imgui_impl_glfw.h",
     "vendor/imgui/backends/imgui_impl_vulkan.cpp",

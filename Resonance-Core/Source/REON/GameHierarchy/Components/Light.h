@@ -20,10 +20,12 @@ namespace REON {
 
         void Update(float deltaTime) override;
 
-        // Inherited via Component
         void OnGameObjectAddedToScene() override;
 
         void cleanup() override;
+
+        nlohmann::ordered_json Serialize() const override;
+        void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
 
     public:
         LightType type;

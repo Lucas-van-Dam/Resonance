@@ -17,6 +17,7 @@
 #include "RenderPasses/TransparentPass.h"
 #include "RenderPasses/UnlitPass.h"
 
+#define MAX_CAMERA_COUNT 10
 
 namespace REON {
 	class GameObject;
@@ -27,19 +28,62 @@ namespace REON {
 		UNLIT = 1,
 		WIREFRAME = 2
 	};
+	
+	struct CameraSwapChainResources {
+		VkDescriptorSet endDescriptorSet;
+		VkImage endImage;
+		VmaAllocation endImageAllocation;
+		VkImageView endImageView;
+		VkFramebuffer framebuffer;
+
+		VkImage colorResolveImage;
+		VmaAllocation colorResolveImageAllocation;
+		VkImageView colorResolveImageView;
+
+		VkImage depthResolveImage;
+		VmaAllocation depthResolveAllocation;
+		VkImageView depthResolveView;
+
+		VkImage msaaColorImage;
+		VmaAllocation msaaColorAllocation;
+		VkImageView msaaColorView;
+
+		VkImage msaaDepthImage;
+		VmaAllocation msaaDepthAllocation;
+		VkImageView msaaDepthView;
+	};
+
+	struct CameraData {
+		VkBuffer globalBuffer;
+		VmaAllocation globalBufferAllocation;
+		void* globalBufferMapped;
+		VkDescriptorSet globalDescriptorSet;
+
+		VkCommandBuffer commandBuffer;
+	};
+
+	struct FrameData {
+		// Holds the global render data for the current frame per camera
+		std::unordered_map<std::shared_ptr<Camera>, CameraData> cameraData = std::unordered_map<std::shared_ptr<Camera>, CameraData>(MAX_CAMERA_COUNT);
+		VkDescriptorSet lightDescriptorSet;
+		VkBuffer lightDataBuffer;
+		VmaAllocation lightDataBufferAllocation;
+		void* lightDataBufferMapped;
+	};
 
 	using DrawCommandByShaderMaterial = std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>>;
 
 	class RenderManager {
 	public:
-		void Render();
+		void Render(std::shared_ptr<Camera> camera);
+		void preRender();
 		void AddRenderer(const std::shared_ptr<Renderer>& renderer);
 		void RemoveRenderer(std::shared_ptr<Renderer> renderer);
 		RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera);
 		void Initialize();
 		void HotReloadShaders();
-		VkDescriptorSet GetEndBuffer();
-		void SetRenderDimensions(int width, int height);
+		VkDescriptorSet GetEndBuffer(std::shared_ptr<Camera> camera);
+		void SetRenderDimensions(std::shared_ptr<Camera> camera, int width, int height);
 		int GetRenderWidth();
 		int GetRenderHeight();
 		static void InitializeFboAndTexture(uint& fbo, uint& texture, int width, int height);
@@ -54,8 +98,8 @@ namespace REON {
 
 
 	private:
-		void RenderOpaques();
-		void RenderTransparents();
+		void RenderOpaques(std::shared_ptr<Camera> camera);
+		void RenderTransparents(std::shared_ptr<Camera> camera);
 		void RenderPostProcessing();
 		void GenerateShadows();
 		void GenerateMainLightShadows();
@@ -63,27 +107,29 @@ namespace REON {
 		void RenderSkyBox();
 		void InitializeSkyBox();
 		std::vector<LightData> GetLightingBuffer();
-		void setGlobalData();
+		void setGlobalData(std::shared_ptr<Camera> camera);
 		void prepareDrawCommands(int currentFrame);
 
-		void deleteForResize();
+		void deleteForResize(std::shared_ptr<Camera> camera);
 
 		void createSyncObjects();
 		void createDummyResources();
-		void createEndBufferSet();
+		void createEndBufferSet(std::shared_ptr<Camera> camera);
 
+		void createCameraResources(std::shared_ptr<Camera> camera);
 		void createOpaqueCommandPool();
-		void createOpaqueCommandBuffers();
-		void createOpaqueImages();
+		void createOpaqueCommandBuffers(std::shared_ptr<Camera> camera);
+		void createOpaqueImages(std::shared_ptr<Camera> camera);
 		void createOpaqueRenderPass();
-		void createOpaqueFrameBuffers();
+		void createOpaqueFrameBuffers(std::shared_ptr<Camera> camera);
 		void createOpaqueDescriptorSetLayout();
-		void createOpaqueGlobalDescriptorSets();
-		void createGlobalBuffers();
+		void createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> camera);
+		void createGlobalBuffers(std::shared_ptr<Camera> camera);
 		void createOpaqueMaterialDescriptorSets(Material& material);
 		void createOpaqueObjectDescriptorSets(const std::shared_ptr<Renderer>& renderer);
 		void createOpaqueGraphicsPipelines();
 		void createPipelineCache();
+		void createEndImages(std::shared_ptr<Camera> camera);
 		VkPipeline getPipelineFromFlags(uint32_t flags);
 		VkPipeline createGraphicsPipeline(VkPipeline basePipeline, uint32_t flags);
 
@@ -99,26 +145,13 @@ namespace REON {
 		DrawCommandByShaderMaterial m_DrawCommandsByShaderMaterial;
 		std::set<std::string> materials;
 
-		std::vector<VkDescriptorSet> m_GlobalDescriptorSets;
-		std::vector<VkBuffer> m_GlobalDataBuffers;
-		std::vector<VmaAllocation> m_GlobalDataBufferAllocations;
-		std::vector<void*> m_GlobalDataBuffersMapped;
+		std::vector<FrameData> m_FrameData;
+		std::unordered_map<std::shared_ptr<Camera>, std::vector<CameraSwapChainResources>> m_SwapChainResourcesByCamera;
 
-		std::vector<VkDescriptorSet> m_LightDescriptorSets;
-		std::vector<VkBuffer> m_LightDataBuffers;
-		std::vector<VmaAllocation> m_LightDataBufferAllocations;
-		std::vector<void*> m_LightDataBuffersMapped;
-
-		std::vector<VkDescriptorSet> m_EndDescriptorSets;
 		VkDescriptorSetLayout m_EndDescriptorSetLayout; //
 		VkSampler m_EndSampler;
 
-		std::vector<VkImage> m_EndImages;
-		std::vector<VmaAllocation> m_EndImageAllocations;
-		std::vector<VkImageView> m_EndImageViews;
-
 		// OPAQUE PIPELINE
-		std::vector<VkCommandBuffer> m_OpaqueCommandBuffers; //
 		VkCommandPool m_OpaqueCommandPool; //
 		VkRenderPass m_OpaqueRenderPass; //
 		VkDescriptorSetLayout m_OpaqueGlobalDescriptorSetLayout; //
@@ -126,20 +159,6 @@ namespace REON {
 		VkDescriptorSetLayout m_OpaqueObjectDescriptorSetLayout; //
 		VkPipelineLayout m_OpaquePipelineLayout; //
 		VkPipeline m_OpaqueGraphicsPipeline; //
-		VkImage m_DepthImage; //
-		VmaAllocation m_DepthImageAllocation; //
-		VkImageView m_DepthImageView; //
-		VkImage m_ColorImage; //
-		VmaAllocation m_ColorImageAllocation; //
-		VkImageView m_ColorImageView; //
-		std::vector<VkFramebuffer> m_OpaqueFramebuffers; //
-		std::vector<VkImage> m_OpaqueResolveImages; //
-		std::vector<VmaAllocation> m_OpaqueResolveImageAllocations; //
-		std::vector<VkImageView> m_OpaqueResolveImageViews; //
-
-		std::vector<VkImage> m_DepthResolveImages;
-		std::vector<VmaAllocation> m_DepthResolveAllocations;
-		std::vector<VkImageView> m_DepthResolveViews;
 
 		// Directional Shadows
 		DirectionalShadowPass m_DirectionalShadowPass;
@@ -160,7 +179,6 @@ namespace REON {
 		//OLD (some still used, but new things (vulkan) are above this, will filter out whats not used anymore once i get everything working)
 		CallbackID m_KeyPressedCallbackID;
 
-		uint m_Width, m_Height;
 		std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<Renderer>>> m_ShaderToRenderer;
 		std::vector<std::shared_ptr<Renderer>> m_Renderers;
 		std::shared_ptr<EditorCamera> m_Camera;

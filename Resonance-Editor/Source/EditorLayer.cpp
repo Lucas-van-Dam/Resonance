@@ -14,6 +14,8 @@
 #include "vulkan/vulkan.h"
 #include <Commands/CommandManager.h>
 #include <Commands/PropertyChangeCommand.h>
+#include "ShaderGraph/ShaderNodeLibrary.h"
+#include <Windows/ShaderGraph.h>
 
 namespace REON::EDITOR {
 
@@ -36,12 +38,15 @@ namespace REON::EDITOR {
 	{
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
 		m_ProjectOpenedCallbackID = EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
+		SG::ShaderNodeLibrary::GetInstance().Initialize("Assets/ShaderGraph/ShaderNodeTemplates.json");
+		ShaderGraph::GetInstance().initialize();
 	}
 
 	void EditorLayer::OnDetach()
 	{
 		EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
 		EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
+		ShaderGraph::GetInstance().shutdown();
 	}
 
 	void EditorLayer::OnImGuiRender()
@@ -82,6 +87,13 @@ namespace REON::EDITOR {
 				}
 				else if (ImGui::MenuItem("Save Project")) {
 					ProjectManager::GetInstance().SaveProject();
+				}
+				else if(ImGui::MenuItem("Build Project")) {
+					ImGuiFileDialog::Instance()->OpenDialog(
+						"ChooseBuildDirectory",         // Key to identify the dialog
+						"Select Build Folder",    // Title
+						nullptr                     // File filter (nullptr for folders)
+					);
 				}
 				ImGui::EndMenu();
 			}
@@ -128,6 +140,14 @@ namespace REON::EDITOR {
 
 				// Call your project loading function
 				ProjectManager::GetInstance().CreateNewProject("TestProject", selectedPath);
+			}
+			// Close the dialog after processing the results
+			ImGuiFileDialog::Instance()->Close();
+		}
+		if(ImGuiFileDialog::Instance()->Display("ChooseBuildDirectory")) {
+			if (ImGuiFileDialog::Instance()->IsOk()) {
+				std::string selectedPath = ImGuiFileDialog::Instance()->GetCurrentPath();
+				ProjectManager::GetInstance().BuildProject(selectedPath);
 			}
 			// Close the dialog after processing the results
 			ImGuiFileDialog::Instance()->Close();
@@ -216,7 +236,7 @@ namespace REON::EDITOR {
 			auto size = ImGui::GetContentRegionAvail();
 
 			if (wasResized)
-				scene->renderManager->SetRenderDimensions(size.x, size.y);
+				scene->renderManager->SetRenderDimensions(scene->GetEditorCamera(), size.x, size.y);
 
 			m_SceneHovered = ImGui::IsWindowHovered();
 
@@ -224,7 +244,7 @@ namespace REON::EDITOR {
 
 
 
-			auto texId = scene->renderManager->GetEndBuffer();
+			auto texId = scene->renderManager->GetEndBuffer(scene->GetEditorCamera());
 
 			if (texId != nullptr)
 				ImGui::Image((ImTextureID)texId, size, ImVec2(0, 1), ImVec2(1, 0));
@@ -285,35 +305,35 @@ namespace REON::EDITOR {
 		}
 		ImGui::End();
 
-		//if (ImGui::Begin("PostProcessTestWindow")) {
-		//	bool enabled = RenderManager::m_ColorCorrection->IsEnabled();
-		//	if (ImGui::Checkbox("Enable ColorCorrection", &enabled)) {
-		//		RenderManager::m_ColorCorrection->SetEnabled(enabled);
-		//	}
+		if (scene->cameras.size() > 1) {
+			if (ImGui::Begin("Game", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoCollapse)) {
+				static ImVec2 lastSize = ImVec2(0, 0);
+				ImVec2 currentSize = ImGui::GetWindowSize();
 
-		//	enabled = RenderManager::m_BloomEffect->IsEnabled();
-		//	if (ImGui::Checkbox("Enable Bloom", &enabled)) {
-		//		RenderManager::m_BloomEffect->SetEnabled(enabled);
-		//	}
+				bool wasResized = (currentSize.x != lastSize.x || currentSize.y != lastSize.y);
+				lastSize = currentSize;
 
-		//	enabled = RenderManager::m_DepthOfField->IsEnabled();
-		//	if (ImGui::Checkbox("Enable Depth of Field", &enabled)) {
-		//		RenderManager::m_DepthOfField->SetEnabled(enabled);
-		//	}
+				auto size = ImGui::GetContentRegionAvail();
 
-		//	ImGui::DragFloat("Focus Distance", &RenderManager::m_DepthOfField->m_FocusDistance, 1.0, 0.1f, 100.0f);
+				if (wasResized)
+					scene->renderManager->SetRenderDimensions(scene->cameras[1], size.x, size.y);
 
-		//}
+				auto texId = scene->renderManager->GetEndBuffer(scene->cameras[1]);
 
-		//ImGui::End();
+				if (texId != nullptr)
+					ImGui::Image((ImTextureID)texId, size, ImVec2(0, 1), ImVec2(1, 0));
+			}
+			ImGui::End();
+		}
 
-		//ImGui::PopStyleVar(2);
 		if (!m_AssetBrowser.getSelectedFile().empty()) {
 			Inspector::InspectObject(m_AssetBrowser.getSelectedFile());
 		}
 		else {
 			Inspector::InspectObject(scene->selectedObject);
 		}
+
+		ShaderGraph::GetInstance().render();
 
 		SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(), scene->selectedObject);
 		m_AssetBrowser.RenderAssetBrowser();
@@ -382,9 +402,17 @@ namespace REON::EDITOR {
 				}));
 		}
 
-		futureCheckingFuture = std::async(std::launch::async, [&]() {
-			CheckAssetsRegistered();
-			});
+		while (!futures.empty()) {
+			for (auto it = futures.begin(); it != futures.end(); ) {
+				auto& f = *it;
+				if (f.valid() && f.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+					it = futures.erase(it); // remove finished future
+				}
+				else {
+					++it;
+				}
+			}
+		}
 
 		//auto list = REON::AssetRegistry::Instance().GetAllAssets();
 		Inspector::Initialize();
@@ -439,17 +467,6 @@ namespace REON::EDITOR {
 	}
 	void EditorLayer::CheckAssetsRegistered()
 	{
-		while (!futures.empty()) {
-			for (auto it = futures.begin(); it != futures.end(); ) {
-				auto& f = *it;
-				if (f.valid() && f.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-					it = futures.erase(it); // remove finished future
-				}
-				else {
-					++it;
-				}
-			}
-			Sleep(100);
-		}
+
 	}
 }

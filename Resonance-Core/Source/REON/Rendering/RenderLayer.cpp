@@ -15,8 +15,13 @@ namespace REON {
 
 	void RenderLayer::OnUpdate()
 	{
-		if(auto scene = SceneManager::Get()->GetCurrentScene())
-			scene->renderManager->Render();
+		if (auto scene = SceneManager::Get()->GetCurrentScene()) {
+			scene->renderManager->preRender();
+			scene->renderManager->Render(scene->GetEditorCamera());
+			if (scene->cameras.size() > 1) {
+				scene->renderManager->Render(scene->cameras[1]);
+			}
+		}
 	}
 	void RenderLayer::OnCleanup()
 	{

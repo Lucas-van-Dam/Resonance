@@ -14,7 +14,11 @@ namespace REON {
 	std::shared_ptr<ColorCorrection> RenderManager::m_ColorCorrection;
 	std::shared_ptr<DepthOfField> RenderManager::m_DepthOfField;
 
-	void RenderManager::Render() {
+	void RenderManager::Render(std::shared_ptr<Camera> camera) {
+		if (m_SwapChainResourcesByCamera[camera].empty()) {
+			createCameraResources(camera);
+		}
+
 		resized = false;
 		prepareDrawCommands(m_Context->getCurrentFrame());
 		if (m_DrawCommandsByShaderMaterial.empty()) {
@@ -32,15 +36,19 @@ namespace REON {
 			vkQueueSubmit(m_Context->getGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
 			return;
 		}
-		setGlobalData();
+		setGlobalData(camera);
 
 		if (renderMode != LIT) {
-			m_UnlitPass.render(m_Context, m_DrawCommandsByShaderMaterial, m_GlobalDescriptorSets[m_Context->getCurrentImageIndex()], m_Context->getCurrentRenderFinishedSemaphore(), renderMode);
+			//m_UnlitPass.render(m_Context, m_DrawCommandsByShaderMaterial, m_FrameData[m_Context->getCurrentFrame()].cameraData[camera].globalDescriptorSet, m_Context->getCurrentRenderFinishedSemaphore(), renderMode);
 			return;
 		}
+		RenderOpaques(camera);
+		RenderTransparents(camera);
+	}
+
+	void RenderManager::preRender()
+	{
 		GenerateShadows();
-		RenderOpaques();
-		RenderTransparents();
 	}
 
 	void RenderManager::AddRenderer(const std::shared_ptr<Renderer>& renderer) {
@@ -60,9 +68,11 @@ namespace REON {
 	void RenderManager::RenderSkyBox() {
 	}
 
-	void RenderManager::RenderOpaques() {			
+	void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera) {
 		int currentFrame = m_Context->getCurrentFrame();
 		int currentImageIndex = m_Context->getCurrentImageIndex();
+
+		auto commandBuffer = m_FrameData[currentFrame].cameraData[camera].commandBuffer;
 
 		for (const auto& pair : m_DrawCommandsByShaderMaterial) {
 			VkCommandBufferBeginInfo beginInfo{};
@@ -70,15 +80,15 @@ namespace REON {
 			beginInfo.flags = 0;
 			beginInfo.pInheritanceInfo = nullptr;
 
-			VkResult res = vkBeginCommandBuffer(m_OpaqueCommandBuffers[currentFrame], &beginInfo);
+			VkResult res = vkBeginCommandBuffer(commandBuffer, &beginInfo);
 			REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to begin recording command buffer");
 
 			VkRenderPassBeginInfo renderPassInfo{};
 			renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 			renderPassInfo.renderPass = m_OpaqueRenderPass;
-			renderPassInfo.framebuffer = m_OpaqueFramebuffers[m_Context->getCurrentImageIndex()];
+			renderPassInfo.framebuffer = m_SwapChainResourcesByCamera[camera][m_Context->getCurrentImageIndex()].framebuffer;
 			renderPassInfo.renderArea.offset = { 0,0 };
-			renderPassInfo.renderArea.extent = {m_Width, m_Height};
+			renderPassInfo.renderArea.extent = { camera->viewportSize.x, camera->viewportSize.y };
 
 			std::array<VkClearValue, 4> clearValues{};
 			clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
@@ -94,7 +104,7 @@ namespace REON {
 			barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = m_OpaqueResolveImages[currentImageIndex];
+			barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage;
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			barrier.subresourceRange.baseMipLevel = 0;
 			barrier.subresourceRange.levelCount = 1;
@@ -103,7 +113,7 @@ namespace REON {
 			barrier.srcAccessMask = 0;
 			barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 
-			vkCmdPipelineBarrier(m_OpaqueCommandBuffers[currentFrame],
+			vkCmdPipelineBarrier(commandBuffer,
 				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				0,
@@ -111,10 +121,20 @@ namespace REON {
 				0, nullptr,
 				1, &barrier);
 
-			vkCmdBeginRenderPass(m_OpaqueCommandBuffers[currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+			barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier);
 
-
+			vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			const auto& materialFromShader = pair.second;
 			for (const auto& material : materialFromShader) {
@@ -128,29 +148,29 @@ namespace REON {
 					REON_CORE_WARN("Cant render because pipeline is not found");
 					continue;
 				}
-				vkCmdBindPipeline(m_OpaqueCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+				vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 				VkViewport viewport{};
 				viewport.x = 0.0f;
 				viewport.y = 0.0f;
-				viewport.width = static_cast<float>(m_Width);
-				viewport.height = static_cast<float>(m_Height);
+				viewport.width = static_cast<float>(camera->viewportSize.x);
+				viewport.height = static_cast<float>(camera->viewportSize.y);
 				viewport.minDepth = 0.0f;
 				viewport.maxDepth = 1.0f;
-				vkCmdSetViewport(m_OpaqueCommandBuffers[currentFrame], 0, 1, &viewport);
+				vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
 				VkRect2D scissor{};
 				scissor.offset = { 0,0 };
-				scissor.extent = { m_Width, m_Height };
-				vkCmdSetScissor(m_OpaqueCommandBuffers[currentFrame], 0, 1, &scissor);
+				scissor.extent = { camera->viewportSize.x, camera->viewportSize.y };
+				vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 				memcpy(mat->flatDataBuffersMapped[currentFrame], &mat->flatData, sizeof(mat->flatData));
 
-				vkCmdSetCullMode(m_OpaqueCommandBuffers[currentFrame], mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
+				vkCmdSetCullMode(commandBuffer, mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
 
 				for (const auto& cmd : material.second) {
-					std::vector<VkDescriptorSet> descriptorSets = { m_GlobalDescriptorSets[currentFrame], mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[m_Context->getCurrentFrame()]};
+					std::vector<VkDescriptorSet> descriptorSets = { m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet, mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[m_Context->getCurrentFrame()] };
 
 					ObjectRenderData data{};
 					data.model = cmd.owner->getModelMatrix();
@@ -159,23 +179,23 @@ namespace REON {
 
 					VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
 					VkDeviceSize offsets[] = { 0 };
-					vkCmdBindVertexBuffers(m_OpaqueCommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
+					vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-					vkCmdBindIndexBuffer(m_OpaqueCommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+					vkCmdBindIndexBuffer(commandBuffer, cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-					vkCmdBindDescriptorSets(m_OpaqueCommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
-					vkCmdDrawIndexed(m_OpaqueCommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
+					vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
+					vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
 				}
 			}
 
-			vkCmdEndRenderPass(m_OpaqueCommandBuffers[currentFrame]);
+			vkCmdEndRenderPass(commandBuffer);
 
 			barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 			barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-			barrier.image = m_OpaqueResolveImages[currentImageIndex];
+			barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage;
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			barrier.subresourceRange.baseMipLevel = 0;
 			barrier.subresourceRange.levelCount = 1;
@@ -184,7 +204,7 @@ namespace REON {
 			barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
-			vkCmdPipelineBarrier(m_OpaqueCommandBuffers[currentFrame],
+			vkCmdPipelineBarrier(commandBuffer,
 				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 				0,
@@ -192,21 +212,35 @@ namespace REON {
 				0, nullptr,
 				1, &barrier);
 
-			res = vkEndCommandBuffer(m_OpaqueCommandBuffers[currentFrame]);
+			barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage;
+			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+			barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+			barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+			vkCmdPipelineBarrier(commandBuffer,
+				VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+				VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+				0,
+				0, nullptr,
+				0, nullptr,
+				1, &barrier);
+
+			res = vkEndCommandBuffer(commandBuffer);
 			REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to record command buffer");
 
 			VkSubmitInfo submitInfo{};
 			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[currentFrame]};
+			VkSemaphore waitSemaphores[] = { m_Context->getCurrentImageAvailableSemaphore(), m_DirectionalShadowsGenerated[currentFrame] };
 			VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT };
 			submitInfo.waitSemaphoreCount = 2;
 			submitInfo.pWaitSemaphores = waitSemaphores;
 			submitInfo.pWaitDstStageMask = waitStages;
 			submitInfo.commandBufferCount = 1;
-			submitInfo.pCommandBuffers = &m_OpaqueCommandBuffers[currentFrame];
+			submitInfo.pCommandBuffers = &commandBuffer;
 
-			VkSemaphore signalSemaphores[] = { m_OpaquePassDone[currentFrame]};
+			VkSemaphore signalSemaphores[] = { m_OpaquePassDone[currentFrame] };
 			submitInfo.signalSemaphoreCount = 1;
 			submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -215,10 +249,10 @@ namespace REON {
 		}
 	}
 
-	void RenderManager::RenderTransparents() {
+	void RenderManager::RenderTransparents(std::shared_ptr<Camera> camera) {
 		int currentFrame = m_Context->getCurrentFrame();
-		m_TransparentPass.render(m_Context, m_DrawCommandsByShaderMaterial, m_OpaquePassDone[currentFrame], m_Context->getCurrentRenderFinishedSemaphore(),
-			m_GlobalDescriptorSets[m_Context->getCurrentImageIndex()]);
+		m_TransparentPass.render(m_Context, camera, m_DrawCommandsByShaderMaterial, m_OpaquePassDone[currentFrame], m_Context->getCurrentRenderFinishedSemaphore(),
+			m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet);
 	}
 
 	void RenderManager::RenderPostProcessing() {
@@ -240,8 +274,6 @@ namespace REON {
 	}
 
 	RenderManager::RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera) : m_LightManager(std::move(lightManager)), m_Context(static_cast<const VulkanContext*>(Application::Get().GetRenderContext())) {
-		m_Width = Application::Get().GetWindow().GetWidth();
-		m_Height = Application::Get().GetWindow().GetHeight();
 
 		m_KeyPressedCallbackID = EventBus::Get().subscribe<KeyPressedEvent>(REON_BIND_EVENT_FN(RenderManager::OnKeyPressed));
 		//EventBus::Get().subscribe<MaterialChangedEvent>(REON_BIND_EVENT_FN(RenderManager::OnMaterialChanged));
@@ -251,28 +283,28 @@ namespace REON {
 
 		m_DirectionalShadowPass.Init(m_Context);
 
+		m_FrameData.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+		m_SwapChainResourcesByCamera[m_Camera].resize(m_Context->getAmountOfSwapChainImages());
 		//m_DrawCommandsByShaderMaterial.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
 		createPipelineCache();
-		createGlobalBuffers();
 		createDummyResources();
 		createOpaqueCommandPool();
-		createOpaqueCommandBuffers();
-		createOpaqueImages();
 		createOpaqueRenderPass();
-		createOpaqueFrameBuffers();
 		createOpaqueDescriptorSetLayout();
-		createOpaqueGraphicsPipelines();
-		createEndBufferSet();
-		createSyncObjects();
-		createOpaqueGlobalDescriptorSets();
 
 		std::vector<VkDescriptorSetLayout> layouts;
 		layouts.push_back(m_OpaqueGlobalDescriptorSetLayout);
 		layouts.push_back(m_OpaqueMaterialDescriptorSetLayout);
 		layouts.push_back(m_OpaqueObjectDescriptorSetLayout);
-		m_TransparentPass.init(m_Context, m_Width, m_Height, layouts, m_PipelineCache, m_OpaqueResolveImageViews, m_EndImageViews, m_DepthResolveViews);
-		m_UnlitPass.init(m_Context, m_Width, m_Height, m_EndImageViews, m_PipelineCache, layouts);
+		m_TransparentPass.init(m_Context, layouts, m_PipelineCache);
+
+		createCameraResources(m_Camera);
+		createOpaqueGraphicsPipelines();
+		createSyncObjects();
+
+
+		//m_UnlitPass.init(m_Context, m_Width, m_Height, m_EndImageViews, m_PipelineCache, layouts);
 	}
 
 	void RenderManager::RenderFullScreenQuad()
@@ -296,38 +328,6 @@ namespace REON {
 	}
 
 	void RenderManager::GenerateAdditionalShadows() {
-		if (m_PointLights.size() == 0)
-			Initialize();
-		for (int i = 0; i < m_PointLights.size(); ++i) {
-			std::shared_ptr<Light> light = m_PointLights[i];
-			glm::vec3 lightPos = light->GetOwner()->GetTransform()->localPosition;
-			float near_plane = 1.0f;
-			float far_plane = 100.0f;
-			glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), (float)ADDITIONAL_SHADOW_WIDTH / (float)ADDITIONAL_SHADOW_HEIGHT, near_plane, far_plane);
-			std::vector<glm::mat4> shadowTransforms;
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-			shadowTransforms.push_back(shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
-			glViewport(0, 0, ADDITIONAL_SHADOW_WIDTH, ADDITIONAL_SHADOW_HEIGHT);
-			glBindFramebuffer(GL_FRAMEBUFFER, m_AdditionalDepthFBOs[i]);
-			glClear(GL_DEPTH_BUFFER_BIT);
-			glDisable(GL_CULL_FACE);
-			m_AdditionalShadowShader->use();
-			for (unsigned int j = 0; j < 6; ++j)
-				//m_AdditionalShadowShader->setMat4("shadowMatrices[" + std::to_string(j) + "]", shadowTransforms[j]);
-			//m_AdditionalShadowShader->setFloat("far_plane", far_plane);
-			//m_AdditionalShadowShader->setVec3("lightPos", lightPos);
-				for (const auto& renderer : m_Renderers) {
-					renderer->Draw(glm::mat4(), glm::mat4(), -1, -1, -1, -1, std::vector<int>(), 0, m_AdditionalShadowShader);
-				}
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			glEnable(GL_CULL_FACE);
-			glViewport(0, 0, m_Width, m_Height);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		}
 	}
 
 	void RenderManager::Initialize() {
@@ -368,10 +368,10 @@ namespace REON {
 		return lights;
 	}
 
-	void RenderManager::setGlobalData()
+	void RenderManager::setGlobalData(std::shared_ptr<Camera> camera)
 	{
-		const auto& viewMat = m_Camera->GetViewMatrix();
-		const auto& projMat = m_Camera->GetProjectionMatrix();
+		const auto& viewMat = camera->GetViewMatrix();
+		const auto& projMat = camera->GetProjectionMatrix();
 
 		GlobalRenderData data{};
 		auto lightData = GetLightingBuffer();
@@ -389,9 +389,9 @@ namespace REON {
 		}
 		data.lightCount = glm::min(static_cast<int>(lightData.size()), REON_MAX_LIGHTS);
 
-		memcpy(m_GlobalDataBuffersMapped[m_Context->getCurrentImageIndex()], &data, sizeof(data));
+		memcpy(m_FrameData[m_Context->getCurrentFrame()].cameraData[camera].globalBufferMapped, &data, sizeof(data));
 
-		memcpy(m_LightDataBuffersMapped[m_Context->getCurrentImageIndex()], lights.data(), lights.size() * sizeof(LightData));
+		memcpy(m_FrameData[m_Context->getCurrentFrame()].lightDataBufferMapped, lights.data(), lights.size() * sizeof(LightData));
 	}
 
 	void RenderManager::prepareDrawCommands(int currentFrame)
@@ -400,7 +400,7 @@ namespace REON {
 		for (auto& renderer : m_Renderers) {
 			if (renderer->drawCommandsDirty)
 				renderer->RebuildDrawCommands();
-			
+
 			for (DrawCommand& cmd : renderer->drawCommands) {
 				auto shaderID = cmd.shader->GetID();
 				auto materialID = cmd.material->GetID();
@@ -432,7 +432,7 @@ namespace REON {
 	void RenderManager::createDummyResources()
 	{
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load("Assets/Textures/1x1White.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load("Assets/Textures/1x1White.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		REON_CORE_ASSERT(pixels, "Failed to load texture image");
@@ -490,7 +490,7 @@ namespace REON {
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create texture sampler");
 	}
 
-	void RenderManager::createEndBufferSet()
+	void RenderManager::createEndBufferSet(std::shared_ptr<Camera> camera)
 	{
 		VkDescriptorSetLayoutBinding endLayoutBinding{};
 		endLayoutBinding.binding = 0;
@@ -514,9 +514,8 @@ namespace REON {
 		endAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->getAmountOfSwapChainImages());
 		endAllocInfo.pSetLayouts = endLayouts.data();
 
-		m_EndDescriptorSets.resize(m_Context->getAmountOfSwapChainImages());
-
-		res = vkAllocateDescriptorSets(m_Context->getDevice(), &endAllocInfo, m_EndDescriptorSets.data());
+		std::vector<VkDescriptorSet> allSets(endLayouts.size());
+		res = vkAllocateDescriptorSets(m_Context->getDevice(), &endAllocInfo, allSets.data());
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate descriptor sets");
 
 		VkSamplerCreateInfo samplerInfo{};
@@ -544,17 +543,19 @@ namespace REON {
 
 		res = vkCreateSampler(m_Context->getDevice(), &samplerInfo, nullptr, &m_EndSampler);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create texture sampler");
-		
+
 
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
+			m_SwapChainResourcesByCamera[camera][i].endDescriptorSet = allSets[i];
+
 			VkDescriptorImageInfo endImageInfo{};
 			endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			endImageInfo.imageView = m_EndImageViews[i];
+			endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImageView;
 			endImageInfo.sampler = m_EndSampler;
 
 			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = m_EndDescriptorSets[i];
+			descriptorWrites[0].dstSet = m_SwapChainResourcesByCamera[camera][i].endDescriptorSet;
 			descriptorWrites[0].dstBinding = 0;
 			descriptorWrites[0].dstArrayElement = 0;
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -563,6 +564,28 @@ namespace REON {
 
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
+	}
+
+	void RenderManager::createCameraResources(std::shared_ptr<Camera> camera)
+	{
+		createOpaqueCommandBuffers(camera);
+		createGlobalBuffers(camera);
+		createOpaqueImages(camera);
+		createEndImages(camera);
+		createOpaqueFrameBuffers(camera);
+		createEndBufferSet(camera);
+		createOpaqueGlobalDescriptorSets(camera);
+
+		std::vector<VkImageView> endImageViews;
+		std::vector<VkImageView> depthImageViews;
+		std::vector<VkImageView> opaqueImageViews;
+		for (int i = 0; i < m_Context->getAmountOfSwapChainImages(); ++i) {
+			endImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
+			depthImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveView);
+			opaqueImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
+		}
+
+		m_TransparentPass.init(m_Context, camera, endImageViews, depthImageViews, opaqueImageViews);
 	}
 
 	void RenderManager::createOpaqueCommandPool()
@@ -578,55 +601,55 @@ namespace REON {
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create command pool");
 	}
 
-	void RenderManager::createOpaqueCommandBuffers()
+	void RenderManager::createOpaqueCommandBuffers(std::shared_ptr<Camera> camera)
 	{
-		m_OpaqueCommandBuffers.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
-
 		VkCommandBufferAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		allocInfo.commandPool = m_OpaqueCommandPool;
 		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandBufferCount = static_cast<uint32_t>(m_OpaqueCommandBuffers.size());
+		allocInfo.commandBufferCount = static_cast<uint32_t>(m_Context->MAX_FRAMES_IN_FLIGHT);
 
-		VkResult res = vkAllocateCommandBuffers(m_Context->getDevice(), &allocInfo, m_OpaqueCommandBuffers.data());
+		std::vector<VkCommandBuffer> commandBuffers(m_Context->MAX_FRAMES_IN_FLIGHT);
+
+		VkResult res = vkAllocateCommandBuffers(m_Context->getDevice(), &allocInfo, commandBuffers.data());
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
+
+		for(int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+			m_FrameData[i].cameraData[camera].commandBuffer = commandBuffers[i];
+		}
 	}
 
-	void RenderManager::createOpaqueImages()
+	void RenderManager::createOpaqueImages(std::shared_ptr<Camera> camera)
 	{
-		m_Context->createImage(m_Width, m_Height, 1, m_Context->getSampleCount(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_ColorImage, m_ColorImageAllocation);
-		m_ColorImageView = m_Context->createImageView(m_ColorImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
-		m_Context->createImage(m_Width, m_Height, 1, m_Context->getSampleCount(), m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_DepthImage, m_DepthImageAllocation);
-		m_DepthImageView = m_Context->createImageView(m_DepthImage, m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
-
 		size_t swapChainImageCount = m_Context->getAmountOfSwapChainImages();
 
-		m_OpaqueResolveImages.resize(swapChainImageCount);
-		m_OpaqueResolveImageViews.resize(swapChainImageCount);
-		m_OpaqueResolveImageAllocations.resize(swapChainImageCount);
+		m_SwapChainResourcesByCamera[camera].resize(swapChainImageCount);
 
 		for (int i = 0; i < swapChainImageCount; i++) {
-			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_OpaqueResolveImages[i], m_OpaqueResolveImageAllocations[i]);
-			m_OpaqueResolveImageViews[i] = m_Context->createImageView(m_OpaqueResolveImages[i], VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+			auto& camResources = m_SwapChainResourcesByCamera[camera][i];
+
+			m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, m_Context->getSampleCount(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, camResources.msaaColorImage, camResources.msaaColorAllocation);
+			camResources.msaaColorView = m_Context->createImageView(camResources.msaaColorImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+			m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, m_Context->getSampleCount(), m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, camResources.msaaDepthImage, camResources.msaaDepthAllocation);
+			camResources.msaaDepthView = m_Context->createImageView(camResources.msaaDepthImage, m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+
+			m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, camResources.colorResolveImage, camResources.colorResolveImageAllocation);
+			camResources.colorResolveImageView = m_Context->createImageView(camResources.colorResolveImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+
+			m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT, m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, camResources.depthResolveImage, camResources.depthResolveAllocation);
+			camResources.depthResolveView = m_Context->createImageView(camResources.depthResolveImage, m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 		}
+	}
 
-		m_EndImages.resize(swapChainImageCount);
-		m_EndImageViews.resize(swapChainImageCount);
-		m_EndImageAllocations.resize(swapChainImageCount);
+	void RenderManager::createEndImages(std::shared_ptr<Camera> camera) {
+		auto swapChainImageCount = m_Context->getAmountOfSwapChainImages();
 
-		for (int i = 0; i < swapChainImageCount; i++) {
-			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_EndImages[i], m_EndImageAllocations[i]);
-			m_EndImageViews[i] = m_Context->createImageView(m_EndImages[i], VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-		}
-
-		m_DepthResolveImages.resize(swapChainImageCount);
-		m_DepthResolveViews.resize(swapChainImageCount);
-		m_DepthResolveAllocations.resize(swapChainImageCount);
+		m_SwapChainResourcesByCamera[camera].resize(swapChainImageCount);
 
 		for (int i = 0; i < swapChainImageCount; i++) {
-			m_Context->createImage(m_Width, m_Height, 1, VK_SAMPLE_COUNT_1_BIT, m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_DepthResolveImages[i], m_DepthResolveAllocations[i]);
-			m_DepthResolveViews[i] = m_Context->createImageView(m_DepthResolveImages[i], m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+			m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_SwapChainResourcesByCamera[camera][i].endImage, m_SwapChainResourcesByCamera[camera][i].endImageAllocation);
+			m_SwapChainResourcesByCamera[camera][i].endImageView = m_Context->createImageView(m_SwapChainResourcesByCamera[camera][i].endImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 		}
 	}
 
@@ -673,7 +696,7 @@ namespace REON {
 		depthAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		depthAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 		depthAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		depthAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		depthAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depthAttachmentResolve.sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
 
 		VkAttachmentReference2 colorAttachmentRef{};
@@ -693,7 +716,7 @@ namespace REON {
 
 		VkAttachmentReference2 depthAttachmentResolveRef{};
 		depthAttachmentResolveRef.attachment = 3;
-		depthAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL;
+		depthAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		depthAttachmentResolveRef.sType = VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2;
 
 		VkSubpassDependency2 dependency{};
@@ -719,7 +742,7 @@ namespace REON {
 		subpass.pResolveAttachments = &colorAttachmentResolveRef;
 		subpass.pNext = &depthResolve;
 		subpass.sType = VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_2;
-	
+
 
 		std::array<VkAttachmentDescription2, 4> attachments = { colorAttachment, depthAttachment, colorAttachmentResolve, depthAttachmentResolve };
 		VkRenderPassCreateInfo2 renderPassInfo{};
@@ -735,16 +758,16 @@ namespace REON {
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create render pass")
 	}
 
-	void RenderManager::createOpaqueFrameBuffers()
+	void RenderManager::createOpaqueFrameBuffers(std::shared_ptr<Camera> camera)
 	{
-		m_OpaqueFramebuffers.resize(m_Context->getSwapChainImageViews().size());
+		m_SwapChainResourcesByCamera[camera].resize(m_Context->getAmountOfSwapChainImages());
 
 		for (size_t i = 0; i < m_Context->getSwapChainImageViews().size(); i++) {
 			std::array<VkImageView, 4> attachments = {
-				m_ColorImageView,
-				m_DepthImageView,
-				m_OpaqueResolveImageViews[i],
-				m_DepthResolveViews[i]
+				m_SwapChainResourcesByCamera[camera][i].msaaColorView,
+				m_SwapChainResourcesByCamera[camera][i].msaaDepthView,
+				m_SwapChainResourcesByCamera[camera][i].colorResolveImageView,
+				m_SwapChainResourcesByCamera[camera][i].depthResolveView
 			};
 
 			VkFramebufferCreateInfo framebufferInfo{};
@@ -752,11 +775,11 @@ namespace REON {
 			framebufferInfo.renderPass = m_OpaqueRenderPass;
 			framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
 			framebufferInfo.pAttachments = attachments.data();
-			framebufferInfo.width = m_Width;
-			framebufferInfo.height = m_Height;
+			framebufferInfo.width = camera->viewportSize.x;
+			framebufferInfo.height = camera->viewportSize.y;
 			framebufferInfo.layers = 1;
 
-			VkResult res = vkCreateFramebuffer(m_Context->getDevice(), &framebufferInfo, nullptr, &m_OpaqueFramebuffers[i]);
+			VkResult res = vkCreateFramebuffer(m_Context->getDevice(), &framebufferInfo, nullptr, &m_SwapChainResourcesByCamera[camera][i].framebuffer);
 			REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create framebuffer");
 		}
 	}
@@ -868,28 +891,30 @@ namespace REON {
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create descriptor set layout");
 	}
 
-	void RenderManager::createOpaqueGlobalDescriptorSets()
+	void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> camera)
 	{
-		m_GlobalDescriptorSets.resize(m_Context->getAmountOfSwapChainImages());
-
-		std::vector<VkDescriptorSetLayout> globalLayouts(m_Context->getAmountOfSwapChainImages(), m_OpaqueGlobalDescriptorSetLayout);
+		std::vector<VkDescriptorSetLayout> globalLayouts(m_Context->MAX_FRAMES_IN_FLIGHT, m_OpaqueGlobalDescriptorSetLayout);
 		VkDescriptorSetAllocateInfo globalAllocInfo{};
 		globalAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		globalAllocInfo.descriptorPool = m_Context->getDescriptorPool();
-		globalAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->getAmountOfSwapChainImages());
+		globalAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->MAX_FRAMES_IN_FLIGHT);
 		globalAllocInfo.pSetLayouts = globalLayouts.data();
 
-		VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &globalAllocInfo, m_GlobalDescriptorSets.data());
+		std::vector<VkDescriptorSet> allSets(globalLayouts.size());
+
+		VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &globalAllocInfo, allSets.data());
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate descriptor sets");
 
-		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
+		for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+			m_FrameData[i].cameraData[camera].globalDescriptorSet = allSets[i];
+
 			VkDescriptorBufferInfo globalBufferInfo{};
-			globalBufferInfo.buffer = m_GlobalDataBuffers[i];
+			globalBufferInfo.buffer = m_FrameData[i].cameraData[camera].globalBuffer;
 			globalBufferInfo.offset = 0;
 			globalBufferInfo.range = sizeof(GlobalRenderData);
 
 			VkDescriptorBufferInfo lightBufferInfo{};
-			lightBufferInfo.buffer = m_LightDataBuffers[i];
+			lightBufferInfo.buffer = m_FrameData[i].lightDataBuffer;
 			lightBufferInfo.offset = 0;
 			lightBufferInfo.range = sizeof(LightData) * REON_MAX_LIGHTS;
 
@@ -900,7 +925,7 @@ namespace REON {
 
 			std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = m_GlobalDescriptorSets[i];
+			descriptorWrites[0].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
 			descriptorWrites[0].dstBinding = 0;
 			descriptorWrites[0].dstArrayElement = 0;
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -908,7 +933,7 @@ namespace REON {
 			descriptorWrites[0].pBufferInfo = &globalBufferInfo;
 
 			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[1].dstSet = m_GlobalDescriptorSets[i];
+			descriptorWrites[1].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
 			descriptorWrites[1].dstBinding = 1;
 			descriptorWrites[1].dstArrayElement = 0;
 			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -916,7 +941,7 @@ namespace REON {
 			descriptorWrites[1].pBufferInfo = &lightBufferInfo;
 
 			descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[2].dstSet = m_GlobalDescriptorSets[i];
+			descriptorWrites[2].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
 			descriptorWrites[2].dstBinding = 2;
 			descriptorWrites[2].dstArrayElement = 0;
 			descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -927,25 +952,17 @@ namespace REON {
 		}
 	}
 
-	void RenderManager::createGlobalBuffers()
+	void RenderManager::createGlobalBuffers(std::shared_ptr<Camera> camera)
 	{
 		VkDeviceSize bufferSize = sizeof(GlobalRenderData);
 
-		m_GlobalDataBuffers.resize(m_Context->getAmountOfSwapChainImages());
-		m_GlobalDataBufferAllocations.resize(m_Context->getAmountOfSwapChainImages());
-		m_GlobalDataBuffersMapped.resize(m_Context->getAmountOfSwapChainImages());
-
-		m_LightDataBuffers.resize(m_Context->getAmountOfSwapChainImages());
-		m_LightDataBufferAllocations.resize(m_Context->getAmountOfSwapChainImages());
-		m_LightDataBuffersMapped.resize(m_Context->getAmountOfSwapChainImages());
-
-		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
+		for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
 			// TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
-			m_Context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_GlobalDataBuffers[i], m_GlobalDataBufferAllocations[i]);
-			vmaMapMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i], &m_GlobalDataBuffersMapped[i]);
+			m_Context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_FrameData[i].cameraData[camera].globalBuffer, m_FrameData[i].cameraData[camera].globalBufferAllocation);
+			vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].cameraData[camera].globalBufferAllocation, &m_FrameData[i].cameraData[camera].globalBufferMapped);
 
-			m_Context->createBuffer(sizeof(LightData) * REON_MAX_LIGHTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_LightDataBuffers[i], m_LightDataBufferAllocations[i]);
-			vmaMapMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i], &m_LightDataBuffersMapped[i]);
+			m_Context->createBuffer(sizeof(LightData) * REON_MAX_LIGHTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_FrameData[i].lightDataBuffer, m_FrameData[i].lightDataBufferAllocation);
+			vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation, &m_FrameData[i].lightDataBufferMapped);
 		}
 	}
 
@@ -1254,13 +1271,13 @@ namespace REON {
 		res = vkCreateGraphicsPipelines(m_Context->getDevice(), m_PipelineCache, 1, &pipelineInfo, nullptr, &m_OpaqueGraphicsPipeline);
 		REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create graphics pipeline")
 
-		vkDestroyShaderModule(m_Context->getDevice(), fragShaderModule, nullptr);
+			vkDestroyShaderModule(m_Context->getDevice(), fragShaderModule, nullptr);
 		vkDestroyShaderModule(m_Context->getDevice(), vertShaderModule, nullptr);
 
 		m_PipelineByMaterialPermutation.insert({ mostUsedFlags, m_OpaqueGraphicsPipeline });
 
 		for (auto permutation : prebakePermutations) {
-			m_PipelineByMaterialPermutation.insert({ permutation, createGraphicsPipeline(m_OpaqueGraphicsPipeline, permutation)});
+			m_PipelineByMaterialPermutation.insert({ permutation, createGraphicsPipeline(m_OpaqueGraphicsPipeline, permutation) });
 		}
 	}
 
@@ -1395,7 +1412,7 @@ namespace REON {
 		dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
 		dynamicState.pDynamicStates = dynamicStates.data();
 
-			VkGraphicsPipelineCreateInfo pipelineInfo{};
+		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
 		pipelineInfo.pStages = shaderStages;
@@ -1439,19 +1456,21 @@ namespace REON {
 		m_TransparentPass.hotReloadShaders(m_Context);
 	}
 
-	VkDescriptorSet RenderManager::GetEndBuffer()
+	VkDescriptorSet RenderManager::GetEndBuffer(std::shared_ptr<Camera> camera)
 	{
 		if (resized || m_DrawCommandsByShaderMaterial.empty()) {
 			return nullptr;
 		}
-		return m_EndDescriptorSets[m_Context->getCurrentImageIndex()];
+		return m_SwapChainResourcesByCamera[camera][m_Context->getCurrentImageIndex()].endDescriptorSet;
 	}
 
 	void RenderManager::cleanup()
 	{
 		//vkDeviceWaitIdle(m_Context->getDevice());
 
-		deleteForResize();
+		for (auto [key, _] : m_SwapChainResourcesByCamera) {
+			deleteForResize(key);
+		}
 
 		for (auto& renderer : m_Renderers) {
 			renderer->cleanup();
@@ -1467,15 +1486,17 @@ namespace REON {
 		vkDestroySampler(m_Context->getDevice(), m_DummySampler, nullptr);
 
 		//vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_GlobalDescriptorSets.size(), m_GlobalDescriptorSets.data());
+		for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++) {
+			vkDestroyBuffer(m_Context->getDevice(), m_FrameData[i].lightDataBuffer, nullptr);
+			vmaUnmapMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation);
+			vmaFreeMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation);
 
-		for (int i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
-			vkDestroyBuffer(m_Context->getDevice(), m_GlobalDataBuffers[i], nullptr);
-			vmaUnmapMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i]);
-			vmaFreeMemory(m_Context->getAllocator(), m_GlobalDataBufferAllocations[i]);
+			for (auto [key, resources] : m_FrameData[i].cameraData) {
+				vkDestroyBuffer(m_Context->getDevice(), resources.globalBuffer, nullptr);
+				vmaUnmapMemory(m_Context->getAllocator(), resources.globalBufferAllocation);
+				vmaFreeMemory(m_Context->getAllocator(), resources.globalBufferAllocation);
+			}
 
-			vkDestroyBuffer(m_Context->getDevice(), m_LightDataBuffers[i], nullptr);
-			vmaUnmapMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i]);
-			vmaFreeMemory(m_Context->getAllocator(), m_LightDataBufferAllocations[i]);
 		}
 
 		vkDestroySampler(m_Context->getDevice(), m_EndSampler, nullptr);
@@ -1498,79 +1519,92 @@ namespace REON {
 		m_DirectionalShadowPass.createPerLightDescriptorSets(m_Context);
 	}
 
-	void RenderManager::deleteForResize()
+	void RenderManager::deleteForResize(std::shared_ptr<Camera> camera)
 	{
-		vkDestroyImage(m_Context->getDevice(), m_ColorImage, nullptr);
-		vmaFreeMemory(m_Context->getAllocator(), m_ColorImageAllocation);
-		vkDestroyImageView(m_Context->getDevice(), m_ColorImageView, nullptr);
-
-		vkDestroyImage(m_Context->getDevice(), m_DepthImage, nullptr);
-		vmaFreeMemory(m_Context->getAllocator(), m_DepthImageAllocation);
-		vkDestroyImageView(m_Context->getDevice(), m_DepthImageView, nullptr);
-
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
-			vkDestroyImage(m_Context->getDevice(), m_OpaqueResolveImages[i], nullptr);
-			vmaFreeMemory(m_Context->getAllocator(), m_OpaqueResolveImageAllocations[i]);
-			vkDestroyImageView(m_Context->getDevice(), m_OpaqueResolveImageViews[i], nullptr);
+			auto& resource = m_SwapChainResourcesByCamera[camera][i];
+			vkDestroyImage(m_Context->getDevice(), resource.msaaColorImage, nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), resource.msaaColorAllocation);
+			vkDestroyImageView(m_Context->getDevice(), resource.msaaColorView, nullptr);
 
-			vkDestroyImage(m_Context->getDevice(), m_EndImages[i], nullptr);
-			vmaFreeMemory(m_Context->getAllocator(), m_EndImageAllocations[i]);
-			vkDestroyImageView(m_Context->getDevice(), m_EndImageViews[i], nullptr);
+			vkDestroyImage(m_Context->getDevice(), resource.msaaDepthImage, nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), resource.msaaDepthAllocation);
+			vkDestroyImageView(m_Context->getDevice(), resource.msaaDepthView, nullptr);
 
-			vkDestroyImage(m_Context->getDevice(), m_DepthResolveImages[i], nullptr);
-			vmaFreeMemory(m_Context->getAllocator(), m_DepthResolveAllocations[i]);
-			vkDestroyImageView(m_Context->getDevice(), m_DepthResolveViews[i], nullptr);
+			vkDestroyImage(m_Context->getDevice(), resource.colorResolveImage, nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), resource.colorResolveImageAllocation);
+			vkDestroyImageView(m_Context->getDevice(), resource.colorResolveImageView, nullptr);
+
+			vkDestroyImage(m_Context->getDevice(), resource.endImage, nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), resource.endImageAllocation);
+			vkDestroyImageView(m_Context->getDevice(), resource.endImageView, nullptr);
+
+			vkDestroyImage(m_Context->getDevice(), resource.depthResolveImage, nullptr);
+			vmaFreeMemory(m_Context->getAllocator(), resource.depthResolveAllocation);
+			vkDestroyImageView(m_Context->getDevice(), resource.depthResolveView, nullptr);
 		}
 
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
-			vkDestroyFramebuffer(m_Context->getDevice(), m_OpaqueFramebuffers[i], nullptr);
+			vkDestroyFramebuffer(m_Context->getDevice(), m_SwapChainResourcesByCamera[camera][i].framebuffer, nullptr);
 		}
-
 	}
 
-	void RenderManager::SetRenderDimensions(int width, int height)
+	void RenderManager::SetRenderDimensions(std::shared_ptr<Camera> camera, int width, int height)
 	{
+		if (width <= 0 || height <= 0)
+			return;
 		resized = true;
 
-		m_Width = width;
-		m_Height = height;
+		camera->viewportSize = { width, height };
 
 		vkDeviceWaitIdle(m_Context->getDevice());
 
-		deleteForResize();
+		deleteForResize(camera);
 
-		createOpaqueImages();
-		createOpaqueFrameBuffers();
+		createOpaqueImages(camera);
+		createOpaqueFrameBuffers(camera);
+		createEndImages(camera);
+
+		std::vector<VkImageView> endImageViewsByCamera;
+		std::vector<VkImageView> opaqueResolveImageViews;
+		std::vector<VkImageView> depthResolveViews;
+		endImageViewsByCamera.resize(m_Context->getAmountOfSwapChainImages());
 		for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++) {
 			VkDescriptorImageInfo endImageInfo{};
 			endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			endImageInfo.imageView = m_EndImageViews[i];
+			endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImageView;
 			endImageInfo.sampler = m_EndSampler;
 
 			std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
 			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrites[0].dstSet = m_EndDescriptorSets[i];
+			descriptorWrites[0].dstSet = m_SwapChainResourcesByCamera[camera][i].endDescriptorSet;
 			descriptorWrites[0].dstBinding = 0;
 			descriptorWrites[0].dstArrayElement = 0;
 			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 			descriptorWrites[0].descriptorCount = 1;
 			descriptorWrites[0].pImageInfo = &endImageInfo;
 
+			endImageViewsByCamera[i] = m_SwapChainResourcesByCamera[camera][i].endImageView;
+			opaqueResolveImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
+			depthResolveViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveView);
+
 			vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 		}
 
-		m_TransparentPass.resize(m_Context, width, height, m_EndImageViews, m_OpaqueResolveImageViews, m_DepthResolveViews);
-		m_UnlitPass.resize(m_Context, width, height, m_EndImageViews);
+
+
+		m_TransparentPass.resize(m_Context, camera, endImageViewsByCamera, opaqueResolveImageViews, depthResolveViews);
+		//m_UnlitPass.resize(m_Context, width, height, endImageViewsByCamera);
 	}
 
 	int RenderManager::GetRenderWidth()
 	{
-		return m_Width;
+		return m_Camera->viewportSize.x;
 	}
 
 	int RenderManager::GetRenderHeight()
 	{
-		return m_Height;
+		return m_Camera->viewportSize.y;
 	}
 
 }

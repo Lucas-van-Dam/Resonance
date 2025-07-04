@@ -535,10 +535,10 @@ namespace REON::EDITOR {
 
 			switch (sampler.magFilter) {
 			case TINYGLTF_TEXTURE_FILTER_NEAREST:
-				header.magFilter = VK_FILTER_NEAREST;
+				header.samplerData.magFilter = VK_FILTER_NEAREST;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_LINEAR:
-				header.magFilter = VK_FILTER_LINEAR;
+				header.samplerData.magFilter = VK_FILTER_LINEAR;
 				break;
 			default:
 				REON_WARN("Unknown magfilter on texture {}", sampler.magFilter);
@@ -546,22 +546,22 @@ namespace REON::EDITOR {
 			}
 			switch (sampler.minFilter) {
 			case TINYGLTF_TEXTURE_FILTER_NEAREST:
-				header.minFilter = VK_FILTER_NEAREST;
+				header.samplerData.minFilter = VK_FILTER_NEAREST;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_LINEAR:
-				header.minFilter = VK_FILTER_LINEAR;
+				header.samplerData.minFilter = VK_FILTER_LINEAR;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
-				header.minFilter = VK_FILTER_NEAREST;
+				header.samplerData.minFilter = VK_FILTER_NEAREST;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
-				header.minFilter = VK_FILTER_NEAREST;
+				header.samplerData.minFilter = VK_FILTER_NEAREST;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-				header.minFilter = VK_FILTER_LINEAR;
+				header.samplerData.minFilter = VK_FILTER_LINEAR;
 				break;
 			case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-				header.minFilter = VK_FILTER_LINEAR;
+				header.samplerData.minFilter = VK_FILTER_LINEAR;
 				break;
 			default:
 				REON_WARN("Unknown minFilter on texture {}", sampler.minFilter);
@@ -569,13 +569,13 @@ namespace REON::EDITOR {
 			}
 			switch (sampler.wrapS) {
 			case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
-				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+				header.samplerData.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 				break;
 			case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
-				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+				header.samplerData.addressModeU = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 				break;
 			case TINYGLTF_TEXTURE_WRAP_REPEAT:
-				header.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+				header.samplerData.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 				break;
 			default:
 				REON_WARN("Unknown wrap U on texture {}", sampler.wrapS);
@@ -583,13 +583,13 @@ namespace REON::EDITOR {
 			}
 			switch (sampler.wrapT) {
 			case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
-				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+				header.samplerData.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 				break;
 			case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
-				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+				header.samplerData.addressModeV = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
 				break;
 			case TINYGLTF_TEXTURE_WRAP_REPEAT:
-				header.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+				header.samplerData.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 				break;
 			default:
 				REON_WARN("Unknown wrap V on texture {}", sampler.wrapT);

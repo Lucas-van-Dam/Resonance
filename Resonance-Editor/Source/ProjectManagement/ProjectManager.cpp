@@ -20,6 +20,11 @@ namespace REON::EDITOR {
 			return "(" + std::to_string(vec.x) + ", " + std::to_string(vec.y) + ", " + std::to_string(vec.z) + ")";
 			};
 
+		serializers["glm::uvec2"] = [](const void* data) {
+			const auto& vec = *static_cast<const glm::uvec2*>(data);
+			return "(" + std::to_string(vec.x) + ", " + std::to_string(vec.y) + ")";
+			};
+
 		serializers["Quaternion"] = [](const void* data) {
 			const auto& quat = *static_cast<const Quaternion*>(data);
 			return "(" + std::to_string(quat.x) + ", " + std::to_string(quat.y) + ", " + std::to_string(quat.z) + ", " + std::to_string(quat.w) + ")";
@@ -63,7 +68,35 @@ namespace REON::EDITOR {
 			result.y = std::stof(inner.substr(pos1 + 1, pos2 - pos1 - 1));
 			result.z = std::stof(inner.substr(pos2 + 1));
 
-			return result; 
+			return result;
+			});
+
+		RegisterDeserializer<glm::uvec2>("glm::uvec2", [](const std::string& str) {
+			glm::uvec2 result;
+
+			// Find the positions of the first and last parentheses
+			size_t first = str.find('(');
+			size_t last = str.find(')');
+
+			if (first == std::string::npos || last == std::string::npos || first >= last) {
+				throw std::runtime_error("Invalid glm::uvec2 format: " + str);
+			}
+
+			// Extract the inner string between the parentheses
+			std::string inner = str.substr(first + 1, last - first - 1);
+
+			// Split the inner string by commas
+			size_t pos1 = inner.find(',');
+
+			if (pos1 == std::string::npos) {
+				throw std::runtime_error("Invalid glm::uvec2 format: " + str);
+			}
+
+			// Extract x, y substrings and convert to floats
+			result.x = std::stof(inner.substr(0, pos1));
+			result.y = std::stof(inner.substr(pos1 + 1));
+
+			return result;
 			});
 
 		RegisterDeserializer<Quaternion>("Quaternion", [](const std::string& str) {
@@ -272,7 +305,7 @@ namespace REON::EDITOR {
 			file >> j;
 			file.close();
 		}
-		
+
 		scene->SetName(j["SceneName"]);
 		for (const auto& object : j["RootObjects"]) {
 			nlohmann::json objectJson;
@@ -294,6 +327,112 @@ namespace REON::EDITOR {
 		scene->selectedObject = nullptr;
 	}
 
+	bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
+	{
+		auto projectSettings = SettingsManager::GetInstance().GetProjectSettings();
+		//Create build directory
+		std::filesystem::path buildPath = buildDirectory / projectSettings.projectName; // Replace with project name later
+
+		if (!std::filesystem::exists(buildPath)) {
+			std::filesystem::create_directories(buildPath);
+			std::filesystem::create_directory(buildPath / "Assets");
+		}
+
+		//copy assets to build directory now
+		std::unordered_set<std::string> usedAssets = getUsedAssetsFromScene(SceneManager::Get()->GetCurrentScene());
+
+		for (const auto& asset : usedAssets) {
+			std::filesystem::path sourcePath(asset);
+			std::filesystem::path newPath = buildPath / "Assets" / sourcePath.filename();
+			
+			try {
+				std::filesystem::create_directories(newPath.parent_path());
+				std::filesystem::copy_file(m_CurrentProjectPath / sourcePath, newPath, std::filesystem::copy_options::overwrite_existing);
+				if (std::filesystem::exists((m_CurrentProjectPath / sourcePath).string() + ".meta")) {
+					std::filesystem::copy_file((m_CurrentProjectPath / sourcePath).string() + ".meta",
+						newPath.string() + ".meta",
+						std::filesystem::copy_options::overwrite_existing);
+				}
+			}
+			catch (const std::filesystem::filesystem_error& e) {
+				std::cerr << "Failed to copy: " << sourcePath << " -> " << newPath << "\n"
+					<< "Reason: " << e.what() << "\n";
+			}
+		}
+
+		//copy scenes to build directory
+
+		if(!std::filesystem::exists(buildPath / "Assets/Scenes")) {
+			std::filesystem::create_directories(buildPath / "Assets/Scenes");
+		}
+		std::filesystem::copy_file(m_CurrentProjectPath + "/Assets/Scenes/Scene1.scene",
+			buildPath / "Assets/Scenes/Scene1.scene",
+			std::filesystem::copy_options::overwrite_existing);
+
+		//copy executable to build directory
+
+
+		//create runtime configuration file
+		std::ofstream runtimeConfig(buildPath / "runtime_config.json");
+		if (runtimeConfig.is_open()) {
+			nlohmann::json configJson;
+			configJson["projectName"] = projectSettings.projectName;
+			configJson["startScene"] = "Assets/Scenes/Scene1.scene";
+			configJson["WindowProperties"] = {
+				{"width", 1200}, // Example width
+				{"height", 800}, // Example height
+				{"title", projectSettings.projectName},
+				{"fullscreen", false},
+				{"vsync", false},
+				{"resizable", true}
+			};
+
+			configJson["AssetsPath"] = "Assets";
+			configJson["ShaderPath"] = "Assets/Shaders";
+
+			runtimeConfig << configJson.dump(4);
+			runtimeConfig.close();
+		}
+		else {
+			REON_ERROR("Failed to create runtime configuration file in build directory");
+			return false;
+		}
+
+		REON_ERROR("BuildProject is not implemented yet");
+
+		return false;
+	}
+
+	std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std::shared_ptr<Scene>& scene)
+	{
+		AssetRegistry& assetRegistry = AssetRegistry::Instance();
+		std::unordered_set<std::string> usedAssets;
+
+		for (auto gameObject : scene->GetRootObjects()) {
+			for (auto& component : gameObject->GetComponents()) {
+				if (auto renderer = std::dynamic_pointer_cast<Renderer>(component)) {
+					if (auto assetInfo = AssetRegistry::Instance().GetAssetById(renderer->mesh.Get<Mesh>()->GetID())) {
+						usedAssets.insert(assetInfo->path.string());
+					}
+
+					for (auto material : renderer->materials) {
+						auto materialResource = material.Get<Material>();
+						if (auto assetInfo = AssetRegistry::Instance().GetAssetById(materialResource->GetID())) {
+							usedAssets.insert(assetInfo->path.string());
+						}
+						usedAssets.insert(materialResource->albedoTexture.Get<Texture>()->GetPath());
+						usedAssets.insert(materialResource->normalTexture.Get<Texture>()->GetPath());
+						usedAssets.insert(materialResource->metallicRoughnessTexture.Get<Texture>()->GetPath());
+						usedAssets.insert(materialResource->emissiveTexture.Get<Texture>()->GetPath());
+					}
+				}
+
+			}
+		}
+
+		return usedAssets;
+	}
+
 	void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<GameObject> object, const nlohmann::json& sceneJson)
 	{
 		object->SetName(objectJson["Name"]);
@@ -311,15 +450,42 @@ namespace REON::EDITOR {
 
 		if (objectJson.contains("Components")) {
 			for (const auto& componentJson : objectJson["Components"]) {
+
+				if(componentJson["Type"] == "Transform") {
+					// Transform is already handled above, skip it
+					continue;
+				}
+				else if(componentJson["Type"] == "Light") {
+					auto light = std::make_shared<Light>();
+					light->Deserialize(componentJson, GetCurrentProjectPath());
+					object->AddComponent(light);
+					continue;
+				}
+				else if(componentJson["Type"] == "Renderer") {
+					auto renderer = std::make_shared<Renderer>();
+					renderer->Deserialize(componentJson, GetCurrentProjectPath());
+					object->AddComponent(renderer);
+					continue;
+				}
+				else if(componentJson["Type"] == "Camera"){
+					auto camera = std::make_shared<Camera>();
+					camera->Deserialize(componentJson, GetCurrentProjectPath());
+					object->AddComponent(camera);
+					continue;
+				}
+				else {
+					//REON_CORE_WARN("Unsupported component type: {0}", componentJson["Type"]);
+					continue; // Skip unsupported component types
+				}
 				auto baseComponent = ReflectionRegistry::Instance().Create(componentJson["Name"]);
 				const ReflectionClass* componentStructure = ReflectionRegistry::Instance().GetClass(componentJson["Name"]);
 				for (auto it = componentJson.begin(); it != componentJson.end(); ++it) {
 					const std::string& key = it.key();
 					if (key == "Name") continue;
-					auto fieldIter = std::find_if(componentStructure->fields, componentStructure->fields + componentStructure->field_count,[&](const FieldInfo& field) {
+					auto fieldIter = std::find_if(componentStructure->fields, componentStructure->fields + componentStructure->field_count, [&](const FieldInfo& field) {
 						return field.name == key;
 						});
-					
+
 					if (fieldIter != componentStructure->fields + componentStructure->field_count) {
 						std::string stringType = std::string(fieldIter->type);
 						void* data;
@@ -339,6 +505,35 @@ namespace REON::EDITOR {
 								fieldIter->setter(baseComponent.get(), &handle);
 								auto checkHandle = fieldIter->getter(baseComponent.get());
 								std::cout << "Stored handle address: " << checkHandle << std::endl;
+							}
+						}
+						else if (stringType == "std::vector<ResourceHandle>") {
+							std::string value = it.value();
+							std::vector<ResourceHandle> handles;
+							if (value.front() == '[' && value.back() == ']') {
+								std::string inner = value.substr(1, value.size() - 2);
+								std::stringstream ss(inner);
+								std::string handleId;
+								while (std::getline(ss, handleId, ',')) {
+									handleId.erase(remove(handleId.begin(), handleId.end(), ' '), handleId.end());
+									std::shared_ptr<ResourceBase> resource;
+									if (!handleId.empty() && !(resource = ResourceManager::GetInstance().GetResource<ResourceBase>(it.value()))) {
+										auto assetInfo = AssetRegistry::Instance().GetAssetById(handleId);
+										if (assetInfo) {
+											resource = ResourceManager::GetInstance().GetResourceFromAsset(assetInfo, GetCurrentProjectPath());
+											ResourceManager::GetInstance().AddResource(resource);
+											ResourceHandle handle(std::move(resource));
+											handles.push_back(handle);
+										}
+									}
+								}
+							}
+							if (!handles.empty()) {
+								data = static_cast<void*>(&handles);
+								fieldIter->setter(baseComponent.get(), data);
+							}
+							else {
+								REON_ERROR("No valid ResourceHandles found in vector for field: {0}", fieldIter->name);
 							}
 						}
 						else {
@@ -398,6 +593,11 @@ namespace REON::EDITOR {
 
 		for (auto& component : object->GetComponents()) {
 			nlohmann::json jsonComponent;
+
+			jsonComponent = component->Serialize();
+			jsonObject["Components"].push_back(jsonComponent);
+			continue;
+
 			jsonComponent["Name"] = component->GetTypeName();
 			auto reflectionClass = ReflectionRegistry::Instance().GetClass(component->GetTypeName());
 			for (int i = 0; i < reflectionClass->field_count; i++) {
@@ -411,6 +611,7 @@ namespace REON::EDITOR {
 				jsonComponent[field.name] = SerializeField(field.type, fieldPtr);
 			}
 			jsonObject["Components"].push_back(jsonComponent);
+
 		}
 
 		jsonObject["Name"] = object->GetName();
@@ -432,6 +633,21 @@ namespace REON::EDITOR {
 				if (stringType == "ResourceHandle") {
 					auto sharedPtr = reinterpret_cast<const ResourceHandle*>(data);
 					return sharedPtr->Get<ResourceBase>()->GetID();
+				}
+				else if (stringType == "std::vector<ResourceHandle>") {
+					const auto& handles = *static_cast<const std::vector<ResourceHandle>*>(data);
+					std::string result = "[";
+					for (const auto& handle : handles) {
+						if (handle.Get<ResourceBase>()) {
+							result += handle.Get<ResourceBase>()->GetID() + ", ";
+						}
+					}
+					if (result.size() > 1) {
+						result.pop_back(); // Remove last comma
+						result.pop_back(); // Remove last space
+					}
+					result += "]";
+					return result;
 				}
 				REON_WARN("No serializer found for type: {0}", fieldType);
 				return "";

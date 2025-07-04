@@ -30,6 +30,11 @@ namespace REON::EDITOR {
 			object->AddComponent<Renderer>(renderer);
 			};
 
+		componentMap["Camera"] = [](const std::shared_ptr<GameObject>& object) {
+			auto camera = std::make_shared<Camera>();
+			object->AddComponent<Camera>(camera);
+			};
+
 		handlers.clear();
 		Inspector::RegisterHandler<int>("int", [](const FieldInfo& field, void* instance) {
 			int* ptr = reinterpret_cast<int*>(field.getter(instance));
@@ -119,6 +124,9 @@ namespace REON::EDITOR {
 			}
 			else if (name == "Renderer") {
 				ComponentDrawers::DrawInspector_Renderer(std::dynamic_pointer_cast<Renderer>(component));
+				continue;
+			}
+			else {
 				continue;
 			}
 

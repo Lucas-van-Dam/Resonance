@@ -38,6 +38,9 @@ namespace REON {
 
         void cleanup() override;
 
+        nlohmann::ordered_json Serialize() const override;
+        void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
+
     public:
         glm::vec3 localPosition; // Position (translation)
         Quaternion localRotation; // Quaternion for rotation
