@@ -1,11 +1,11 @@
 # Resonance
-Resonance is an engine focussed towards real-time audiovisualisation written in C++ 20 and GLSL, using premake as its buildsystem
+Resonance is an engine focussed towards creating real-time visuals based on audio written in C++ 20 and HLSL, using premake as its buildsystem
 
 ## Features
 ### Rendering
-- Full PRB renderer with IBL
-- Model loading through Assimp
-- Basic support for post processing (preset post processing effects coming later)
+- Full PRB renderer with OIT
+- Model loading through TinyGLTF
+- Vulkan renderer (Render graph coming soon)
 
 ### Gameobject Component Patern
 - Parent child structure
@@ -24,5 +24,5 @@ Resonance is an engine focussed towards real-time audiovisualisation written in 
 - stb_image
 
 # Building
-To build this project, make sure you have llvm downloaded on your machine, if you chose a non-standard install path change the llvm path in the Directory.build.props. Clone the project onto your machine, run the GenerateReflectionData.bat and Setup-Windows.bat scripts in the scripts folder to generate all the project files and link the dependencies, then just open the solution and build.
+Currently this project only supports MSVC, Clang will be supported in the near future as well, to build this project, clone it onto a location of your choosing, make sure to do a recursive clone to get all the submodules. Then run the .bat scripts in the scripts folder to generate the needed reflection and project files. Now just run the Editor project and youre done!
 
