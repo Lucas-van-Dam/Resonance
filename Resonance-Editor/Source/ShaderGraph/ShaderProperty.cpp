@@ -40,4 +40,33 @@ namespace REON::SG {
 			break;
 		}
 	}
+
+	std::string ShaderProperty::GetValueAsString()
+	{
+		return std::visit([&](auto& v) -> std::string {
+			using T = std::decay_t<decltype(v)>;
+
+			if constexpr (std::is_same_v<T, float>) {
+				return std::to_string(v) + "f";
+			}
+			else if constexpr (std::is_same_v<T, glm::vec2>) {
+				return "float2(" + std::to_string(v.x) + "f, " + std::to_string(v.y) + "f)";
+			}
+			else if constexpr (std::is_same_v<T, glm::vec3>) {
+				return "float3(" + std::to_string(v.x) + "f, " + std::to_string(v.y) + "f, " + std::to_string(v.z) + "f)";
+			}
+			else if constexpr (std::is_same_v<T, glm::vec4>) {
+				return "float4(" + std::to_string(v.x) + "f, " + std::to_string(v.y) + "f, " + std::to_string(v.z) + "f, " + std::to_string(v.w) + "f)";
+			}
+			else if constexpr (std::is_same_v<T, bool>) {
+				return v ? "true" : "false";
+			}
+			else if constexpr (std::is_same_v<T, std::string>) {
+				return "\"" + v + "\"";
+			}
+			else {
+				return "<unsupported>";
+			}
+			}, value);
+	}
 }

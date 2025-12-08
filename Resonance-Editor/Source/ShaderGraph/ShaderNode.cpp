@@ -31,4 +31,13 @@ bool IsImplicitlyConvertible(ShaderValueType from, ShaderValueType to)
     return false;
 }
 
+ShaderValueType ShaderValueTypeFromString(const std::string& str) {
+    if (str == "float") return ShaderValueType::Float;
+    if (str == "float2") return ShaderValueType::Float2;
+    if (str == "float3") return ShaderValueType::Float3;
+    if (str == "float4") return ShaderValueType::Float4;
+    // add more if needed
+    return ShaderValueType::Undefined;
+}
+
 }

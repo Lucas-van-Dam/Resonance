@@ -2,5 +2,9 @@
   <PropertyGroup>
     <LLVMInstallDir>C:\Program Files\LLVM</LLVMInstallDir>
     <LLVMToolsVersion>18.1.8</LLVMToolsVersion>
+    <!-- Disable vcpkg integration completely -->
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <VcpkgUseStatic>false</VcpkgUseStatic>
+    <VcpkgAutoLink>false</VcpkgAutoLink>
   </PropertyGroup>
 </Project>

@@ -9,7 +9,7 @@
     },
     {
       "name": "Subtract",
-      "codeTemplate": "{type} {result} = {A} + {B};",
+      "codeTemplate": "{type} {result} = {A} - {B};",
       "inputs": [{ "name": "A" }, { "name": "B" }],
       "outputs": [{ "name": "result" }],
       "variants": ["float", "float2", "float3", "float4", "int"]
@@ -124,7 +124,17 @@
     {
       "name": "Bool",
       "codeTemplate": "bool {result} = {value};",
-      "outputs": [{"name": "result", "type": "bool"}]
+      "outputs": [
+        {
+          "name": "result",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "Master",
+      "codeTemplate": "return {color};",
+      "inputs": [{ "name": "color", "type": "float" }]
     }
   ]
 }

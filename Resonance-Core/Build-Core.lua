@@ -98,6 +98,8 @@ project "Core"
             "GLFW_INCLUDE_NONE",
             "GLFW_INCLUDE_VULKAN",
         }
+       -- Explicitly ignore vcpkg's imgui libraries since we build ImGui directly into Core
+       linkoptions { "/NODEFAULTLIB:imguid.lib", "/NODEFAULTLIB:imgui.lib" }
     filter "system:linux"
         systemversion "latest"
         defines

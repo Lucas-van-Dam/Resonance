@@ -27,6 +27,7 @@ namespace REON::SG
 		std::unordered_set<ShaderNode*> referencingNodes;
 
 		ShaderValue GetDefaultValue();
+		std::string GetValueAsString();
 	};
 
 }

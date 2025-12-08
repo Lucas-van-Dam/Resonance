@@ -103,5 +103,7 @@ namespace REON::EDITOR {
 		static bool createNewNode;
 		static const SG::ShaderPin* newNodeLinkPin;
 		static const SG::ShaderPin* newLinkPin;
+
+		static SG::ShaderNode* m_MasterNode;
 	};
 }

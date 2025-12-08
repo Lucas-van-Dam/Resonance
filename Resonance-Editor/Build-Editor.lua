@@ -54,6 +54,8 @@ project "Editor"
    filter "system:windows"
        systemversion "latest"
        defines { "WINDOWS", "REON_PLATFORM_WINDOWS" }
+       -- Explicitly ignore vcpkg's imgui libraries
+       linkoptions { "/NODEFAULTLIB:imguid.lib", "/NODEFAULTLIB:imgui.lib" }
 
    filter "configurations:Debug"
        defines { "REON_DEBUG" }

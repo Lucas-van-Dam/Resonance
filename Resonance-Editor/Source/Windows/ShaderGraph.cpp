@@ -2,6 +2,7 @@
 #include <ShaderGraph/ShaderNodeLibrary.h>
 #include <imgui/misc/cpp/imgui_stdlib.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <ShaderGraph/ShaderGraphCodegen.h>
 
 namespace REON::EDITOR {
 
@@ -12,6 +13,7 @@ namespace REON::EDITOR {
 	bool ShaderGraph::createNewNode = false;
 	const SG::ShaderPin* ShaderGraph::newNodeLinkPin = nullptr;
 	const SG::ShaderPin* ShaderGraph::newLinkPin = nullptr;
+	SG::ShaderNode* ShaderGraph::m_MasterNode = nullptr;
 
 	void ShaderGraph::initialize()
 	{
@@ -24,6 +26,14 @@ namespace REON::EDITOR {
 		//style.NodePadding = ImVec4(8, 8, 8, 8);
 		//style.PinRadius = 5.0f;  // Make pin circle bigger
 		//ed::SetCurrentEditor(nullptr);
+
+		ed::SetCurrentEditor(m_Context);
+		CreateNode("Master");
+		m_MasterNode = &nodes.back(); // COULD BECOME PROBLEM LATER (RACE CONDITION)
+		m_MasterNode->type = SG::ShaderNodeType::Master;
+		ed::SetNodePosition(MakeNodeId(m_MasterNode->GetID()), ImVec2{ 0,0 });
+		ed::CenterNodeOnScreen(MakeNodeId(m_MasterNode->GetID()));
+		ed::SetCurrentEditor(nullptr);
 	}
 
 	void ShaderGraph::shutdown()
@@ -199,6 +209,7 @@ namespace REON::EDITOR {
 
 					std::visit([&](auto& value) {
 						using T = std::decay_t<decltype(value)>;
+
 						if constexpr (std::is_same_v<T, float>) {
 							ImGui::InputFloat("Value", &value);
 						}
@@ -215,7 +226,11 @@ namespace REON::EDITOR {
 							ImGui::Checkbox("Value", &value);
 						}
 						else if constexpr (std::is_same_v<T, std::string>) {
-							ImGui::InputText("Value", &value);
+							char buffer[256];
+							std::strncpy(buffer, value.c_str(), sizeof(buffer));
+							if (ImGui::InputText("Value", buffer, sizeof(buffer))) {
+								value = std::string(buffer); // Safe overwrite
+							}
 						}
 						}, prop->value);
 
@@ -265,7 +280,10 @@ namespace REON::EDITOR {
 				}
 
 				if (ImGui::Button("Add Property")) {
-					properties.push_back(std::make_shared<ShaderProperty>("NewProperty", ShaderValueType::Float, "0.0"));
+					properties.push_back(std::make_shared<ShaderProperty>("NewProperty", ShaderValueType::Float, 0.0f));
+				}
+				if (ImGui::Button("Test generation")) {
+					REON_INFO(::generateShaderCode(m_MasterNode));
 				}
 			}
 

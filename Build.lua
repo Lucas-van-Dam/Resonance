@@ -1,6 +1,4 @@
 require("Vendor/ecc/ecc")
-require "cmake"
-require "clion"
 
 workspace "Resonance"
    architecture "x64"
@@ -28,6 +26,7 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
          "GLM_ENABLE_EXPERIMENTAL",
          "GLM_FORCE_DEPTH_ZERO_TO_ONE",
          "VK_USE_PLATFORM_WIN32_KHR",
+         "VCPKG_APPLOCAL_DEPS=0",  -- Disable vcpkg integration
       }
       -- disablewarnings
       -- {

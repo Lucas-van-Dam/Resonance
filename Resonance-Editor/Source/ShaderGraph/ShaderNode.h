@@ -36,6 +36,7 @@ namespace REON::SG
 		Undefined = -1,
 		Standard,
 		Property,
+		Master,
 	};
 
 	struct ShaderPinTemplate {
@@ -93,6 +94,8 @@ namespace REON::SG
 		std::vector<ShaderPin> outputs;
 		glm::vec2 position; // Position in the editor
 
+		const ShaderNodeVariant* activeVariant = nullptr;
+
 		std::shared_ptr<ShaderProperty> property = nullptr; // Pointer to the property this node represents (only when type is PropertyNode)
 
 
@@ -110,4 +113,6 @@ namespace REON::SG
 
     // Returns true if 'from' can be implicitly converted to 'to'
     bool IsImplicitlyConvertible(ShaderValueType from, ShaderValueType to);
+
+	ShaderValueType ShaderValueTypeFromString(const std::string& str);
 }
