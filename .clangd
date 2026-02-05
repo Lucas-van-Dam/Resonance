@@ -1,0 +1,25 @@
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -include
+    - reonpch.h
+  Remove:
+    - /W4
+    - /WX
+    - -m64
+    - -MD
+    - -MP
+    
+Diagnostics:
+  UnusedIncludes: None  # Stop complaining about includes
+  MissingIncludes: None  # Stop complaining about missing includes
+  Suppress:
+    - '**/vendor/**'    # Suppress all diagnostics in vendor directories
+    - '**/Vendor/**'
+  
+Index:
+  Background: Build
+  StandardLibrary: Yes
+
+Completion:
+  AllScopes: Yes

@@ -1,76 +1,78 @@
 #pragma once
 
-#include <functional>
-#include <string>
-#include <ReflectionSystem.h>
-#include "REON/Layer.h"
-#include "Windows/Inspector.h"
-#include "Windows/SceneHierarchy.h"
-#include <future>
-
-#include "ImGuiFileDialog.h"
-
-#include "Reon.h"
-
 #include "Events/ProjectEvent.h"
+#include "ImGuiFileDialog.h"
 #include "ProjectManagement/ProjectManager.h"
 #include "REON/Events/EventBus.h"
+#include "REON/Layer.h"
+#include "Reon.h"
 #include "Windows/AssetBrowser.h"
+#include "Windows/Inspector.h"
+#include "Windows/SceneHierarchy.h"
 
+#include <REON/AssetManagement/AssetRegistry.h>
+#include <ReflectionSystem.h>
+#include <functional>
+#include <future>
+#include <string>
 
-namespace REON::EDITOR {
+namespace REON::EDITOR
+{
 
-	class EditorLayer : public REON::Layer {
-	public:
-		EditorLayer();
+class EditorLayer : public REON::Layer
+{
+  public:
+    EditorLayer();
 
-		~EditorLayer() override {
-			//REON_INFO("EditorLayer destructor called for address: {}", static_cast<void*>(this));
-			m_SelectedObject.reset();
-		}
+    ~EditorLayer() override
+    {
+        // REON_INFO("EditorLayer destructor called for address: {}", static_cast<void*>(this));
+        m_SelectedObject.reset();
+    }
 
-		virtual void OnAttach() override;
-		virtual void OnDetach() override;
-		virtual void OnUpdate() override;
-		virtual void OnImGuiRender() override;
+    virtual void OnAttach() override;
+    virtual void OnDetach() override;
+    virtual void OnUpdate() override;
+    virtual void OnImGuiRender() override;
+    virtual void OnCleanup() override;
 
-		void ProcessKeyPress(const REON::KeyPressedEvent& event);
+    void ProcessKeyPress(const REON::KeyPressedEvent& event);
 
-		void ProcessMouseMove();
+    void ProcessMouseMove();
 
-		void OnProjectLoaded(const ProjectOpenedEvent& event);
+    void OnProjectLoaded(const ProjectOpenedEvent& event);
 
-	private:
-		void RegisterAsset(const std::filesystem::path& assetPath, const std::filesystem::path& projectPath);
+  private:
+    void RegisterAsset(const std::filesystem::path& assetPath, const std::filesystem::path& projectPath);
 
-		void CheckAssetsRegistered();
+    void CheckAssetsRegistered();
 
-	private:
-		std::shared_ptr<REON::GameObject> m_SelectedObject;
+  private:
+    std::shared_ptr<REON::GameObject> m_SelectedObject;
 
-		enum class GizmoType {
-			Translate,
-			Rotate,
-			Scale
-		};
+    enum class GizmoType
+    {
+        Translate,
+        Rotate,
+        Scale
+    };
 
-		GizmoType m_Gizmotype;
+    GizmoType m_Gizmotype;
 
-		bool m_ProjectLoaded = false;
-		bool m_FirstFrame = true;
+    bool m_ProjectLoaded = false;
+    bool m_FirstFrame = true;
 
-		bool m_SceneHovered = false;
-		double m_SavedX = 0, m_SavedY = 0;
-		bool m_CursorLocked = false;
+    bool m_SceneHovered = false;
+    double m_SavedX = 0, m_SavedY = 0;
+    bool m_CursorLocked = false;
 
-		CallbackID m_KeyPressedCallbackID;
-		CallbackID m_ProjectOpenedCallbackID;
+    CallbackID m_KeyPressedCallbackID;
+    CallbackID m_ProjectOpenedCallbackID;
 
-		AssetBrowser m_AssetBrowser;
+    AssetBrowser m_AssetBrowser;
 
-		std::vector<std::future<void>> futures;
-		std::future<void> futureCheckingFuture;
-	};
+    std::vector<std::future<void>> futures;
+    std::future<void> futureCheckingFuture;
+};
 
-}
-
+} // namespace REON::EDITOR

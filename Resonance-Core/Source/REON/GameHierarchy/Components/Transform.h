@@ -1,72 +1,76 @@
 #pragma once
 
-#include "glm/glm.hpp"
-#include "REON/Math/Quaternion.h"
 #include "REON/GameHierarchy/Components/Component.h"
+#include "REON/Math/Quaternion.h"
+#include "glm/glm.hpp"
 #include <glm/gtc/type_ptr.hpp>
+#include <nlohmann/json_fwd.hpp>
 
 class GameObject;
 
-namespace REON {
+namespace REON
+{
 
+class [[clang::annotate("serialize")]] Transform : public ComponentBase<Transform>
+{
+  public:
+    Transform()
+        : localPosition(glm::vec3(0.0f)), localRotation(1.0f, 0.0f, 0.0f, 0.0f), localScale(glm::vec3(1.0f)),
+          m_LocalMatrix(1.0f)
+    {
+    }
 
-    class [[clang::annotate("serialize")]] Transform : public ComponentBase<Transform> {
-    public:
-        Transform()
-            : localPosition(glm::vec3(0.0f)), localRotation(1.0f, 0.0f, 0.0f, 0.0f), localScale(glm::vec3(1.0f)), m_LocalMatrix(1.0f) {}
+    ~Transform();
 
-        ~Transform();
+    // Get the transformation matrix
+    glm::mat4 GetTransformationMatrix() const;
 
-        // Get the transformation matrix
-        glm::mat4 GetTransformationMatrix() const;
+    glm::mat4 GetWorldTransform() const;
 
-        glm::mat4 GetWorldTransform() const;
+    glm::vec3 GetForwardVector() const;
 
-        glm::vec3 GetForwardVector() const;
+    glm::vec3 GetWorldPosition() const;
+    Quaternion GetWorldRotation() const;
+    glm::vec3 GetWorldScale() const;
 
-        glm::vec3 GetWorldPosition() const;
-        Quaternion GetWorldRotation() const;
-        glm::vec3 GetWorldScale() const;
+    virtual void update(float deltaTime) override;
 
-        void Update(float deltaTime) override;
+    void SetWorldTransform(const glm::mat4& matrix);
 
-        void SetWorldTransform(const glm::mat4& matrix);
+    void SetFromMatrix(const std::vector<float>& matrixData);
 
-        void SetFromMatrix(const std::vector<float>& matrixData);
+    void UpdateLocalMatrix();
 
-        void UpdateLocalMatrix();
+    virtual void cleanup() override;
 
-        void cleanup() override;
+    virtual nlohmann::ordered_json serialize() const override;
+    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
 
-        nlohmann::ordered_json Serialize() const override;
-        void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
+  public:
+    glm::vec3 localPosition;  // Position (translation)
+    Quaternion localRotation; // Quaternion for rotation
+    glm::vec3 eulerCache;
+    glm::vec3 localScale; // Scale factors (x, y, z)
 
-    public:
-        glm::vec3 localPosition; // Position (translation)
-        Quaternion localRotation; // Quaternion for rotation
-        glm::vec3 eulerCache;
-        glm::vec3 localScale;    // Scale factors (x, y, z)
+    bool eulerDirty = true;
 
-        bool eulerDirty = true;
+  private:
+    // Create the rotation matrix from a quaternion
+    static glm::mat4 CreateRotationMatrix(const Quaternion& quat)
+    {
+        return glm::mat4_cast(quat);
+    }
 
-    private:
-        // Create the rotation matrix from a quaternion
-        static glm::mat4 CreateRotationMatrix(const Quaternion& quat) {
-            return glm::mat4_cast(quat);
-        }
+    // Inherited via Component
+    virtual void on_game_object_added_to_scene() override;
+    virtual void on_component_detach() override;
 
-        // Inherited via Component
-        void OnGameObjectAddedToScene() override;
-        void OnComponentDetach() override;
+    void DecomposeMatrix(const std::vector<float>& matData, glm::vec3& position, glm::quat& rotation, glm::vec3& scale);
 
-        void DecomposeMatrix(const std::vector<float>& matData, glm::vec3& position, glm::quat& rotation, glm::vec3& scale);
+  private:
+    glm::mat4 m_LocalMatrix;
 
-    private:
-        glm::mat4 m_LocalMatrix;
+    template <typename ClassType, typename FieldType, FieldType ClassType::* field> friend struct ReflectionAccessor;
+};
 
-        template <typename ClassType, typename FieldType, FieldType ClassType::* field>
-        friend struct ReflectionAccessor;
-    };
-
-}
-
+} // namespace REON

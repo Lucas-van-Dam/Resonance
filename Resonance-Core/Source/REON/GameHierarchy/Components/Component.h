@@ -1,58 +1,70 @@
 #pragma once
 
+#include "REON/Object.h"
+
+#include <cstddef>
+#include <filesystem>
 #include <memory>
+#include <string>
 #include <typeindex>
 
-#include "REON/Object.h"
-#include "nlohmann/json.hpp"
-#include <filesystem>
+#include "nlohmann/json_fwd.hpp"
 
-namespace REON {
 
-    class GameObject;
+namespace REON
+{
 
-    class Component {
-    public:
-        virtual ~Component() = default;
-        virtual void Update(float deltaTime) = 0;
-        //virtual void Initialize() = 0;
-        
-        std::shared_ptr<GameObject> GetOwner() const {
-            return m_GameObject.lock();
+class GameObject;
+
+class Component
+{
+  public:
+    virtual ~Component() = default;
+    virtual void update(float deltaTime) = 0;
+    // virtual void Initialize() = 0;
+
+    std::shared_ptr<GameObject> get_owner() const
+    {
+        return m_GameObject.lock();
+    }
+
+    virtual void set_owner(std::shared_ptr<GameObject> owner)
+    {
+        m_GameObject = owner;
+    }
+
+    virtual void cleanup() = 0;
+
+    virtual void on_game_object_added_to_scene() = 0;
+    virtual void on_component_detach() = 0;
+
+    [[nodiscard]] virtual nlohmann::ordered_json serialize() const = 0;
+    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) = 0;
+
+    [[nodiscard]] virtual std::string get_type_name() const = 0;
+    [[nodiscard]] virtual std::type_index get_type_index() const = 0;
+
+  private:
+    std::weak_ptr<GameObject> m_GameObject;
+};
+
+template <typename T> class ComponentBase : public Component, public Object
+{
+  public:
+    ComponentBase() : Object(get_type_name()) {}
+    std::string get_type_name() const override
+    {
+        std::string mangled_name = typeid(T).name();
+        size_t pos = mangled_name.find_last_of("::");
+        if (pos != std::string::npos)
+        {
+            return mangled_name.substr(pos + 1); // Skip "::"
         }
-
-        virtual void SetOwner(std::shared_ptr<GameObject> owner) {
-            m_GameObject = owner;
-        }
-
-        virtual void cleanup() = 0;
-
-        virtual void OnGameObjectAddedToScene() = 0;
-        virtual void OnComponentDetach() = 0;
-
-		virtual nlohmann::ordered_json Serialize() const = 0;
-		virtual void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) = 0;
-
-        virtual std::string GetTypeName() const = 0;
-        virtual std::type_index GetTypeIndex() const = 0;
-    private:
-        std::weak_ptr<GameObject> m_GameObject;
-    };
-
-    template <typename T>
-    class ComponentBase : public Component, public Object {
-    public:
-        ComponentBase() : Object(GetTypeName()) {}
-        std::string GetTypeName() const override 
-        { 
-            std::string mangledName = typeid(T).name();
-            size_t pos = mangledName.find_last_of("::");
-            if (pos != std::string::npos) {
-                return mangledName.substr(pos + 1); // Skip "::"
-            }
-            return mangledName;
-        }
-        std::type_index GetTypeIndex() const override { return typeid(T); }
-    };
-}
-
+        return mangled_name;
+    }
+    [[nodiscard]] std::type_index get_type_index() const override
+    {
+        return typeid(T);
+    }
+};
+} // namespace REON

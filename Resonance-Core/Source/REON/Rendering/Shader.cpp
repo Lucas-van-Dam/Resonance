@@ -62,6 +62,9 @@ namespace REON {
 			if (extension == L"frag") {
 				targetProfile = L"ps_6_1";
 			}
+			if (extension == L"comp") {
+				targetProfile = L"cs_6_1";
+			}
 		}
 
 		std::vector<LPCWSTR> arguments = {

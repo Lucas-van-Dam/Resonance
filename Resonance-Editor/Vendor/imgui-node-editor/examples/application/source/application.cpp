@@ -1,24 +1,19 @@
-# include "application.h"
-# include "setup.h"
-# include "platform.h"
-# include "renderer.h"
+#include "application.h"
+#include "platform.h"
+#include "renderer.h"
+#include "setup.h"
 
-extern "C" {
+extern "C"
+{
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
 #include "stb_image.h"
 }
 
-
-Application::Application(const char* name)
-    : Application(name, 0, nullptr)
-{
-}
+Application::Application(const char* name) : Application(name, 0, nullptr) {}
 
 Application::Application(const char* name, int argc, char** argv)
-    : m_Name(name)
-    , m_Platform(CreatePlatform(*this))
-    , m_Renderer(CreateRenderer())
+    : m_Name(name), m_Platform(CreatePlatform(*this)), m_Renderer(CreateRenderer())
 {
     m_Platform->ApplicationStart(argc, argv);
 }
@@ -32,7 +27,7 @@ Application::~Application()
     if (m_Context)
     {
         ImGui::DestroyContext(m_Context);
-        m_Context= nullptr;
+        m_Context = nullptr;
     }
 }
 
@@ -50,7 +45,7 @@ bool Application::Create(int width /*= -1*/, int height /*= -1*/)
     m_IniFilename = m_Name + ".ini";
 
     ImGuiIO& io = ImGui::GetIO();
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
     io.IniFilename = m_IniFilename.c_str();
     io.LogFilename = nullptr;
 
@@ -99,7 +94,7 @@ void Application::RecreateFontAtlas()
     config.PixelSnapH = false;
 
     m_DefaultFont = io.Fonts->AddFontFromFileTTF("data/Play-Regular.ttf", 18.0f, &config);
-    m_HeaderFont  = io.Fonts->AddFontFromFileTTF("data/Cuprum-Bold.ttf",  20.0f, &config);
+    m_HeaderFont = io.Fonts->AddFontFromFileTTF("data/Cuprum-Bold.ttf", 20.0f, &config);
 
     io.Fonts->Build();
 }
@@ -117,7 +112,7 @@ void Application::Frame()
         m_Platform->AcknowledgeFramebufferScaleChanged();
     }
 
-    const float windowScale      = m_Platform->GetWindowScale();
+    const float windowScale = m_Platform->GetWindowScale();
     const float framebufferScale = m_Platform->GetFramebufferScale();
 
     if (io.WantSetMousePos)
@@ -131,8 +126,8 @@ void Application::Frame()
     // Don't touch "uninitialized" mouse position
     if (io.MousePos.x > -FLT_MAX && io.MousePos.y > -FLT_MAX)
     {
-        io.MousePos.x    /= windowScale;
-        io.MousePos.y    /= windowScale;
+        io.MousePos.x /= windowScale;
+        io.MousePos.y /= windowScale;
     }
     io.DisplaySize.x /= windowScale;
     io.DisplaySize.y /= windowScale;
@@ -147,7 +142,7 @@ void Application::Frame()
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(io.DisplaySize);
     const auto windowBorderSize = ImGui::GetStyle().WindowBorderSize;
-    const auto windowRounding   = ImGui::GetStyle().WindowRounding;
+    const auto windowRounding = ImGui::GetStyle().WindowRounding;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::Begin("Content", nullptr, GetWindowFlags());
@@ -233,12 +228,7 @@ int Application::GetTextureHeight(ImTextureID texture)
 
 ImGuiWindowFlags Application::GetWindowFlags() const
 {
-    return
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoScrollbar |
-        ImGuiWindowFlags_NoScrollWithMouse |
-        ImGuiWindowFlags_NoSavedSettings |
-        ImGuiWindowFlags_NoBringToFrontOnFocus;
+    return ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+           ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings |
+           ImGuiWindowFlags_NoBringToFrontOnFocus;
 }

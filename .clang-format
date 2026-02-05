@@ -1,0 +1,28 @@
+BasedOnStyle: Microsoft  # or LLVM, Google, Chromium, WebKit
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# C++ specific
+PointerAlignment: Left
+ReferenceAlignment: Left
+NamespaceIndentation: None
+BreakBeforeBraces: Allman  # or Attach, Linux
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^"reonpch\.h"'
+    Priority:        -1
+  - Regex:           '^".*\.h"'
+    Priority:        1
+  - Regex:           '^"REON/.*'
+    Priority:        2
+  - Regex:           '^<.*'
+    Priority:        3
+
+# Modern C++
+Standard: c++20

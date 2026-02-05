@@ -1,23 +1,23 @@
 #pragma once
 #include "Scene.h"
 
-namespace REON {
-	class SceneManager
-	{
-	public:
-		SceneManager();
-		~SceneManager();
+namespace REON
+{
+class SceneManager
+{
+  public:
+    SceneManager();
+    ~SceneManager();
 
-		static std::shared_ptr<SceneManager> Get();
+    static std::shared_ptr<SceneManager> Get();
 
-		void SetActiveScene(std::shared_ptr<Scene> scene);
+    void SetActiveScene(std::shared_ptr<Scene> scene);
 
-		std::shared_ptr<Scene> GetCurrentScene();
+    std::shared_ptr<Scene> GetCurrentScene();
 
-		void Destroy();
+    void Destroy();
 
-	private:
-		std::shared_ptr<Scene> m_CurrentScene;
-	};
-}
-
+  private:
+    std::shared_ptr<Scene> m_CurrentScene;
+};
+} // namespace REON

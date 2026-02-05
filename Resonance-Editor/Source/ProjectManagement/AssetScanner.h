@@ -1,46 +1,56 @@
 #pragma once
 
 #include "REON/Core.h"
+
+#include <REON/AssetManagement/AssetRegistry.h>
+#include <Reon.h>
 #include <filesystem>
 #include <iostream>
-#include <vector>
 #include <string>
 #include <unordered_set>
-#include <Reon.h>
+#include <vector>
 
 namespace fs = std::filesystem;
 
-namespace REON::EDITOR {
-	class AssetScanner
-	{
-	public:
-		static const std::unordered_set<std::string> supportedExtensions;
-		static const std::unordered_set<std::string> primaryAssetExtensions;
+namespace REON::EDITOR
+{
+class AssetScanner
+{
+  public:
+    static const std::unordered_set<std::string> supportedExtensions;
+    static const std::unordered_set<std::string> primaryAssetExtensions;
 
-		static std::vector<fs::path> scanAssets(const fs::path& projectDir) {
-			std::vector<fs::path> assets;
+    static std::vector<fs::path> scanAssets(const fs::path& projectDir)
+    {
+        std::vector<fs::path> assets;
 
-			if (!fs::exists(projectDir) || !fs::is_directory(projectDir)) {
-				//REON_CORE_ERROR("Invalid project directory: {0}", projectDir.generic_string());
-				return assets;
-			}
+        if (!fs::exists(projectDir) || !fs::is_directory(projectDir))
+        {
+            // REON_CORE_ERROR("Invalid project directory: {0}", projectDir.generic_string());
+            return assets;
+        }
 
-			for (const auto& entry : fs::recursive_directory_iterator(projectDir)) {
-				if (entry.is_regular_file()) {
-					auto extension = entry.path().extension().string();
-					auto filename = entry.path().filename().string();
-					if (supportedExtensions.find(extension) != supportedExtensions.end() ||
-						supportedExtensions.find(filename) != supportedExtensions.end()) {
-						assets.push_back(entry.path());
-					}
-				}
-			}
+        for (const auto& entry : fs::recursive_directory_iterator(projectDir))
+        {
+            if (entry.is_regular_file())
+            {
+                if (auto info = AssetRegistry::Instance().GetAssetByPath(fs::relative(entry.path(), projectDir)))
+                {
+                    auto lastModified = clock_cast<std::chrono::system_clock>(fs::last_write_time(entry.path()));
+                    if (lastModified <= info->lastModified)
+                        continue;
+                }
+                auto extension = entry.path().extension().string();
+                auto filename = entry.path().filename().string();
+                if (supportedExtensions.find(extension) != supportedExtensions.end() ||
+                    supportedExtensions.find(filename) != supportedExtensions.end())
+                {
+                    assets.push_back(entry.path());
+                }
+            }
+        }
 
-			return assets;
-		}
-
-	};
-}
-
-
-
+        return assets;
+    }
+};
+} // namespace REON::EDITOR

@@ -638,8 +638,8 @@ namespace REON::EDITOR {
 		newNode.type = ShaderNodeType::Property;
 		newNode.property = property;
 		property->referencingNodes.insert(&newNode);
-		const std::vector<ShaderPinTemplate>* inputs;
-		const std::vector<ShaderPinTemplate>* outputs;
+		const std::vector<ShaderPinTemplate>* inputs{};
+		const std::vector<ShaderPinTemplate>* outputs{};
 		if (!newNode.templateData->variants.empty()) {
 			for (const auto& variant : newNode.templateData->variants) {
 				if (variant.outputs.front().type == property->type) {
