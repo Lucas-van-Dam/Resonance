@@ -10,7 +10,7 @@ OutputDir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
    -- Workspace-wide build options
    filter "system:windows"
       filter "action:vs*"
-         toolset "clang"
+         toolset "msc"
       flags { "MultiProcessorCompile" }
       buildoptions
       {

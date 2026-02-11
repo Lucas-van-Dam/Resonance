@@ -10,7 +10,11 @@ namespace tg = tinygltf;
 namespace REON::EDITOR {
 	struct SceneNodeData {
 		std::string name;
+        std::string nodeUUID;
 		glm::mat4 transform;
+        glm::vec3 translation;
+        Quaternion rotation;
+        glm::vec3 scale;
 		std::vector<std::string> meshIDs;
 		std::vector<std::string> materials;
 		std::vector<SceneNodeData> children;
@@ -36,11 +40,14 @@ namespace REON::EDITOR {
 		std::vector<std::string> materialIDs;
 		std::filesystem::path fullPath;
 
-		SceneNodeData HandleGLTFNode(const tg::Model& model, const tg::Node& node, const glm::mat4& parentTransform, MetaFileData& modelFileData);
+		SceneNodeData HandleGLTFNode(const tg::Model& model, int nodeId, const glm::mat4& parentTransform,
+                                     MetaFileData& modelFileData, std::unordered_map<int, std::string>& nodeIdToUuId);
 
 		std::string HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, const glm::mat4& transform, SceneNodeData& sceneNode);
 
 		glm::mat4 GetTransformFromGLTFNode(const tg::Node& node);
+
+		std::tuple<glm::vec3, Quaternion, glm::vec3> GetTRSFromGLTFNode(const tg::Node& node);
 
 		void HandleGLTFBuffer(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec3>& data, const glm::mat4& transform, bool normal = false);
 

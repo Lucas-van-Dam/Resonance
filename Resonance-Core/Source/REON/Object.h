@@ -1,65 +1,82 @@
 #pragma once
 
-#include "string"
 #include "REON/Logger.h"
+
 #include <uuid.h>
 
-namespace REON {
+#include "string"
 
-	class Object
-	{
-	public:
-		Object(const std::string& name = "Unnamed Object") : m_ID(GenerateUUID()), m_Name(name) {}
-		virtual ~Object() = default;
+namespace REON
+{
 
-		std::string GetID() const { return m_ID; }
-		/// <summary>
-		/// DO NOT USE UNLESS YOU ARE CONSTRUCTING AN OBJECT FROM A FILE, THIS WILL BREAK CONNECTIONS WITH RESOURCE MANAGER AND POTENTIALLY OTHER SYSTEMS
-		/// </summary>
-		/// <param name="id"></param>
-		//void SetID(std::string id) { m_ID = id; }
+class Object
+{
+  public:
+    Object(const std::string& name = "Unnamed Object") : m_ID(GenerateUUID()), m_Name(name) {}
+    virtual ~Object() = default;
 
-		const std::string& GetName() const { return m_Name; }
-		virtual std::string ToString() const { return m_Name + " [" + m_ID + "]"; }
+    std::string GetID() const
+    {
+        return m_ID;
+    }
+    /// <summary>
+    /// DO NOT USE UNLESS YOU ARE CONSTRUCTING AN OBJECT FROM A FILE, THIS WILL BREAK CONNECTIONS WITH RESOURCE MANAGER
+    /// AND POTENTIALLY OTHER SYSTEMS
+    /// </summary>
+    /// <param name="id"></param>
+    // void SetID(std::string id) { m_ID = id; }
 
-		void SetName(const std::string& name) { m_Name = name; }
+    const std::string& GetName() const
+    {
+        return m_Name;
+    }
+    virtual std::string ToString() const
+    {
+        return m_Name + " [" + m_ID + "]";
+    }
 
-	protected:
-		std::string m_ID;
-		std::string m_Name;
+    void SetName(const std::string& name)
+    {
+        m_Name = name;
+    }
 
-	private:
-		static std::string GenerateUUID() {
-			//uuid empty;
-			std::random_device rd;
-			auto seed_data = std::array<int, std::mt19937::state_size> {};
-			std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
-			std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
-			std::mt19937 generator(seq);
-			uuids::uuid_random_generator gen{ generator };
+    //TODO: should become static engine level function for consistency, currently called from places it should not be
+    static std::string GenerateUUID()
+    {
+        // uuid empty;
+        std::random_device rd;
+        auto seed_data = std::array<int, std::mt19937::state_size>{};
+        std::generate(std::begin(seed_data), std::end(seed_data), std::ref(rd));
+        std::seed_seq seq(std::begin(seed_data), std::end(seed_data));
+        std::mt19937 generator(seq);
+        uuids::uuid_random_generator gen{generator};
 
-			uuids::uuid const id = gen();
-			assert(!id.is_nil());
-			assert(id.as_bytes().size() == 16);
-			assert(id.version() == uuids::uuid_version::random_number_based);
-			assert(id.variant() == uuids::uuid_variant::rfc);
+        uuids::uuid const id = gen();
+        assert(!id.is_nil());
+        assert(id.as_bytes().size() == 16);
+        assert(id.version() == uuids::uuid_version::random_number_based);
+        assert(id.variant() == uuids::uuid_variant::rfc);
 
-			//if (status == RPC_S_OK) {
-			//	std::string uuidStringOut;
-			//	RPC_CSTR uuidString;
-			//	UuidToStringA(&uuid, &uuidString);
-			//	uuidStringOut = (char*)uuidString;
-			//	RpcStringFreeA(&uuidString);
-			//	return uuidStringOut;
-			//}
-			//else {
-			//	REON_CORE_ERROR("Failed to create UUID. Error code: {}", status);
-			//}
+        // if (status == RPC_S_OK) {
+        //	std::string uuidStringOut;
+        //	RPC_CSTR uuidString;
+        //	UuidToStringA(&uuid, &uuidString);
+        //	uuidStringOut = (char*)uuidString;
+        //	RpcStringFreeA(&uuidString);
+        //	return uuidStringOut;
+        // }
+        // else {
+        //	REON_CORE_ERROR("Failed to create UUID. Error code: {}", status);
+        // }
 
-			return uuids::to_string(id);
+        return uuids::to_string(id);
+    }
 
-		}
-	};
+  protected:
+    std::string m_ID;
+    std::string m_Name;
 
-}
+  private:
+};
 
+} // namespace REON
