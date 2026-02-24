@@ -87,18 +87,26 @@ namespace REON {
 		for (const auto& renderer : renderers) {
 
 			for (const auto& cmd : renderer->drawCommands) {
-				if (!(cmd.material->blendingMode == Mask || cmd.material->renderingMode == Opaque))
+                auto mesh = cmd.mesh.Lock();
+                if (!mesh)
+                    continue;
+
+				auto mat = cmd.material.Lock();
+                if (!mat)
+                    continue;
+
+				if (!(mat->blendingMode == Mask || mat->renderingMode == Opaque))
 					continue;
 
 				std::array<VkDescriptorSet, 2> descriptorSets{ m_PerLightDescriptorSets[currentFrame], cmd.owner->shadowObjectDescriptorSets[context->getCurrentFrame()] };
 				auto modelMatrix = cmd.owner->getModelMatrix();
 				memcpy(cmd.owner->shadowObjectDataBuffersMapped[context->getCurrentFrame()], &modelMatrix, sizeof(glm::mat4));
 
-				VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+				VkBuffer vertexBuffers[] = { mesh->m_VertexBuffer };
 				VkDeviceSize offsets[] = { 0 };
 				vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
-				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 				vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 				vkCmdDrawIndexed(m_CommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);

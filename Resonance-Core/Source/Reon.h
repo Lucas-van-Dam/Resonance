@@ -16,5 +16,3 @@
 
 #include "REON/ImGui/ImGuiLayer.h"
 #include "REON/Rendering/RenderLayer.h"
-
-#include "REON/AssetManagement/AssetRegistry.h"

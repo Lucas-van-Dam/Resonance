@@ -38,16 +38,9 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
 {
   public:
     static_assert(sizeof(GlobalRenderData) % 16 == 0, "Global is not aligned");
-    Renderer(std::shared_ptr<Mesh> mesh, std::vector<ResourceHandle> materials);
-    Renderer();
+    Renderer(ResourceHandle<Mesh> mesh, std::vector<ResourceHandle<Material>> materials);
     ~Renderer();
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout,
-              std::vector<VkDescriptorSet> descriptorSets);
-    void Draw(VkCommandBuffer commandBuffer, VkPipelineLayout pipelineLayout, VkDescriptorSet perLightDescriptorSet);
-    void Draw(glm::mat4 mainLightView, glm::mat4 mainLightProj, int skyboxId, int irradianceMapId, int prefilterMapId,
-              int brdfLUTTextureId, std::vector<int> depthCubeId = std::vector<int>(), int shadowMapId = 0,
-              const std::shared_ptr<Shader>& overrideShader = nullptr);
-
+    Renderer() {} // Delete later, just to prevent errors during migration
     void update(float deltaTime) override;
 
     virtual void set_owner(std::shared_ptr<GameObject> owner) override;
@@ -69,14 +62,17 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
     void RebuildDrawCommands();
     void MarkDrawCommandsDirty();
 
-    void SetMaterial(size_t index, const ResourceHandle& material);
+    void SetMaterial(size_t index, const ResourceHandle<Material>& material);
 
-    virtual nlohmann::ordered_json serialize() const override;
-    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
+    [[nodiscard]] nlohmann::ordered_json serialize() const override
+    {
+        return {};
+    }
+    void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override {}
 
   public:
-    ResourceHandle mesh;
-    std::vector<ResourceHandle> materials;
+    ResourceHandle<Mesh> mesh;
+    std::vector<ResourceHandle<Material>> materials;
 
     static glm::mat4 ViewProjMatrix;
 
@@ -104,9 +100,9 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
 
 struct DrawCommand
 {
-    Shader* shader;
-    Material* material;
-    Mesh* mesh;
+    ResourceHandle<Shader> shader;
+    ResourceHandle<Material> material;
+    ResourceHandle<Mesh> mesh;
     uint32_t startIndex;
     uint32_t indexCount;
     Renderer* owner;

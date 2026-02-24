@@ -74,7 +74,7 @@ namespace REON {
 			const auto& materialFromShader = pair.second;
 			for (const auto& material : materialFromShader) {
 				//set material wide buffers/textures
-				std::shared_ptr<Material> mat = ResourceManager::GetInstance().GetResource<Material>(material.first);
+                auto mat = material.second.front().material.Lock();
 				if (!(mat->blendingMode == Mask || mat->renderingMode == Opaque)) {
 					continue;
 				}
@@ -116,6 +116,10 @@ namespace REON {
 
 
 				for (const auto& cmd : material.second) {
+                    auto mesh = cmd.mesh.Lock();
+                    if (!mesh)
+                        continue;
+
 					std::vector<VkDescriptorSet> descriptorSets = { globalDescriptorSet, mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[currentFrame] };
 
 					ObjectRenderData data{};
@@ -123,11 +127,11 @@ namespace REON {
 					data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
 					memcpy(cmd.owner->objectDataBuffersMapped[context->getCurrentFrame()], &data, sizeof(data));
 
-					VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+					VkBuffer vertexBuffers[] = { mesh->m_VertexBuffer };
 					VkDeviceSize offsets[] = { 0 };
 					vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
-					vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+					vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 					vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 					vkCmdDrawIndexed(m_CommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);

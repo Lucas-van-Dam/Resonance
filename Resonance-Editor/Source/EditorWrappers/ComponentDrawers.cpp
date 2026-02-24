@@ -1,7 +1,6 @@
 #include "ComponentDrawers.h"
 #include "imgui.h"
 #include "DrawFuncs.h"
-#include <REON/AssetManagement/AssetRegistry.h>
 #include <REON/ResourceManagement/ResourceManager.h>
 #include <ProjectManagement/ProjectManager.h>
 #include <Commands/CommandManager.h>
@@ -56,48 +55,48 @@ namespace REON::EDITOR {
 			ImGui::Text("%s", "Mesh");
 			ImGui::NextColumn();
 
-			auto mesh = renderer->mesh.Get<Mesh>();
+		//	auto mesh = renderer->mesh.Get<Mesh>();
 
-			const char* meshName = nullptr;
+		//	const char* meshName = nullptr;
 
-			if (mesh)
-				meshName = mesh->GetName().empty() ? ("###" + mesh->GetID()).c_str() : mesh->GetName().c_str();
-			else
-				meshName = (std::string("No Mesh##") + renderer->GetID()).c_str();
+		//	if (mesh)
+		//		meshName = mesh->GetName().empty() ? ("###" + mesh->GetID()).c_str() : mesh->GetName().c_str();
+		//	else
+		//		meshName = (std::string("No Mesh##") + renderer->GetID()).c_str();
 
-			ImGui::Button(meshName, ImVec2(-1, 0));
-			ImGui::Columns(1);
-			ImGui::Columns(2, "Materials");
-			ImGui::SetColumnWidth(0, 100.0f);
-			ImGui::Text("materials");
-			ImGui::NextColumn();
+		//	ImGui::Button(meshName, ImVec2(-1, 0));
+		//	ImGui::Columns(1);
+		//	ImGui::Columns(2, "Materials");
+		//	ImGui::SetColumnWidth(0, 100.0f);
+		//	ImGui::Text("materials");
+		//	ImGui::NextColumn();
 
-			for (int i = 0; i < renderer->materials.size(); i++) {
-				auto mat = renderer->materials[i].Get<Material>();
+		//	for (int i = 0; i < renderer->materials.size(); i++) {
+		//		auto mat = renderer->materials[i].Get<Material>();
 
-				ImGui::Button((mat->GetName() + "##" + mat->GetID() + std::to_string(i)).c_str(), ImVec2(-1, 0));
+		//		ImGui::Button((mat->GetName() + "##" + mat->GetID() + std::to_string(i)).c_str(), ImVec2(-1, 0));
 
-				if (ImGui::BeginDragDropTarget()) {
-					if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
-						std::string filePath((char*)payload->Data);
-						if (AssetInfo* info = AssetRegistry::Instance().GetAssetByPath(filePath)) {
-							if (info->type == "material") {
+		//		if (ImGui::BeginDragDropTarget()) {
+		//			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
+		//				std::string filePath((char*)payload->Data);
+		//				if (AssetInfo* info = AssetRegistry::Instance().GetAssetByPath(filePath)) {
+		//					if (info->type == "material") {
 
-								if (auto material = ResourceManager::GetInstance().GetResource<Material>(info->id)) {
-									renderer->SetMaterial(i, material);
-								}
-								else {
-									auto materialPtr = std::dynamic_pointer_cast<Material>(ResourceManager::GetInstance().GetResourceFromAsset(info, ProjectManager::GetInstance().GetCurrentProjectPath()));
-									ResourceManager::GetInstance().AddResource(materialPtr);
-									renderer->SetMaterial(i, materialPtr);
-								}
-							}
-						}
-					}
-					ImGui::EndDragDropTarget();
-				}
-			}
-			ImGui::Columns(1);
+		//						if (auto material = ResourceManager::GetInstance().GetResource<Material>(info->id)) {
+		//							renderer->SetMaterial(i, material);
+		//						}
+		//						else {
+		//							auto materialPtr = std::dynamic_pointer_cast<Material>(ResourceManager::GetInstance().GetResourceFromAsset(info, ProjectManager::GetInstance().GetCurrentProjectPath()));
+		//							ResourceManager::GetInstance().AddResource(materialPtr);
+		//							renderer->SetMaterial(i, materialPtr);
+		//						}
+		//					}
+		//				}
+		//			}
+		//			ImGui::EndDragDropTarget();
+		//		}
+		//	}
+		//	ImGui::Columns(1);
 		}
 		ImGui::Dummy(ImVec2(0.0f, 4.0f));
 	}

@@ -62,7 +62,7 @@ Application::~Application()
     for (Layer* layer : m_LayerStack)
         layer->OnCleanup();
     // SceneManager::Get()->Destroy();
-    ResourceManager::GetInstance().Destroy();
+    //ResourceManager::GetInstance().Destroy();
     m_Context->cleanup();
 }
 
@@ -115,6 +115,11 @@ void Application::Run()
             REON_CORE_ERROR("Error: {}", ex.what());
         }
     }
+}
+
+void Application::Init(std::filesystem::path assetManifestPath) 
+{
+    m_EngineServices.Init(assetManifestPath.parent_path(), assetManifestPath);
 }
 
 void Application::OnWindowClose(const WindowCloseEvent& event)

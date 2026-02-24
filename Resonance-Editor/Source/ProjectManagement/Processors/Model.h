@@ -25,9 +25,6 @@ namespace REON::EDITOR {
 
     class Model {
     public:
-
-        static void LoadModelToGameObject(const char filePath[], const std::shared_ptr<GameObject>& parentObject);
-
         static std::shared_ptr<GameObject> ConstructGameObjectFromModelFile(const std::filesystem::path modelPath, std::shared_ptr<Scene> scene);
 
     private:

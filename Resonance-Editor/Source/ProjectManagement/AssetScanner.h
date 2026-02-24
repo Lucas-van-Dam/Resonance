@@ -2,7 +2,6 @@
 
 #include "REON/Core.h"
 
-#include <REON/AssetManagement/AssetRegistry.h>
 #include <Reon.h>
 #include <filesystem>
 #include <iostream>
@@ -34,12 +33,6 @@ class AssetScanner
         {
             if (entry.is_regular_file())
             {
-                if (auto info = AssetRegistry::Instance().GetAssetByPath(fs::relative(entry.path(), projectDir)))
-                {
-                    auto lastModified = clock_cast<std::chrono::system_clock>(fs::last_write_time(entry.path()));
-                    if (lastModified <= info->lastModified)
-                        continue;
-                }
                 auto extension = entry.path().extension().string();
                 auto filename = entry.path().filename().string();
                 if (supportedExtensions.find(extension) != supportedExtensions.end() ||

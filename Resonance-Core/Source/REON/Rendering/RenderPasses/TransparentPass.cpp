@@ -38,7 +38,7 @@ namespace REON {
 	}
 
 	void TransparentPass::render(const VulkanContext* context, std::shared_ptr<Camera> camera,
-		std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>> rendererMap,
+        std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>> rendererMap,
 		VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkDescriptorSet globalDescriptorSet)
 	{
 		int currentFrame = context->getCurrentFrame();
@@ -79,7 +79,7 @@ namespace REON {
 			for (const auto& material : materialFromShader) {
 
 				//set material wide buffers/textures
-				std::shared_ptr<Material> mat = ResourceManager::GetInstance().GetResource<Material>(material.first);
+                auto mat = material.second.front().material.Lock();
 				if (!(mat->blendingMode == Blend && mat->renderingMode == Transparent)) {
 					continue;
 				}
@@ -110,6 +110,10 @@ namespace REON {
 
 
 				for (const auto& cmd : material.second) {
+                    auto mesh = cmd.mesh.Lock();
+                    if (!mesh)
+                        continue;
+
 					std::vector<VkDescriptorSet> descriptorSets = { globalDescriptorSet, mat->descriptorSets[currentFrame], cmd.owner->objectDescriptorSets[context->getCurrentFrame()] };
 
 					ObjectRenderData data{};
@@ -117,11 +121,11 @@ namespace REON {
 					data.transposeInverseModel = glm::transpose(glm::inverse(data.model));
 					memcpy(cmd.owner->objectDataBuffersMapped[context->getCurrentFrame()], &data, sizeof(data));
 
-					VkBuffer vertexBuffers[] = { cmd.mesh->m_VertexBuffer };
+					VkBuffer vertexBuffers[] = { mesh->m_VertexBuffer };
 					VkDeviceSize offsets[] = { 0 };
 					vkCmdBindVertexBuffers(cameraData.commandBuffer, 0, 1, vertexBuffers, offsets);
 
-					vkCmdBindIndexBuffer(cameraData.commandBuffer, cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+					vkCmdBindIndexBuffer(cameraData.commandBuffer, mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
 					vkCmdBindDescriptorSets(cameraData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 					vkCmdDrawIndexed(cameraData.commandBuffer, static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);

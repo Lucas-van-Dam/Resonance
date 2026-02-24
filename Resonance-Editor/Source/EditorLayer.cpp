@@ -1,15 +1,12 @@
 #include "EditorLayer.h"
 
+#include "AssetManagement/AssetRegistry.h"
 #include "Events/EditorUIEvent.h"
 #include "ImGuizmo.h"
 #include "ProjectManagement/AssetScanner.h"
 #include "ProjectManagement/MetadataGenerator.h"
-#include "ProjectManagement/Processors/GLTFProcessor.h"
-#include "ProjectManagement/Processors/PrimaryProcessors.h"
 #include "ProjectManagement/ProjectManager.h"
-#include "REON/AssetManagement/AssetRegistry.h"
 #include "REON/GameHierarchy/Components/Transform.h"
-#include "REON/Rendering/PostProcessing/BloomEffect.h"
 #include "ShaderGraph/ShaderNodeLibrary.h"
 #include "imgui/imgui.h"
 #include "vulkan/vulkan.h"
@@ -27,9 +24,9 @@ namespace REON::EDITOR
 
 EditorLayer::EditorLayer() : Layer("EditorLayer")
 {
-    REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
-    REON::AssetRegistry::RegisterProcessor(".glb", std::make_unique<GLTFProcessor>());
-    REON::AssetRegistry::RegisterProcessor("model", std::make_unique<ModelProcessor>());
+    // REON::AssetRegistry::RegisterProcessor(".gltf", std::make_unique<GLTFProcessor>());
+    // REON::AssetRegistry::RegisterProcessor(".glb", std::make_unique<GLTFProcessor>());
+    // REON::AssetRegistry::RegisterProcessor("model", std::make_unique<ModelProcessor>());
     m_Gizmotype = GizmoType::Translate;
 }
 
@@ -59,9 +56,9 @@ void EditorLayer::OnDetach()
 
 void EditorLayer::OnCleanup()
 {
-    if (m_ProjectLoaded)
-        AssetRegistry::Instance().SaveRegistryToFile(ProjectManager::GetInstance().GetCurrentProjectPath() +
-                                                     "/EngineCache/AssetRegistry");
+    // if (m_ProjectLoaded)
+    //     AssetRegistry::Instance().SaveRegistryToFile(ProjectManager::GetInstance().GetCurrentProjectPath() +
+    //                                                  "/EngineCache/AssetRegistry");
 }
 
 void EditorLayer::OnImGuiRender()
@@ -461,9 +458,7 @@ void EditorLayer::ProcessMouseMove()
 
 void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 {
-    AssetRegistry::Instance().LoadRegistryFromFile(event.GetProjectDirectory() / "EngineCache" / "AssetRegistry");
-
-    auto assets = AssetScanner::scanAssets(event.GetProjectDirectory());
+    auto assets = AssetScanner::scanAssets(event.GetProjectDirectory() / "Assets");
 
     for (const auto& asset : assets)
     {
@@ -487,7 +482,10 @@ void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
         }
     }
 
-    // auto list = REON::AssetRegistry::Instance().GetAllAssets();
+    cookPipeline.CookAll({event.GetProjectDirectory().string(), "EngineCache"}, m_BuildQueue);
+
+    Application::Get().Init(event.GetProjectDirectory().string() + "\\EngineCache\\manifest.bin");
+
     Inspector::Initialize();
     m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
     m_ProjectLoaded = true;
@@ -495,28 +493,24 @@ void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
 
 void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const std::filesystem::path& projectPath)
 {
+    nlohmann::json jsonData;
+
     if (AssetScanner::primaryAssetExtensions.find(assetPath.extension().string()) !=
         AssetScanner::primaryAssetExtensions.end())
     {
         std::ifstream primaryFile(assetPath);
         if (primaryFile.is_open())
         {
-            nlohmann::json j;
-            primaryFile >> j;
-            REON::AssetInfo assetInfo;
-            assetInfo.id = j["GUID"];
-            auto extension = assetPath.extension().string();
-            extension.erase(0, 1);
-            assetInfo.type = extension;
-            assetInfo.path = fs::relative(assetPath, projectPath);
-            assetInfo.lastModified =
-                clock_cast<std::chrono::system_clock>(fs::last_write_time(projectPath / assetPath));
-            REON::AssetRegistry::ProcessAsset(assetInfo);
-            REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+            primaryFile >> jsonData;
+            AssetId assetId = jsonData["id"].get<AssetId>();
+            AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
+
+            AssetRegistry::Instance().Upsert(AssetRecord{assetId, assetType, assetPath, assetPath.filename().string()});
         }
         else
         {
             REON_WARN("Could not open primary file on project load: {}", assetPath.string());
+            return;
         }
     }
     else
@@ -529,24 +523,37 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
             std::ifstream metaFile(metaPath);
             if (metaFile.is_open())
             {
-                json metaData;
-                metaFile >> metaData;
+                metaFile >> jsonData;
 
-                REON::AssetInfo assetInfo;
-                assetInfo.id = metaData["Id"].get<std::string>();
-                assetInfo.type = metaData["Type"].get<std::string>();
-                assetInfo.path = fs::relative(assetPath, projectPath);
-                REON::AssetRegistry::Instance().RegisterAsset(assetInfo);
+                AssetId assetId = jsonData["id"].get<AssetId>();
+                AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
+                AssetRegistry::Instance().Upsert(
+                    AssetRecord{assetId, assetType, assetPath, assetPath.filename().string()});
             }
             else
             {
                 REON_WARN("Could not open meta file on project load: {}", metaPath);
+                return;
             }
         }
         else
         {
             REON_WARN("Could not find meta path for file: {}", assetPath.string());
+            return;
         }
+    }
+
+    //compute bulid key from file timestamp
+    auto lastWriteTime = fs::last_write_time(assetPath);
+    auto buildKey = std::chrono::duration_cast<std::chrono::milliseconds>(lastWriteTime.time_since_epoch()).count();
+    if (buildKey != jsonData["build"]["lastBuildKey"].get<long long>())
+    {
+        REON_INFO("Asset {} has changed since last build, marking for reimport", assetPath.string());
+        BuildJob job;
+        job.reason = BuildReason::SourceChanged;
+        job.sourceId = jsonData["id"].get<AssetId>();
+        job.type = jsonData["assetType"].get<uint32_t>();
+        m_BuildQueue.Enqueue(job);
     }
 }
 void EditorLayer::CheckAssetsRegistered() {}

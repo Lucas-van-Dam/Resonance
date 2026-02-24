@@ -1,34 +1,45 @@
 #pragma once
-#include <vector>
-#include <string>
+#include <ProjectManagement/ProjectManager.h>
 #include <filesystem>
 #include <imgui.h>
-#include <ProjectManagement/ProjectManager.h>
+#include <string>
+#include <vector>
 
-namespace REON::EDITOR {
+namespace fs = std::filesystem;
 
-	class AssetBrowser
-	{
-	public:
-		void SetRootDirectory(std::filesystem::path directory) {
-			m_RootDirectory = directory;
-			m_CurrentDirectory = directory;
-		}
+namespace REON::EDITOR
+{
 
-		void RenderAssetBrowser();
+class AssetBrowser
+{
+  public:
+    void SetRootDirectory(std::filesystem::path directory)
+    {
+        m_RootDirectory = directory;
+        m_CurrentDirectory = directory;
+    }
 
-		std::vector<std::string> GetSubdirectories(const std::string& directoryPath);
+    void RenderAssetBrowser();
 
-		std::filesystem::path getSelectedFile() const { return m_SelectedFile; }
-		void clearSelectedFile() { m_SelectedFile = ""; m_SelectedDirectory = ""; }
+    std::vector<std::string> GetSubdirectories(const std::string& directoryPath);
 
-	private:
-		std::filesystem::path m_CurrentDirectory;
-		std::filesystem::path m_RootDirectory;
-		std::filesystem::path m_SelectedDirectory;
-		std::filesystem::path m_SelectedFile;
+    std::filesystem::path getSelectedFile() const
+    {
+        return m_SelectedFile;
+    }
+    void clearSelectedFile()
+    {
+        m_SelectedFile = "";
+        m_SelectedDirectory = "";
+    }
 
-		void RenderDirectoryTree(const fs::path& directory);
-	};
+  private:
+    std::filesystem::path m_CurrentDirectory;
+    std::filesystem::path m_RootDirectory;
+    std::filesystem::path m_SelectedDirectory;
+    std::filesystem::path m_SelectedFile;
 
-}
+    void RenderDirectoryTree(const fs::path& directory);
+};
+
+} // namespace REON::EDITOR

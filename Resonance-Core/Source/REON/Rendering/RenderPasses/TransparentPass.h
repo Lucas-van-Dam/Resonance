@@ -47,7 +47,7 @@ namespace REON {
 			std::vector<VkImageView>& depthViews, std::vector<VkImageView>& opaqueViews);
 
 		void render(const VulkanContext* context, std::shared_ptr<Camera> camera,
-			std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>> rendererMap, 
+                    std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>> rendererMap, 
 			VkSemaphore waitSemaphore, VkSemaphore signalSemaphore, VkDescriptorSet globalDescriptorSet);
 
 		void resize(const VulkanContext* context, std::shared_ptr<Camera> camera, std::vector<VkImageView>& endViews,

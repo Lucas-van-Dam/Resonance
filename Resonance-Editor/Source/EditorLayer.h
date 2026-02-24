@@ -9,8 +9,9 @@
 #include "Windows/AssetBrowser.h"
 #include "Windows/Inspector.h"
 #include "Windows/SceneHierarchy.h"
+#include "AssetManagement/BuildQueue.h"
+#include "AssetManagement/CookPipeline.h"
 
-#include <REON/AssetManagement/AssetRegistry.h>
 #include <ReflectionSystem.h>
 #include <functional>
 #include <future>
@@ -70,6 +71,10 @@ class EditorLayer : public REON::Layer
     CallbackID m_ProjectOpenedCallbackID;
 
     AssetBrowser m_AssetBrowser;
+
+    CookPipeline cookPipeline;
+
+    BuildQueue m_BuildQueue;
 
     std::vector<std::future<void>> futures;
     std::future<void> futureCheckingFuture;

@@ -2,8 +2,9 @@
 #include "nlohmann/json.hpp"
 #include "tiny_gltf.h"
 #include "glm/glm.hpp"
-#include "REON/AssetManagement/IAssetProcessor.h"
 #include "REON/Rendering/Mesh.h"
+#include <tuple>
+#include "REON/Math/Quaternion.h"
 
 namespace tg = tinygltf;
 
@@ -29,10 +30,10 @@ namespace REON::EDITOR {
 		std::vector<std::shared_ptr<Mesh>> meshes;
 	};
 
-	class GLTFProcessor : public IAssetProcessor {
+	class GLTFProcessor {
 	public:
 		// Inherited via IAssetProcessor
-		void Process(AssetInfo& assetInfo) override;
+		void Process();
 
 	private:
 		std::string uid;

@@ -6,28 +6,20 @@ using Microsoft::WRL::ComPtr;
 
 namespace REON {
 
-	Shader::Shader() {
+	Shader::Shader(const std::string& name, std::any metadata)
+{
+        auto shaderFiles = std::any_cast<std::tuple<const char*, const char*, std::optional<std::string>>>(metadata);
+        std::string vertexFileName = std::get<0>(shaderFiles);
+        std::string fragmentFileName = std::get<1>(shaderFiles);
+        std::string geometryFileName = std::get<2>(shaderFiles).value_or("");
+        m_VertexPath = std::string("Assets/Shaders/" + vertexFileName);
+        m_FragmentPath = std::string("Assets/Shaders/" + fragmentFileName);
+        if (!geometryFileName.empty())
+        {
+            m_GeometryPath = std::string("Assets/Shaders/" + geometryFileName);
+        }
 	}
 
-	void Shader::Load(const std::string& name, std::any metadata)
-	{
-		m_Path = name;
-		//vertex, fragment, geometry
-		auto shaderFiles = std::any_cast<std::tuple<const char*, const char*, std::optional<std::string>>>(metadata);
-		std::string vertexFileName = std::get<0>(shaderFiles);
-		std::string fragmentFileName = std::get<1>(shaderFiles);
-		std::string geometryFileName = std::get<2>(shaderFiles).value_or("");
-		m_VertexPath = std::string("Assets/Shaders/" + vertexFileName);
-		m_FragmentPath = std::string("Assets/Shaders/" + fragmentFileName);
-		if (!geometryFileName.empty()) {
-			m_GeometryPath = std::string("Assets/Shaders/" + geometryFileName);
-		}
-	}
-
-	void Shader::Unload()
-	{
-
-	}
 
 	std::vector<char> Shader::CompileHLSLToSPIRV(const std::string& source, uint32_t flags)
 	{

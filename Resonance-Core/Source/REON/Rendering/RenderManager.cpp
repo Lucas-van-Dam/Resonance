@@ -14,9 +14,6 @@
 namespace REON
 {
 uint RenderManager::QuadVAO;
-std::shared_ptr<BloomEffect> RenderManager::m_BloomEffect;
-std::shared_ptr<ColorCorrection> RenderManager::m_ColorCorrection;
-std::shared_ptr<DepthOfField> RenderManager::m_DepthOfField;
 
 void RenderManager::Render(std::shared_ptr<Camera> camera)
 {
@@ -144,8 +141,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
         const auto& materialFromShader = pair.second;
         for (const auto& material : materialFromShader)
         {
-            // set material wide buffers/textures
-            std::shared_ptr<Material> mat = ResourceManager::GetInstance().GetResource<Material>(material.first);
+            auto mat = material.second.front().material.Lock();
             if (!(mat->blendingMode == Mask || mat->renderingMode == Opaque))
             {
                 continue;
@@ -178,6 +174,10 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
 
             for (const auto& cmd : material.second)
             {
+                auto mesh = cmd.mesh.Lock();
+                if (!mesh)
+                    continue;
+
                 std::vector<VkDescriptorSet> descriptorSets = {
                     m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet, mat->descriptorSets[currentFrame],
                     cmd.owner->objectDescriptorSets[m_Context->getCurrentFrame()]};
@@ -187,11 +187,12 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                 data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
                 memcpy(cmd.owner->objectDataBuffersMapped[m_Context->getCurrentFrame()], &data, sizeof(data));
 
-                VkBuffer vertexBuffers[] = {cmd.mesh->m_VertexBuffer};
+                //TODO: KEEP .LOCK OUT OF HERE, ITS KINDA EXPENSIVE!!
+                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-                vkCmdBindIndexBuffer(commandBuffer, cmd.mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(commandBuffer, mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0,
                                         descriptorSets.size(), descriptorSets.data(), 0, nullptr);
@@ -262,7 +263,6 @@ void RenderManager::RenderTransparents(std::shared_ptr<Camera> camera)
 
 void RenderManager::RenderPostProcessing()
 {
-    m_RenderResultTexture = m_PostProcessingStack.Render(m_SceneTexture, m_SceneDepthTex);
 }
 
 void RenderManager::GenerateShadows()
@@ -425,13 +425,13 @@ void RenderManager::prepareDrawCommands(int currentFrame)
 
         for (DrawCommand& cmd : renderer->drawCommands)
         {
-            auto shaderID = cmd.shader->GetID();
-            auto materialID = cmd.material->GetID();
+            auto shaderID = cmd.shader.Key().id;
+            auto materialID = cmd.material.Key().id;
 
             if (materials.find(materialID) == materials.end())
             {
                 materials.insert(materialID);
-                createOpaqueMaterialDescriptorSets(*cmd.material);
+                createOpaqueMaterialDescriptorSets(cmd.material.Lock());
             }
 
             m_DrawCommandsByShaderMaterial[shaderID][materialID].push_back(cmd);
@@ -1045,9 +1045,9 @@ void RenderManager::createGlobalBuffers(std::shared_ptr<Camera> camera)
     }
 }
 
-void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
+void RenderManager::createOpaqueMaterialDescriptorSets(std::shared_ptr<Material> material)
 {
-    material.descriptorSets.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
+    material->descriptorSets.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
     std::vector<VkDescriptorSetLayout> materialLayouts(m_Context->MAX_FRAMES_IN_FLIGHT,
                                                        m_OpaqueMaterialDescriptorSetLayout);
@@ -1057,30 +1057,31 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
     materialAllocInfo.descriptorSetCount = static_cast<uint32_t>(m_Context->MAX_FRAMES_IN_FLIGHT);
     materialAllocInfo.pSetLayouts = materialLayouts.data();
 
-    VkResult res = vkAllocateDescriptorSets(m_Context->getDevice(), &materialAllocInfo, material.descriptorSets.data());
+    VkResult res =
+        vkAllocateDescriptorSets(m_Context->getDevice(), &materialAllocInfo, material->descriptorSets.data());
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate descriptor sets");
 
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo materialBufferInfo{};
-        materialBufferInfo.buffer = material.flatDataBuffers[i];
+        materialBufferInfo.buffer = material->flatDataBuffers[i];
         materialBufferInfo.offset = 0;
         materialBufferInfo.range = sizeof(FlatData);
 
         VkDescriptorImageInfo albedoImageInfo{};
-        const auto& albedoTexture = material.albedoTexture.Get<Texture>();
+        const auto& albedoTexture = material->albedoTexture.Lock();
         albedoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         albedoImageInfo.imageView = albedoTexture ? albedoTexture->getTextureView() : m_DummyImageView;
         albedoImageInfo.sampler = albedoTexture ? albedoTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo normalImageInfo{};
-        const auto& normalTexture = material.normalTexture.Get<Texture>();
+        const auto& normalTexture = material->normalTexture.Lock();
         normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         normalImageInfo.imageView = normalTexture ? normalTexture->getTextureView() : m_DummyImageView;
         normalImageInfo.sampler = normalTexture ? normalTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo roughnessMetallicImageInfo{};
-        const auto& roughnessMetallicTexture = material.metallicRoughnessTexture.Get<Texture>();
+        const auto& roughnessMetallicTexture = material->metallicRoughnessTexture.Lock();
         roughnessMetallicImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         roughnessMetallicImageInfo.imageView =
             roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImageView;
@@ -1088,19 +1089,19 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
             roughnessMetallicTexture ? roughnessMetallicTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo emissiveImageInfo{};
-        const auto& emissiveTexture = material.emissiveTexture.Get<Texture>();
+        const auto& emissiveTexture = material->emissiveTexture.Lock();
         emissiveImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         emissiveImageInfo.imageView = emissiveTexture ? emissiveTexture->getTextureView() : m_DummyImageView;
         emissiveImageInfo.sampler = emissiveTexture ? emissiveTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo specularImageInfo{};
-        const auto& specularTexture = material.specularTexture.Get<Texture>();
+        const auto& specularTexture = material->specularTexture.Lock();
         specularImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         specularImageInfo.imageView = specularTexture ? specularTexture->getTextureView() : m_DummyImageView;
         specularImageInfo.sampler = specularTexture ? specularTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo specularColorImageInfo{};
-        const auto& specularColorTexture = material.specularColorTexture.Get<Texture>();
+        const auto& specularColorTexture = material->specularColorTexture.Lock();
         specularColorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         specularColorImageInfo.imageView =
             specularColorTexture ? specularColorTexture->getTextureView() : m_DummyImageView;
@@ -1108,7 +1109,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
 
         std::array<VkWriteDescriptorSet, 7> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = material.descriptorSets[i];
+        descriptorWrites[0].dstSet = material->descriptorSets[i];
         descriptorWrites[0].dstBinding = 1;
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1116,7 +1117,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[0].pBufferInfo = &materialBufferInfo;
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = material.descriptorSets[i];
+        descriptorWrites[1].dstSet = material->descriptorSets[i];
         descriptorWrites[1].dstBinding = 3;
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1124,7 +1125,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[1].pImageInfo = &albedoImageInfo;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = material.descriptorSets[i];
+        descriptorWrites[2].dstSet = material->descriptorSets[i];
         descriptorWrites[2].dstBinding = 4; // MIGHT BE WRONG
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1132,7 +1133,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[2].pImageInfo = &normalImageInfo;
 
         descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[3].dstSet = material.descriptorSets[i];
+        descriptorWrites[3].dstSet = material->descriptorSets[i];
         descriptorWrites[3].dstBinding = 5; // MIGHT BE WRONG
         descriptorWrites[3].dstArrayElement = 0;
         descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1140,7 +1141,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[3].pImageInfo = &roughnessMetallicImageInfo;
 
         descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[4].dstSet = material.descriptorSets[i];
+        descriptorWrites[4].dstSet = material->descriptorSets[i];
         descriptorWrites[4].dstBinding = 6; // MIGHT BE WRONG
         descriptorWrites[4].dstArrayElement = 0;
         descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1148,7 +1149,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[4].pImageInfo = &emissiveImageInfo;
 
         descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[5].dstSet = material.descriptorSets[i];
+        descriptorWrites[5].dstSet = material->descriptorSets[i];
         descriptorWrites[5].dstBinding = 7; // MIGHT BE WRONG
         descriptorWrites[5].dstArrayElement = 0;
         descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1156,7 +1157,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(Material& material)
         descriptorWrites[5].pImageInfo = &specularImageInfo;
 
         descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[6].dstSet = material.descriptorSets[i];
+        descriptorWrites[6].dstSet = material->descriptorSets[i];
         descriptorWrites[6].dstBinding = 8; // MIGHT BE WRONG
         descriptorWrites[6].dstArrayElement = 0;
         descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;

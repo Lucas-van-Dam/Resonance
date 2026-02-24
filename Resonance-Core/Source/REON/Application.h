@@ -9,6 +9,8 @@
 #include "Rendering/RenderLayer.h"
 #include "GameHierarchy/GameLogicLayer.h"
 #include "Rendering/RenderContext.h"
+#include "ResourceManagement/ResourceManager.h"
+#include "EngineServices.h"
 
 namespace REON {
 
@@ -22,6 +24,8 @@ namespace REON {
 
 		void Run();
 
+		void Init(std::filesystem::path assetManifestPath);
+
 		void PushLayer(Layer* layer);
 		void PushOverLay(Layer* overlay);
 
@@ -31,6 +35,11 @@ namespace REON {
 		uint64_t GetFrameNumber() { return m_FrameNumber; }
 
 		const RenderContext* GetRenderContext() const { return m_Context; }
+
+		inline EngineServices& GetEngineServices()
+        {
+            return m_EngineServices;
+        }
 
 	private:
 		void OnWindowClose(const WindowCloseEvent& event);
@@ -45,6 +54,8 @@ namespace REON {
 		RenderLayer* m_RenderLayer;
 		GameLogicLayer* m_GameLogicLayer;
 		LayerStack m_LayerStack;
+
+		EngineServices m_EngineServices;
 
 		static Application* s_Instance;
 

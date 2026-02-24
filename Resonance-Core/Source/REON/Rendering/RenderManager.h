@@ -1,9 +1,5 @@
 #pragma once
 
-#include "PostProcessing/BloomEffect.h"
-#include "PostProcessing/ColorCorrection.h"
-#include "PostProcessing/DepthOfField.h"
-#include "PostProcessing/PostProcessingStack.h"
 #include "REON/Events/EventBus.h"
 #include "REON/Events/KeyEvent.h"
 #include "REON/Events/RenderEvent.h"
@@ -78,7 +74,7 @@ struct FrameData
 };
 
 using DrawCommandByShaderMaterial =
-    std::unordered_map<std::string, std::unordered_map<std::string, std::vector<DrawCommand>>>;
+    std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>>;
 
 class RenderManager
 {
@@ -132,7 +128,7 @@ class RenderManager
     void createOpaqueDescriptorSetLayout();
     void createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> camera);
     void createGlobalBuffers(std::shared_ptr<Camera> camera);
-    void createOpaqueMaterialDescriptorSets(Material& material);
+    void createOpaqueMaterialDescriptorSets(std::shared_ptr<Material> material);
     void createOpaqueObjectDescriptorSets(const std::shared_ptr<Renderer>& renderer);
     void createOpaqueGraphicsPipelines();
     void createPipelineCache();
@@ -149,7 +145,7 @@ class RenderManager
 
     std::unordered_map<uint32_t, VkPipeline> m_PipelineByMaterialPermutation;
     DrawCommandByShaderMaterial m_DrawCommandsByShaderMaterial;
-    std::set<std::string> materials;
+    std::set<AssetId> materials;
 
     std::vector<FrameData> m_FrameData;
     std::unordered_map<std::shared_ptr<Camera>, std::vector<CameraSwapChainResources>> m_SwapChainResourcesByCamera;
@@ -245,15 +241,7 @@ class RenderManager
 
         -1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  -1.0f, 1.0f, 0.0f, 1.0f, 1.0f,  1.0f, 1.0f};
 
-    // Post-processing
-    PostProcessingStack m_PostProcessingStack;
-    uint m_PostProcessTexture, m_PostProcessFbo;
     uint m_RenderResultTexture;
-
-  public:
-    static std::shared_ptr<BloomEffect> m_BloomEffect;
-    static std::shared_ptr<ColorCorrection> m_ColorCorrection;
-    static std::shared_ptr<DepthOfField> m_DepthOfField;
 
   private:
 #pragma region data

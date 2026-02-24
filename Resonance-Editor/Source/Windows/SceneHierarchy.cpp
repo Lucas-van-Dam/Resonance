@@ -1,5 +1,7 @@
 #include "SceneHierarchy.h"
 #include "ProjectManagement/ProjectManager.h"
+#include "REON/ResourceManagement/loaders/ModelLoader.h"
+#include "AssetManagement/AssetRegistry.h"
 
 namespace REON::EDITOR {
 
@@ -86,8 +88,14 @@ namespace REON::EDITOR {
 			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM")) {
 				std::string filePath((char*)payload->Data);
 				auto extension = std::filesystem::path(filePath).extension();
-				if (extension == ".model") {
+                if (extension == ".glb" || extension == ".gltf")
+                {
 					REON_INFO("Dropped file: \"{}\" into scene", filePath);
+                    const auto& records = AssetRegistry::Instance().FindBySource(filePath);
+                    const auto& it = std::find_if(records.begin(), records.end(),
+                                 [](const AssetRecord& record) { return record.type == ASSET_MODEL; });
+                    ModelLoader::LoadModelFromFile(it->id,
+                                                   SceneManager::Get()->GetCurrentScene());
 					Model::ConstructGameObjectFromModelFile(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + filePath, SceneManager::Get()->GetCurrentScene());
 				}
 			}

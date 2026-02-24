@@ -7,21 +7,22 @@
 #include <REON/ResourceManagement/ResourceInfo.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <tuple>
 
 using json = nlohmann::json;
 
 namespace REON::EDITOR
 {
 
-void GLTFProcessor::Process(AssetInfo& assetInfo)
+void GLTFProcessor::Process(/*AssetInfo& assetInfo*/)
 {
     tg::Model model;
     tg::TinyGLTF loader;
     std::string err;
     std::string warn;
 
-    auto extension = assetInfo.path.extension().string();
-    fullPath = ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + assetInfo.path.string();
+    auto extension = ""; // assetInfo.path.extension().string();
+    fullPath = ProjectManager::GetInstance().GetCurrentProjectPath();
 
     if (extension == ".gltf")
     {
@@ -50,11 +51,11 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
         REON_WARN("Warning while opening gltf file: {}", warn);
     }
 
-    uid = assetInfo.id;
-    basePath = assetInfo.path;
+    uid = "";      // assetInfo.id;
+    basePath = ""; // assetInfo.path;
 
     MetaFileData metaData;
-    metaData.modelUID = assetInfo.id;
+    metaData.modelUID = ""; // assetInfo.id;
 
     metaData.originPath = basePath.string();
 
@@ -73,15 +74,16 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
 
     for (auto& srcMat : model.materials)
     {
-        auto litShader = ResourceManager::GetInstance().LoadResource<Shader>(
-            "DefaultLit", std::make_tuple("PBR.vert", "PBR.frag", std::optional<std::string>{}));
+        ResourceHandle<Shader> litShader =
+            {}; // ResourceManager::GetInstance().LoadResource<Shader>("DefaultLit", std::make_tuple("PBR.vert",
+                // "PBR.frag", std::optional<std::string>{}));
 
         std::shared_ptr<Material> mat = std::make_shared<Material>();
         mat->shader = litShader;
 
-        mat->SetName(srcMat.name.empty() ? "Material_" + mat->GetID() : srcMat.name);
+        //mat->SetName(srcMat.name.empty() ? "Material_" + mat->GetID() : srcMat.name);
 
-        materialIDs.push_back(mat->GetID());
+        //materialIDs.push_back(mat->GetID());
 
         uint32_t flags = 0;
 
@@ -118,8 +120,8 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
         if (pbrData.baseColorTexture.index >= 0)
         {
 
-            mat->albedoTexture = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index],
-                                                   VK_FORMAT_R8G8B8A8_SRGB, pbrData.baseColorTexture.index);
+            //mat->albedoTexture = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index],
+            //                                       VK_FORMAT_R8G8B8A8_SRGB, pbrData.baseColorTexture.index);
             flags |= AlbedoTexture;
             if (pbrData.baseColorTexture.texCoord != 0)
                 REON_WARN("Albedo texture has non 0 texcoord and is not used");
@@ -172,8 +174,8 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
 
         if (srcMat.emissiveTexture.index >= 0)
         {
-            mat->emissiveTexture = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index],
-                                                     VK_FORMAT_R8G8B8A8_SRGB, srcMat.emissiveTexture.index);
+            //mat->emissiveTexture = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index],
+            //                                         VK_FORMAT_R8G8B8A8_SRGB, srcMat.emissiveTexture.index);
             flags |= EmissiveTexture;
             if (srcMat.emissiveTexture.texCoord != 0)
                 REON_WARN("Emission texture has non 0 texcoord and is not used");
@@ -181,9 +183,9 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
 
         if (pbrData.metallicRoughnessTexture.index >= 0)
         {
-            mat->metallicRoughnessTexture =
-                HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index],
-                                  VK_FORMAT_R8G8B8A8_SRGB, pbrData.metallicRoughnessTexture.index);
+            //mat->metallicRoughnessTexture =
+            //    HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index],
+            //                      VK_FORMAT_R8G8B8A8_SRGB, pbrData.metallicRoughnessTexture.index);
             flags |= MetallicRoughnessTexture;
             if (pbrData.metallicRoughnessTexture.texCoord != 0)
                 REON_WARN("MetallicRoughness texture has non 0 texcoord and is not used");
@@ -191,8 +193,8 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
 
         if (srcMat.normalTexture.index >= 0)
         {
-            mat->normalTexture = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index],
-                                                   VK_FORMAT_R8G8B8A8_UNORM, srcMat.normalTexture.index);
+            //mat->normalTexture = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index],
+            //                                       VK_FORMAT_R8G8B8A8_UNORM, srcMat.normalTexture.index);
             flags |= NormalTexture;
             mat->flatData.normalScalar = srcMat.normalTexture.scale;
             if (srcMat.normalTexture.texCoord != 0)
@@ -201,12 +203,12 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
 
         mat->materialFlags = flags;
 
-        AssetRegistry::Instance().RegisterAsset({mat->GetID(), "Material",
-                                                 mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() +
-                                                                "\\" + (basePath.parent_path().string()))
-                                                     .string()});
+        //AssetRegistry::Instance().RegisterAsset({mat->GetID(), "Material",
+        //                                         mat->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() +
+        //                                                        "\\" + (basePath.parent_path().string()))
+        //                                             .string()});
 
-        ResourceManager::GetInstance().AddResource(mat);
+        //ResourceManager::GetInstance().AddResource(mat);
     }
 
     const int sceneToLoad = model.defaultScene < 0 ? 0 : model.defaultScene;
@@ -229,10 +231,11 @@ void GLTFProcessor::Process(AssetInfo& assetInfo)
     {
     }
 
-    assetInfo.extraInformation["Importer"] = "GLTFImporter";
+    //assetInfo.extraInformation["Importer"] = "GLTFImporter";
 
-    std::string metaDataPath = ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" +
-                               assetInfo.path.parent_path().string() + "\\" + assetInfo.path.stem().string() + ".model";
+    std::string metaDataPath =
+        ""; // ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + assetInfo.path.parent_path().string() +
+           // "\\" + assetInfo.path.stem().string() + ".model";
 
     SerializeCompanionFile(metaData, metaDataPath);
 }
@@ -264,7 +267,7 @@ SceneNodeData GLTFProcessor::HandleGLTFNode(const tg::Model& model, int nodeId, 
     {
         auto meshID = HandleGLTFMesh(model, model.meshes[meshId], transform, data);
         data.meshIDs.push_back(meshID);
-        modelFileData.meshes.push_back(ResourceManager::GetInstance().GetResource<Mesh>(meshID));
+        //modelFileData.meshes.push_back(ResourceManager::GetInstance().GetResource<Mesh>(meshID));
     }
 
     for (auto& childId : node.children)
@@ -281,8 +284,8 @@ SceneNodeData GLTFProcessor::HandleGLTFNode(const tg::Model& model, int nodeId, 
 std::string GLTFProcessor::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, const glm::mat4& transform,
                                           SceneNodeData& sceneNode)
 {
-    std::shared_ptr<Mesh> meshData = std::make_shared<Mesh>();
-    meshData->SetName(mesh.name);
+    std::shared_ptr<Mesh> meshData{};// = std::make_shared<Mesh>();
+    //meshData->SetName(mesh.name);
 
     std::vector<std::string> matIDsPerMesh;
 
@@ -391,13 +394,13 @@ std::string GLTFProcessor::HandleGLTFMesh(const tg::Model& model, const tg::Mesh
 
     if (meshData->tangents.empty())
     {
-        Mesh::calculateTangents(meshData);
+        //Mesh::calculateTangents(meshData);
     }
 
-    ResourceManager::GetInstance().AddResource(meshData);
-    AssetRegistry::Instance().RegisterAsset({meshData->GetID(), "Mesh", basePath.string() + ".meta"});
+    //ResourceManager::GetInstance().AddResource(meshData);
+    //AssetRegistry::Instance().RegisterAsset({meshData->GetID(), "Mesh", basePath.string() + ".meta"});
 
-    return meshData->GetID();
+    return ""; // meshData->GetID();
 }
 
 glm::mat4 GLTFProcessor::GetTransformFromGLTFNode(const tg::Node& node)
@@ -611,7 +614,7 @@ void GLTFProcessor::SerializeCompanionFile(const MetaFileData& data, const std::
     nlohmann::ordered_json meshArray = nlohmann::ordered_json::array();
     for (auto mesh : data.meshes) // Assuming `data.meshes` is a list of Mesh objects
     {
-        meshArray.push_back(mesh->Serialize());
+        //meshArray.push_back(mesh->Serialize());
     }
 
     j["meshes"] = meshArray;
@@ -722,19 +725,19 @@ std::shared_ptr<Texture> GLTFProcessor::HandleGLTFTexture(const tg::Model& model
         out.close();
     }
 
-    auto texture = ResourceManager::GetInstance().LoadResource<Texture>(outPath, std::make_tuple(header, image.image));
+    //auto texture = ResourceManager::GetInstance().LoadResource<Texture>(outPath, std::make_tuple(header, image.image));
 
-    AssetInfo textureInfo{};
-    textureInfo.id = texture->GetID();
-    textureInfo.type = "Texture";
-    textureInfo.path = outPath;
+    //AssetInfo textureInfo{};
+    //textureInfo.id = texture->GetID();
+    //textureInfo.type = "Texture";
+    //textureInfo.path = outPath;
 
     nlohmann::ordered_json json;
 
-    json["Id"] = textureInfo.id;
-    json["Type"] = textureInfo.type;
-    json["Path"] = textureInfo.path.string();
-    json["Extra Data"] = textureInfo.extraInformation;
+    //json["Id"] = textureInfo.id;
+    //json["Type"] = textureInfo.type;
+    //json["Path"] = textureInfo.path.string();
+    //json["Extra Data"] = textureInfo.extraInformation;
 
     std::ofstream metaOut(fullPath.parent_path().string() + "\\" + path + ".img.meta");
     if (metaOut.is_open())
@@ -743,8 +746,8 @@ std::shared_ptr<Texture> GLTFProcessor::HandleGLTFTexture(const tg::Model& model
         metaOut.close();
     }
 
-    AssetRegistry::Instance().RegisterAsset(textureInfo);
-    return texture;
+    //AssetRegistry::Instance().RegisterAsset(textureInfo);
+    return {};
 }
 
 // void GLTFProcessor::ProcessNode(aiNode* node, const aiScene* scene, std::string path) {
@@ -765,7 +768,7 @@ std::shared_ptr<Texture> GLTFProcessor::HandleGLTFTexture(const tg::Model& model
 //	std::string meshIdentifier = path.substr(0, path.find_last_of('/')) + "/" + mesh->mName.C_Str();
 
 //	std::shared_ptr<Mesh> meshObj = ResourceManager::GetInstance().LoadResource<Mesh>(meshIdentifier,
-//std::make_tuple(vertices, indices));
+// std::make_tuple(vertices, indices));
 
 //	meshObj->Serialize(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\EngineCache\\Meshes");
 
@@ -780,7 +783,8 @@ std::shared_ptr<Texture> GLTFProcessor::HandleGLTFTexture(const tg::Model& model
 //	infoData["localIdentifier"] = info.localIdentifier;
 
 //	std::ofstream infoFile((ProjectManager::GetInstance().GetCurrentProjectPath() + "\\EngineCache\\Meshes\\" +
-//meshObj->GetID() + ".mesh.info")); 	if (infoFile.is_open()) { 		infoFile << infoData.dump(4); 		infoFile.close();
+// meshObj->GetID() + ".mesh.info")); 	if (infoFile.is_open()) { 		infoFile << infoData.dump(4);
+// infoFile.close();
 //	}
 //	AssetRegistry::Instance().RegisterAsset({ meshObj->GetID(), "Mesh", "EngineCache/Meshes/" + meshObj->GetID() +
 //".mesh" });

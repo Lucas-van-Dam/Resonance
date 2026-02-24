@@ -440,7 +440,7 @@ bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
 
 std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std::shared_ptr<Scene>& scene)
 {
-    AssetRegistry& assetRegistry = AssetRegistry::Instance();
+    /*AssetRegistry& assetRegistry = AssetRegistry::Instance();
     std::unordered_set<std::string> usedAssets;
 
     for (auto gameObject : scene->GetRootObjects())
@@ -470,7 +470,8 @@ std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std
         }
     }
 
-    return usedAssets;
+    return usedAssets;*/
+    return {};
 }
 
 void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<GameObject> object,
@@ -510,7 +511,7 @@ void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJ
             }
             else if (componentJson["Type"] == "Renderer")
             {
-                auto renderer = std::make_shared<Renderer>();
+                std::shared_ptr<Renderer> renderer = {}; // std::make_shared<Renderer>();
                 renderer->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(renderer);
                 continue;
@@ -596,53 +597,6 @@ nlohmann::json ProjectManager::SerializeGameObject(std::shared_ptr<REON::GameObj
     jsonObject["Id"] = object->GetID();
 
     return jsonObject;
-}
-
-std::string ProjectManager::SerializeField(const char* fieldType, const void* data)
-{
-    static auto dummy = std::make_shared<REON::Object>();
-    auto it = serializers.find(fieldType);
-    if (it != serializers.end())
-    {
-        return it->second(data); // Call the corresponding serializer
-    }
-    else
-    {
-        try
-        {
-            std::string stringType = std::string(fieldType);
-            if (stringType == "ResourceHandle")
-            {
-                auto sharedPtr = reinterpret_cast<const ResourceHandle*>(data);
-                return sharedPtr->Get<ResourceBase>()->GetID();
-            }
-            else if (stringType == "std::vector<ResourceHandle>")
-            {
-                const auto& handles = *static_cast<const std::vector<ResourceHandle>*>(data);
-                std::string result = "[";
-                for (const auto& handle : handles)
-                {
-                    if (handle.Get<ResourceBase>())
-                    {
-                        result += handle.Get<ResourceBase>()->GetID() + ", ";
-                    }
-                }
-                if (result.size() > 1)
-                {
-                    result.pop_back(); // Remove last comma
-                    result.pop_back(); // Remove last space
-                }
-                result += "]";
-                return result;
-            }
-            REON_WARN("No serializer found for type: {0}", fieldType);
-            return "";
-        }
-        catch (std::exception ex)
-        {
-            REON_CORE_ERROR("Exception while trying to serialize field type {0}: {1}.", fieldType, ex.what());
-        }
-    }
 }
 
 std::string ProjectManager::ExtractInnerType(const std::string& typeString)

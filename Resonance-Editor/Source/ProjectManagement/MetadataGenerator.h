@@ -1,101 +1,110 @@
 #pragma once
 
 #include "Reon.h"
+
+#include <Windows.h>
 #include <filesystem>
 #include <fstream>
-#include <Windows.h>
-#include "nlohmann/json.hpp"
 #include <rpc.h>
-#include <REON/AssetManagement/AssetRegistry.h>
+
+#include "nlohmann/json.hpp"
 
 namespace fs = std::filesystem;
 using json = nlohmann::ordered_json;
 
-namespace REON::EDITOR {
+namespace REON::EDITOR
+{
 
-	class MetadataGenerator
-	{
-	public:
-		static std::string GenerateUUID() {
-			UUID uuid;
-			RPC_STATUS status = UuidCreate(&uuid);
+using MetaInitFn = void (*)(nlohmann::json&);
 
-			if (status == RPC_S_OK) {
-				std::string uuidStringOut;
-				RPC_CSTR uuidString;
-				UuidToStringA(&uuid, &uuidString);
-				uuidStringOut = (char*)uuidString;
-				RpcStringFreeA(&uuidString);
-				return uuidStringOut;
-			}
-			else {
-				REON_CORE_ERROR("Failed to create UUID. Error code: {}", status);
-			}
+struct MetaTypeInfo
+{
+    AssetTypeId assetType;
+    MetaInitFn init;
+};
 
-			return 0;
+class MetadataGenerator
+{
+  public:
+    static void EnsureMetadataExists(const fs::path& assetPath, const fs::path& projectRoot)
+    {
+        const auto ext = ToLower(assetPath.extension().string());
 
-		}
+        auto it = MetaByExtension().find(ext);
+        if (it == MetaByExtension().end())
+        {
+            REON_WARN("No metadata generator registered for asset type: {}, skipping metadata generation", ext);
+            return;
+        }
 
-		static void EnsureMetadataExists(const fs::path& assetPath, const fs::path& projectRoot) {
-			auto metaPath = assetPath.string() + ".meta";
+        auto metaPath = assetPath.string() + ".meta";
+        if (fs::exists(metaPath))
+        {
+            if (IsValidMetadata(metaPath))
+                return;
+            else
+            {
+                REON_CORE_WARN("Invalid meta file found in path: {}, regenerating metadata", metaPath);
+                fs::remove(metaPath);
+            }
+        }
 
-			if (fs::exists(metaPath)) {
-				if (IsValidMetadata(metaPath))
-					return;
-				else {
-					REON_CORE_WARN("Invalid meta file found in path: {}, regenerating metadata", metaPath);
-					fs::remove(metaPath);
-				}
-			}
+        const MetaTypeInfo& typeInfo = it->second;
 
-			CreateMetadataFile(assetPath, projectRoot);
-		}
+        nlohmann::json metaData;
+        metaData["metaVersion"] = 1;
+        metaData["assetType"] = typeInfo.assetType;
+        metaData["id"] = MakeRandomAssetId();
+        metaData["sourcePath"] = fs::relative(assetPath, projectRoot).generic_string();
 
-		static void CreateMetadataFile(const fs::path& assetPath, const fs::path& projectRoot) {
-			auto metaPath = assetPath.string() + ".meta";
+        typeInfo.init(metaData);
 
-			if (fs::exists(metaPath)) {
-				return;
-			}
+        std::ofstream metaFile(metaPath);
+        if (metaFile.is_open())
+        {
+            metaFile << metaData.dump(4);
+            metaFile.close();
+        }
+    }
 
-			REON::AssetInfo assetInfo;
+    static void Register(const std::string& extension, MetaTypeInfo info)
+    {
+        MetaByExtension()[ToLower(extension)] = std::move(info);
+    }
 
-			assetInfo.id = GenerateUUID();
-			assetInfo.path = fs::relative(assetPath, projectRoot).string();
-			assetInfo.type = assetPath.extension().string();
+  private:
+    static bool IsValidMetadata(const fs::path& metaPath)
+    {
+        std::ifstream metaFile(metaPath);
+        if (!metaFile.is_open())
+            return false;
 
-			json metaData;
-			metaData["Id"] = assetInfo.id;
-			metaData["Type"] = assetInfo.type;
-			metaData["Path"] = assetInfo.path.string();
+        json metaData;
+        try
+        {
+            metaFile >> metaData;
+        }
+        catch (...)
+        {
+            REON_CORE_WARN("Not valid Json structure in asset metafile: {}", metaPath.string());
+            return false;
+        }
 
-			REON::AssetRegistry::ProcessAsset(assetInfo);
+        return metaData.contains("metaVersion") && metaData.contains("assetType") && metaData.contains("id") &&
+               metaData.contains("source");
+    }
 
-			metaData["Extra Data"] = assetInfo.extraInformation;
+    static std::string ToLower(std::string s)
+    {
+        for (char& c : s)
+            c = (char)std::tolower((unsigned char)c);
+        return s;
+    }
 
-			std::ofstream metaFile(metaPath);
-			if (metaFile.is_open()) {
-				metaFile << metaData.dump(4);
-				metaFile.close();
-			}
-		}
-
-	private:
-		static bool IsValidMetadata(const fs::path& metaPath) {
-			std::ifstream metaFile(metaPath);
-			if (!metaFile.is_open()) return false;
-
-			json metaData;
-			try {
-				metaFile >> metaData;
-			}
-			catch (...) {
-				REON_CORE_WARN("Not valid Json structure in asset metafile: {}", metaPath.string());
-				return false;
-			}
-
-			return metaData.contains("Id") && metaData.contains("Type") && metaData.contains("Path");
-		}
-	};
-}
-
+    static std::unordered_map<std::string, MetaTypeInfo>& MetaByExtension()
+    {
+        static std::unordered_map<std::string, MetaTypeInfo> m;
+        return m;
+    }
+};
+} // namespace REON::EDITOR

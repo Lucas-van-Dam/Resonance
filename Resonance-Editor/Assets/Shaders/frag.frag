@@ -194,10 +194,13 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
     float alphaRoughness = perceptualRoughness * perceptualRoughness;
 
 #ifdef USE_ALBEDO_TEXTURE
-    float4 baseColor = SRGBtoLINEAR(texture_albedo.Sample(texture_sampler_albedo, input.tex)) * u_BaseColorFactor; // TODO: look into maybe srgb to linear color
+    float4 baseColor = texture_albedo.Sample(texture_sampler_albedo, input.tex) * u_BaseColorFactor;
 #else
     float4 baseColor = u_BaseColorFactor;
 #endif
+
+    //return texture_albedo.Sample(texture_sampler_albedo, input.tex);
+
 
 #ifdef ALPHA_CUTOFF
     if(baseColor.a < u_EmissiveFactor.w)
@@ -215,6 +218,8 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 #else
     float3 specularColor = lerp(f0, baseColor.rgb, metallic);
     float3 clampedSpecular = saturate(specularColor);
+
+   // return float4(metallic.xxx, 1.0);
     
     float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
     
