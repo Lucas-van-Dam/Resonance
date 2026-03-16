@@ -89,11 +89,52 @@ std::shared_ptr<ResourceBase> MeshLoader::Load(const AssetKey& key, const Artifa
             meshData.colors[i] = glm::vec4(c[i * 4 + 0], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
     }
 
+    if (mh->joint0offset != 0)
+    {
+        if (!inRange(mh->joint0offset, uint64_t(vtx) * 4ull * sizeof(uint16_t)))
+            return {};
+        const uint16_t* c = reinterpret_cast<const uint16_t*>(base + mh->joint0offset);
+        meshData.joints_0.resize(vtx);
+        for (uint32_t i = 0; i < vtx; ++i)
+            meshData.joints_0[i] = glm::u16vec4(c[i * 4 + 0], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+    }
+
+    if (mh->joint1offset != 0)
+    {
+        if (!inRange(mh->joint1offset, uint64_t(vtx) * 4ull * sizeof(uint16_t)))
+            return {};
+        const uint16_t* c = reinterpret_cast<const uint16_t*>(base + mh->joint1offset);
+        meshData.joints_1.resize(vtx);
+        for (uint32_t i = 0; i < vtx; ++i)
+            meshData.joints_1[i] = glm::u16vec4(c[i * 4 + 0], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+    }
+
+    if (mh->weight0offset != 0)
+    {
+        if (!inRange(mh->weight0offset, uint64_t(vtx) * 4ull * sizeof(float)))
+            return {};
+        const float* c = reinterpret_cast<const float*>(base + mh->weight0offset);
+        meshData.weights_0.resize(vtx);
+        for (uint32_t i = 0; i < vtx; ++i)
+            meshData.weights_0[i] = glm::vec4(c[i * 4 + 0], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+    }
+
+    if (mh->weight1offset != 0)
+    {
+        if (!inRange(mh->weight1offset, uint64_t(vtx) * 4ull * sizeof(float)))
+            return {};
+        const float* c = reinterpret_cast<const float*>(base + mh->weight1offset);
+        meshData.weights_1.resize(vtx);
+        for (uint32_t i = 0; i < vtx; ++i)
+            meshData.weights_1[i] = glm::vec4(c[i * 4 + 0], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+    }
+
     auto mesh = std::make_shared<Mesh>(meshData);
 
     for (int i = 0; i < mh->subMeshCount; ++i)
     {
-        if (!inRange(mh->subMeshOffset + (i * sizeof(SubMeshEntry)), sizeof(SubMeshEntry))) {
+        if (!inRange(mh->subMeshOffset + (i * sizeof(SubMeshEntry)), sizeof(SubMeshEntry)))
+        {
             return {};
         }
 
@@ -107,7 +148,6 @@ std::shared_ptr<ResourceBase> MeshLoader::Load(const AssetKey& key, const Artifa
 
         mesh->subMeshes.push_back(subm);
     }
-
 
     return mesh;
 }

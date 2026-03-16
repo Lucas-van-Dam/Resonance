@@ -18,9 +18,9 @@ void Camera::update(float deltaTime)
 
     glm::vec3 front = rotation * glm::vec3(0, 0, -1);
     glm::vec3 up = rotation * glm::vec3(0, 1, 0);
-    m_ViewMatrix = glm::lookAt(position, position + front, up);
+    m_ViewMatrix = glm::lookAtRH(position, position + front, up);
     m_ProjectionMatrix =
-        glm::perspective(glm::radians(fov), (float)viewportSize.x / (float)viewportSize.y, nearPlane, farPlane);
+        glm::perspectiveRH(glm::radians(fov), (float)viewportSize.x / (float)viewportSize.y, nearPlane, farPlane);
 }
 
 void Camera::cleanup() {}
@@ -32,35 +32,4 @@ void Camera::on_game_object_added_to_scene()
 
 void Camera::on_component_detach() {}
 
-nlohmann::ordered_json Camera::serialize() const
-{
-    nlohmann::ordered_json json;
-
-    json["Type"] = get_type_name();
-    json["fov"] = fov;
-    json["nearPlane"] = nearPlane;
-    json["farPlane"] = farPlane;
-    json["primary"] = primary;
-
-    return json;
-}
-void Camera::deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath)
-{
-    if (json.contains("fov"))
-    {
-        fov = json["fov"];
-    }
-    if (json.contains("nearPlane"))
-    {
-        nearPlane = json["nearPlane"];
-    }
-    if (json.contains("farPlane"))
-    {
-        farPlane = json["farPlane"];
-    }
-    if (json.contains("primary"))
-    {
-        primary = json["primary"];
-    }
-}
 } // namespace REON

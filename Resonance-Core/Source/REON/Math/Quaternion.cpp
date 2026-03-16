@@ -26,14 +26,11 @@ namespace REON {
     }
 
     // roll, pitch and yaw in degrees
-    void Quaternion::setFromEulerAngles(float roll, float pitch, float yaw) {
-        // roll  = Z
-        // pitch = X
-        // yaw   = Y
-
-        float halfX = glm::radians(pitch) * 0.5f; // X (pitch)
-        float halfY = glm::radians(yaw) * 0.5f; // Y (yaw)
-        float halfZ = glm::radians(roll) * 0.5f; // Z (roll)
+    void Quaternion::setFromEulerAngles(float roll, float pitch, float yaw)
+    {
+        float halfX = glm::radians(pitch) * 0.5f; // X
+        float halfY = glm::radians(yaw) * 0.5f;   // Y
+        float halfZ = glm::radians(roll) * 0.5f;  // Z
 
         float cx = cos(halfX);
         float sx = sin(halfX);
@@ -42,21 +39,17 @@ namespace REON {
         float cz = cos(halfZ);
         float sz = sin(halfZ);
 
-        // Quaternion multiplication: q = qy * qx * qz
         this->w = cy * cx * cz + sy * sx * sz;
-        this->x = sy * cx * cz - cy * sx * sz;
-        this->y = cy * sx * cz + sy * cx * sz;
+        this->x = cy * sx * cz + sy * cx * sz;
+        this->y = sy * cx * cz - cy * sx * sz;
         this->z = cy * cx * sz - sy * sx * cz;
     }
 
-    void Quaternion::setFromEulerAngles(glm::vec3 euler) {
-        // roll  = Z
-        // pitch = X
-        // yaw   = Y
-
-        float halfX = euler.x * 0.5f; // X (pitch)
-        float halfY = euler.y * 0.5f; // Y (yaw)
-        float halfZ = euler.z * 0.5f; // Z (roll)
+    void Quaternion::setFromEulerAngles(glm::vec3 euler)
+    {
+        float halfX = euler.x * 0.5f; // pitch = X
+        float halfY = euler.y * 0.5f; // yaw   = Y
+        float halfZ = euler.z * 0.5f; // roll  = Z
 
         float cx = cos(halfX);
         float sx = sin(halfX);
@@ -65,10 +58,9 @@ namespace REON {
         float cz = cos(halfZ);
         float sz = sin(halfZ);
 
-        // Quaternion multiplication: q = qy * qx * qz
         this->w = cy * cx * cz + sy * sx * sz;
-        this->x = sy * cx * cz - cy * sx * sz;
-        this->y = cy * sx * cz + sy * cx * sz;
+        this->x = cy * sx * cz + sy * cx * sz;
+        this->y = sy * cx * cz - cy * sx * sz;
         this->z = cy * cx * sz - sy * sx * cz;
     }
 

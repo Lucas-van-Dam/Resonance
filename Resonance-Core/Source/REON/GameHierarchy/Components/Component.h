@@ -38,9 +38,6 @@ class Component
     virtual void on_game_object_added_to_scene() = 0;
     virtual void on_component_detach() = 0;
 
-    [[nodiscard]] virtual nlohmann::ordered_json serialize() const = 0;
-    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) = 0;
-
     [[nodiscard]] virtual std::string get_type_name() const = 0;
     [[nodiscard]] virtual std::type_index get_type_index() const = 0;
 

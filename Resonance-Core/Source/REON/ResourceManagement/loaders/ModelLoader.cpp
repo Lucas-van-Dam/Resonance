@@ -1,4 +1,5 @@
 #include "reonpch.h"
+
 #include "ModelLoader.h"
 
 #include "ModelBinContainerReader.h"
@@ -9,6 +10,7 @@
 #include <REON/Application.h>
 #include <REON/EngineServices.h>
 #include <filesystem>
+#include <REON/GameHierarchy/Components/Animator.h>
 
 namespace REON
 {
@@ -25,7 +27,6 @@ static void SetTransformFromTRS(std::shared_ptr<GameObject>& go, const SceneNode
     go->GetTransform()->localScale = {n.s[0], n.s[1], n.s[2]};
 }
 
-
 // Converts 16-byte array in SceneNode to your AssetId type.
 static AssetId AssetIdFromBytes16(const uint8_t b[16])
 {
@@ -39,14 +40,23 @@ static bool SceneNodeHasMesh(const SceneNode& n)
     return !IsNull(AssetIdFromBytes16(n.meshId));
 }
 
-
 static std::shared_ptr<GameObject> BuildNodeRecursive(uint32_t nodeIndex, const std::vector<SceneNode>& nodes,
-                                                      std::shared_ptr<Scene>& scene, const std::shared_ptr<GameObject>& parent)
+                                                      std::shared_ptr<Scene>& scene,
+                                                      const std::shared_ptr<GameObject>& parent, std::shared_ptr<Animator> animator = nullptr)
 {
     const SceneNode& n = nodes[nodeIndex];
 
     auto obj = std::make_shared<GameObject>();
-    obj->SetName(MakeNodeName(nodeIndex));
+    if (n.debugName[0] == '\0')
+    {
+        obj->SetName(MakeNodeName(nodeIndex)); 
+    }
+    else
+    {
+        obj->SetName(n.debugName);
+    }
+
+    obj->SetNodeId(AssetIdFromBytes16(n.nodeId));
 
     // Attach to scene graph
     if (parent)
@@ -64,6 +74,7 @@ static std::shared_ptr<GameObject> BuildNodeRecursive(uint32_t nodeIndex, const 
         std::memcpy(materialId.data(), n.materialId, sizeof(n.materialId));
 
         auto mesh = Application::Get().GetEngineServices().resources.GetOrLoad<Mesh>(meshId);
+
         std::vector<ResourceHandle<Material>> materialHandles;
         for (const auto& matId : materialId)
         {
@@ -71,14 +82,23 @@ static std::shared_ptr<GameObject> BuildNodeRecursive(uint32_t nodeIndex, const 
                 materialHandles.push_back(Application::Get().GetEngineServices().resources.GetOrLoad<Material>(matId));
         }
         auto renderer = std::make_shared<Renderer>(mesh, materialHandles);
+
+        if (n.skinIndex != UINT32_MAX)
+        {
+            renderer->m_SkinIndex = n.skinIndex;
+            if (animator != nullptr)
+            {
+                renderer->animator = animator;
+            }
+        }
+
         obj->AddComponent(renderer);
     }
 
-    // Recurse through children using firstChild/nextSibling chain
     uint32_t child = n.firstChild;
     while (child != UINT32_MAX)
     {
-        BuildNodeRecursive(child, nodes, scene, obj);
+        BuildNodeRecursive(child, nodes, scene, obj, animator);
         child = nodes[child].nextSibling;
     }
 
@@ -113,22 +133,36 @@ bool ModelLoader::LoadModelFromFile(AssetId id, std::shared_ptr<Scene> scene)
     if (roots.empty())
         return false;
 
+    uint64_t off = 0, sz = 0;
+
     if (roots.size() > 1)
     {
         auto rootObj = std::make_shared<GameObject>();
         scene->AddGameObject(rootObj);
 
-        rootObj->SetName("Model_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())); // or timestamp like before
+        rootObj->SetName("Model_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
 
         for (uint32_t r : roots)
             BuildNodeRecursive(r, nodes, scene, rootObj);
+
+        if (container.Header().flags & HAS_RIG)
+            REON_WARN("I HAVE NO FKING CLUE WHAT TO DO WITH MULTIPLE ROOTS AND RIGS, WILL DO THIS SHIT LATER");
     }
     else
     {
-        // Single root: same behavior as your JSON path
-        BuildNodeRecursive(roots[0], nodes, scene, nullptr);
-    }
+        std::shared_ptr<Animator> animator = nullptr;
+        if (container.Header().flags & HAS_RIG)
+        {
+            AssetId rigId;
+            std::memcpy(rigId.bytes.data(), container.Header().rigId, 16);
+            auto rig = Application::Get().GetEngineServices().resources.GetOrLoad<Rig>(rigId);
+            animator = std::make_shared<Animator>(rig);
+            scene->renderManager->AddAnimator(animator);
+        }
+        const auto& root = BuildNodeRecursive(roots[0], nodes, scene, nullptr, animator);
+        root->AddComponent<Animator>(animator);
 
+    }
     return true;
 }
 } // namespace REON

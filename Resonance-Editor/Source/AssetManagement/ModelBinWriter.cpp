@@ -45,8 +45,14 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
     std::vector<ChunkEntry> chunks;
     chunks.reserve(3);
 
-    const uint32_t chunkCount = 3;
+    const uint32_t chunkCount = 4;
     header.chunkCount = chunkCount;
+
+    if (model.rig.has_value())
+    {
+        header.flags |= HAS_RIG;
+        std::memcpy(header.rigId, model.rig.value().rigId.bytes.data(), 16);
+    }
 
     const uint64_t headerOffset = 0;
     const uint64_t chunkTableOffset = sizeof(FileHeader);
@@ -79,62 +85,79 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
     const uint32_t nodeCount = (uint32_t)model.nodes.size();
     WritePOD(out, nodeCount);
 
-    std::vector<SceneNode> sceneNodes;
-    sceneNodes.resize(model.nodes.size());
+    std::vector<SceneNode> sceneNodes(nodeCount, SceneNode{});
 
-    for (int i = 0; i < model.nodes.size(); ++i)
+    for (uint32_t i = 0; i < nodeCount; ++i)
     {
         const auto& n = model.nodes[i];
-
         auto& sn = sceneNodes[i];
+
         sn.parent = n.parent;
-        if (n.children.empty())
-            sn.firstChild = UINT32_MAX;
-        else
-        {
-            sn.firstChild = n.children[0];
+        sn.firstChild = UINT32_MAX;
+        sn.nextSibling = UINT32_MAX;
 
-            for (size_t c = 0; c < n.children.size(); ++c)
-            {
-                const uint32_t childIndex = n.children[c];
+        sn.version = 1;
 
-                if (c + 1 == n.children.size())
-                {
-                    sceneNodes[childIndex].nextSibling = UINT32_MAX;
-                }
-                else
-                {
-                    sceneNodes[childIndex].nextSibling = n.children[c + 1];
-                }
-            }
-        }
+        std::memcpy(sn.nodeId, n.NodeId.bytes.data(), 16);
 
         sn.t[0] = n.t.x;
         sn.t[1] = n.t.y;
         sn.t[2] = n.t.z;
-        sn.r[0] = n.r.x;
-        sn.r[1] = n.r.y;
-        sn.r[2] = n.r.z;
-        sn.r[3] = n.r.w;
+        sn.r[0] = n.r.w;
+        sn.r[1] = n.r.x;
+        sn.r[2] = n.r.y;
+        sn.r[3] = n.r.z;
         sn.s[0] = n.s.x;
         sn.s[1] = n.s.y;
         sn.s[2] = n.s.z;
 
+        sn.flags = 0;
+        sn.reserved0 = 0;
+
+        sn.skinIndex = n.skinIndex; // UINT32_MAX if none
+
         if (!IsNull(n.meshId))
-            std::copy(n.meshId.begin(), n.meshId.end(), sn.meshId);
+            std::memcpy(sn.meshId, n.meshId.bytes.data(), 16);
         else
-            sn.meshId[0] = sn.meshId[1] = sn.meshId[2] = sn.meshId[3] = 0;
-        if (n.materialId.size() <= 10)
+            std::memset(sn.meshId, 0, 16);
+
+        sn.materialCount = (uint32_t)std::min<size_t>(n.materialId.size(), 10);
+
+        std::memset(sn.materialId, 0, sizeof(sn.materialId));
+        if (sn.materialCount > 0)
+            std::memcpy(sn.materialId, n.materialId.data(), sn.materialCount * 16);
+
+        if (!n.debugName.empty())
         {
-            std::memcpy(sn.materialId, n.materialId.data(), n.materialId.size() * sizeof(AssetId));
+            std::strncpy(sn.debugName, n.debugName.c_str(), sizeof(sn.debugName) - 1);
         }
         else
         {
-            REON_ERROR("Max materials per node exceeded limit: 10, found: {}", n.materialId.size());
+            sn.debugName[0] = '\0'; // mark as null
         }
     }
 
-    for (auto& sn : sceneNodes)
+    for (uint32_t i = 0; i < nodeCount; ++i)
+    {
+        const auto& n = model.nodes[i];
+        auto& sn = sceneNodes[i];
+
+        if (!n.children.empty())
+        {
+            sn.firstChild = n.children[0];
+
+            for (size_t c = 0; c + 1 < n.children.size(); ++c)
+            {
+                const uint32_t a = n.children[c];
+                const uint32_t b = n.children[c + 1];
+                sceneNodes[a].nextSibling = b;
+            }
+
+            sceneNodes[n.children.back()].nextSibling = UINT32_MAX;
+        }
+    }
+
+    for (const auto& sn : sceneNodes)
         WritePOD(out, sn);
 
     sceneChunk.size = uint64_t(out.tellp()) - sceneChunk.offset;
@@ -178,6 +201,30 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
         mh.colorOffset = off;
         off += uint32_t(sizeof(glm::vec4) * m.colors.size());
 
+        if (!m.joints_0.empty())
+        {
+            mh.joint0offset = off;
+            off += uint32_t(sizeof(glm::u16vec4) * m.joints_0.size());
+        }
+
+        if (!m.joints_1.empty())
+        {
+            mh.joint1offset = off;
+            off += uint32_t(sizeof(glm::u16vec4) * m.joints_1.size());
+        }
+
+        if (!m.weights_0.empty())
+        {
+            mh.weight0offset = off;
+            off += uint32_t(sizeof(glm::vec4) * m.weights_0.size());
+        }
+
+        if (!m.weights_1.empty())
+        {
+            mh.weight1offset = off;
+            off += uint32_t(sizeof(glm::vec4) * m.weights_1.size());
+        }
+
         mh.subMeshOffset = off;
         mh.subMeshCount = (uint32_t)m.subMeshes.size();
         off += uint32_t(sizeof(SubMeshEntry) * m.subMeshes.size());
@@ -189,6 +236,26 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
         WriteSpan(out, m.uv0.data(), m.uv0.size());
         WriteSpan(out, m.indices.data(), m.indices.size());
         WriteSpan(out, m.colors.data(), m.colors.size());
+
+        if (!m.joints_0.empty())
+        {
+            WriteSpan(out, m.joints_0.data(), m.joints_0.size());
+        }
+
+        if (!m.joints_1.empty())
+        {
+            WriteSpan(out, m.joints_1.data(), m.joints_1.size());
+        }
+
+        if (!m.weights_0.empty())
+        {
+            WriteSpan(out, m.weights_0.data(), m.weights_0.size());
+        }
+
+        if (!m.weights_1.empty())
+        {
+            WriteSpan(out, m.weights_1.data(), m.weights_1.size());
+        }
 
         for (const auto& sm : m.subMeshes)
         {
@@ -237,6 +304,113 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
 
     chunks = {sceneChunk, meshIndexChunk, meshDataChunk};
 
+    if (model.rig.has_value())
+    {
+        ChunkEntry rigChunk{};
+        rigChunk.type = ChunkType::RIG;
+        rigChunk.flags = 0;
+        rigChunk.offset = cursor;
+
+        const uint64_t chunkStart = rigChunk.offset;
+
+        const uint32_t skinCount = (uint32_t)model.skins.size();          // embed all skins
+        const uint32_t jointIdCount = (uint32_t)model.rig->joints.size(); // optional metadata list
+
+        RigChunkHeader rh{};
+        rh.version = 1;
+        rh.skinCount = skinCount;
+        rh.jointCount = jointIdCount;
+        std::memcpy(rh.rigId, model.rig->rigId.bytes.data(), 16);
+
+        const uint64_t headerPos = (uint64_t)out.tellp();
+        WritePOD(out, rh);
+
+        // Skin record table immediately after header
+        rh.skinOffset = (uint32_t)((uint64_t)out.tellp() - chunkStart);
+
+        std::vector<SkinRecord> records(skinCount);
+        const uint64_t recordsPos = (uint64_t)out.tellp();
+        if (!records.empty())
+            WriteSpan(out, records.data(), records.size());
+
+        uint64_t cur = AlignUp((uint64_t)out.tellp(), 16);
+        WriteZeros(out, cur - (uint64_t)out.tellp());
+
+        // Optional: write rig joint nodeIds (16 bytes each)
+        if (jointIdCount > 0)
+        {
+            rh.jointNodeIdsOffset = (uint32_t)((uint64_t)out.tellp() - chunkStart);
+            for (const AssetId& id : model.rig->joints)
+                out.write((const char*)id.bytes.data(), 16);
+
+            cur = AlignUp((uint64_t)out.tellp(), 16);
+            WriteZeros(out, cur - (uint64_t)out.tellp());
+        }
+        else
+        {
+            rh.jointNodeIdsOffset = 0;
+        }
+
+        // Write embedded skins payload blocks, fill records
+        for (uint32_t i = 0; i < skinCount; ++i)
+        {
+            const auto& s = model.skins[i];
+
+            if (s.jointIndices.size() != s.inverseBindMatrices.size())
+            {
+                REON_WARN("Size mismatch in IBM and joints for skin {}", i);
+
+                SkinRecord r{};
+                r.skeletonNode = UINT32_MAX;
+                r.jointCount = 0;
+                r.jointsOffset = 0;
+                r.ibmOffset = 0;
+                records[i] = r;
+                continue;
+            }
+
+            SkinRecord r{};
+            r.skeletonNode = s.skeleton;
+            r.jointCount = (uint32_t)s.jointIndices.size();
+
+            // joints
+            r.jointsOffset = (uint32_t)((uint64_t)out.tellp() - chunkStart);
+            if (!s.jointIndices.empty())
+                WriteSpan(out, s.jointIndices.data(), s.jointIndices.size());
+
+            cur = AlignUp((uint64_t)out.tellp(), 16);
+            WriteZeros(out, cur - (uint64_t)out.tellp());
+
+            // IBMs
+            r.ibmOffset = (uint32_t)((uint64_t)out.tellp() - chunkStart);
+            if (!s.inverseBindMatrices.empty())
+                WriteSpan(out, s.inverseBindMatrices.data(), s.inverseBindMatrices.size());
+
+            cur = AlignUp((uint64_t)out.tellp(), 16);
+            WriteZeros(out, cur - (uint64_t)out.tellp());
+
+            records[i] = r;
+        }
+
+        // Patch records table
+        const uint64_t endPos = (uint64_t)out.tellp();
+        out.seekp((std::streamoff)recordsPos, std::ios::beg);
+        if (!records.empty())
+            WriteSpan(out, records.data(), records.size());
+        out.seekp((std::streamoff)endPos, std::ios::beg);
+
+        // Patch header (skinsOffset/jointNodeIdsOffset are now known)
+        out.seekp((std::streamoff)headerPos, std::ios::beg);
+        WritePOD(out, rh);
+        out.seekp((std::streamoff)endPos, std::ios::beg);
+
+        rigChunk.size = endPos - rigChunk.offset;
+        cursor = AlignUp(endPos, 16);
+        WriteZeros(out, cursor - endPos);
+
+        chunks.push_back(rigChunk);
+    }
+
     header.fileBytes = (uint64_t)out.tellp();
 
     out.seekp((std::streamoff)headerOffset, std::ios::beg);
@@ -267,6 +441,9 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
 
     assetMap[AssetKey{ASSET_MODEL, model.modelId}] = {outFile.generic_string(), 0, std::filesystem::file_size(outFile),
                                                       0x2001};
+    if (model.rig.has_value())
+        assetMap[AssetKey{ASSET_RIG, model.rig.value().rigId}] = {outFile.generic_string(), chunks[3].offset, chunks[3].size,
+                                                                  0x3001};
 
     return {0, {}, {}, assetMap};
 }

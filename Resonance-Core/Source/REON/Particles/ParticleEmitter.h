@@ -16,14 +16,13 @@ namespace REON {
 		~ParticleEmitter() override;
 
 		//void Initialize() override;
-		void Update(float deltaTime) override;
+		//void update(float deltaTime) override;
 		void cleanup() override;
-		void OnGameObjectAddedToScene() override;
-		void OnComponentDetach() override;
+		//void OnGameObjectAddedToScene() override;
+		//void OnComponentDetach() override;
 		void Emit(uint32_t count);
 		void Reset();
-		nlohmann::ordered_json Serialize() const override;
-		void Deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
+
 
 		EmitterShape shape = EmitterShape::Point;
 		uint32_t maxParticles = 1000;

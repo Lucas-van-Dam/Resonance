@@ -1,19 +1,17 @@
 #include "reonpch.h"
 #define VMA_IMPLEMENTATION
 // #define VMA_DEBUG_LOG_FORMAT
-#include "VulkanContext.h"
-
-#include <glslang/Public/ShaderLang.h>
-#include <glslang/SPIRV/GlslangToSpv.h>
-
 #include "REON/Rendering/Mesh.h"
 #include "REON/Rendering/Shader.h"
-
+#include "VulkanContext.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 #include "imgui.h"
+
 #include <REON/Events/ApplicationEvent.h>
 #include <REON/Events/EventBus.h>
+#include <glslang/Public/ShaderLang.h>
+#include <glslang/SPIRV/GlslangToSpv.h>
 
 namespace REON
 {
@@ -24,12 +22,15 @@ void VulkanContext::init()
     createInstance();
     setupDebugMessenger();
     createSurface();
-    pickPhysicalDevice();
+    m_physDevices.Init(m_Instance, m_Surface);
+    m_queueFamily = m_physDevices.SelectDevice(VK_QUEUE_GRAPHICS_BIT, true);
+    m_MsaaSamples = getMaxUsableSampleCount();
     createLogicalDevice();
     createVmaAllocator();
     createSwapChain();
     createImageViews();
     createCommandPool();
+    m_Queue.init(m_Device, m_SwapChain, m_queueFamily, 0);
     createDescriptorPool();
     createSyncObjects();
 }
@@ -138,7 +139,7 @@ void VulkanContext::cleanupSwapChain()
 uint32_t VulkanContext::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProperties);
+    vkGetPhysicalDeviceMemoryProperties(getPhysicalDevice(), &memProperties);
 
     for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
@@ -338,7 +339,7 @@ VkFormat VulkanContext::findSupportedFormat(const std::vector<VkFormat>& candida
     for (VkFormat format : candidates)
     {
         VkFormatProperties props;
-        vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &props);
+        vkGetPhysicalDeviceFormatProperties(getPhysicalDevice(), format, &props);
         if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
         {
             return format;
@@ -385,6 +386,19 @@ void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBu
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
 }
 
+void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBuffers, size_t amountOfBuffers) const {
+    commandBuffers.resize(amountOfBuffers);
+
+    VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = m_CommandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(amountOfBuffers);
+
+    VkResult res = vkAllocateCommandBuffers(m_Device, &allocInfo, commandBuffers.data());
+    REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
+}
+
 bool VulkanContext::hasStencilComponent(VkFormat format) const
 {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
@@ -394,7 +408,7 @@ void VulkanContext::generateMipmaps(VkImage image, VkFormat format, int32_t texW
                                     uint32_t mipLevels)
 {
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(m_PhysicalDevice, format, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(getPhysicalDevice(), format, &formatProperties);
 
     REON_CORE_ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT,
                      "Texture image format does not support linear blitting");
@@ -470,34 +484,13 @@ void VulkanContext::generateMipmaps(VkImage image, VkFormat format, int32_t texW
 
 VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount()
 {
-    VkPhysicalDeviceProperties physicalDeviceProperties;
-    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &physicalDeviceProperties);
+    const auto& lims = m_physDevices.Selected().m_devProps.limits;
 
-    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
-                                physicalDeviceProperties.limits.framebufferDepthSampleCounts;
-    if (counts & VK_SAMPLE_COUNT_64_BIT)
+    VkSampleCountFlags counts = lims.framebufferColorSampleCounts & lims.framebufferDepthSampleCounts;
+    for (int bit = VK_SAMPLE_COUNT_64_BIT; bit >= VK_SAMPLE_COUNT_1_BIT; bit >>= 1)
     {
-        return VK_SAMPLE_COUNT_64_BIT;
-    }
-    if (counts & VK_SAMPLE_COUNT_32_BIT)
-    {
-        return VK_SAMPLE_COUNT_32_BIT;
-    }
-    if (counts & VK_SAMPLE_COUNT_16_BIT)
-    {
-        return VK_SAMPLE_COUNT_16_BIT;
-    }
-    if (counts & VK_SAMPLE_COUNT_8_BIT)
-    {
-        return VK_SAMPLE_COUNT_8_BIT;
-    }
-    if (counts & VK_SAMPLE_COUNT_4_BIT)
-    {
-        return VK_SAMPLE_COUNT_4_BIT;
-    }
-    if (counts & VK_SAMPLE_COUNT_2_BIT)
-    {
-        return VK_SAMPLE_COUNT_2_BIT;
+        if (counts & bit)
+            return static_cast<VkSampleCountFlagBits>(bit);
     }
 
     return VK_SAMPLE_COUNT_1_BIT;
@@ -506,8 +499,8 @@ VkSampleCountFlagBits VulkanContext::getMaxUsableSampleCount()
 void VulkanContext::createVmaAllocator()
 {
     VmaAllocatorCreateInfo allocatorCreateInfo{};
-    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    allocatorCreateInfo.physicalDevice = m_PhysicalDevice;
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_4;
+    allocatorCreateInfo.physicalDevice = getPhysicalDevice();
     allocatorCreateInfo.device = m_Device;
     allocatorCreateInfo.instance = m_Instance;
 
@@ -516,12 +509,15 @@ void VulkanContext::createVmaAllocator()
 
 void VulkanContext::createDescriptorPool()
 {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(1000);
 
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(1000);
+
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount = static_cast<uint32_t>(1000);
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -571,13 +567,14 @@ void VulkanContext::createInstance()
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "Resonance";
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "No Engine";
+    appInfo.pEngineName = "Resonance";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.apiVersion = VK_API_VERSION_1_4;
 
     VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
+    createInfo.flags = 0;
 
     auto requiredExtensions = getRequiredExtensions();
 
@@ -707,6 +704,7 @@ void VulkanContext::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreate
                              VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                              VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = debugCallback;
+    createInfo.pUserData = VK_NULL_HANDLE;
 }
 
 void VulkanContext::pickPhysicalDevice()
@@ -729,7 +727,6 @@ void VulkanContext::pickPhysicalDevice()
 
     REON_CORE_ASSERT(candidates.rbegin()->first > 0, "Failed to find a suitable GPU");
 
-    m_PhysicalDevice = candidates.rbegin()->second;
     m_MsaaSamples = getMaxUsableSampleCount();
 }
 
@@ -763,8 +760,8 @@ int VulkanContext::rateDeviceSuitability(VkPhysicalDevice device)
     bool swapChainAdequate = false;
     if (extensionsSupported)
     {
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
-        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+        // SwapChainSupportDetails swapChainSupport = querySwapChainSupport(device);
+        // swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
     }
     notSuitable |= !swapChainAdequate;
 
@@ -815,7 +812,8 @@ QueueFamilyIndices VulkanContext::findQueueFamilies(VkPhysicalDevice device) con
 
 void VulkanContext::createLogicalDevice()
 {
-    QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
+
+    QueueFamilyIndices indices = findQueueFamilies(getPhysicalDevice());
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(), indices.presentFamily.value()};
@@ -831,11 +829,15 @@ void VulkanContext::createLogicalDevice()
         queueCreateInfos.push_back(queueCreateInfo);
     }
 
+    // TODO: CHECK FOR ALL FEATURES IF THEY ARE SUPPORTED
+
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
     deviceFeatures.sampleRateShading = VK_TRUE;
     deviceFeatures.independentBlend = VK_TRUE;
     deviceFeatures.fillModeNonSolid = VK_TRUE;
+    deviceFeatures.geometryShader = VK_TRUE;
+    deviceFeatures.tessellationShader = VK_TRUE;
 
     VkPhysicalDeviceExtendedDynamicState3FeaturesEXT dynamicState3Features{};
     dynamicState3Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT;
@@ -850,7 +852,7 @@ void VulkanContext::createLogicalDevice()
     createInfo.ppEnabledExtensionNames = m_DeviceExtensions.data();
     createInfo.pNext = &dynamicState3Features;
 
-    VkResult res = vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device);
+    VkResult res = vkCreateDevice(getPhysicalDevice(), &createInfo, nullptr, &m_Device);
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create logical device");
 
     vkGetDeviceQueue(m_Device, indices.graphicsFamily.value(), 0, &m_GraphicsQueue);
@@ -881,39 +883,12 @@ bool VulkanContext::checkDeviceExtensions(VkPhysicalDevice device)
     return requiredExtensions.empty();
 }
 
-SwapChainSupportDetails VulkanContext::querySwapChainSupport(VkPhysicalDevice device)
-{
-    SwapChainSupportDetails details;
-
-    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_Surface, &details.capabilities);
-
-    uint32_t formatCount;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, nullptr);
-
-    if (formatCount != 0)
-    {
-        details.formats.resize(formatCount);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_Surface, &formatCount, details.formats.data());
-    }
-
-    uint32_t presentModeCount;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_Surface, &presentModeCount, nullptr);
-
-    if (presentModeCount != 0)
-    {
-        details.presentModes.resize(presentModeCount);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_Surface, &presentModeCount, details.presentModes.data());
-    }
-
-    return details;
-}
-
 VkSurfaceFormatKHR VulkanContext::chooseSwapChainFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
 {
     for (const auto& availableFormat : availableFormats)
     {
-        if (availableFormat.format == VK_FORMAT_R8G8B8A8_UNORM &&
-            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT)
+        if (availableFormat.format == VK_FORMAT_R8G8B8A8_SRGB &&
+            availableFormat.colorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT)
         {
             return availableFormat;
         }
@@ -959,17 +934,17 @@ VkExtent2D VulkanContext::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capab
 
 void VulkanContext::createSwapChain()
 {
-    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(m_PhysicalDevice);
+    const VkSurfaceCapabilitiesKHR& surfaceCaps = m_physDevices.Selected().m_surfaceCaps;
 
-    VkSurfaceFormatKHR surfaceFormat = chooseSwapChainFormat(swapChainSupport.formats);
-    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-    VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+    VkSurfaceFormatKHR surfaceFormat = chooseSwapChainFormat(m_physDevices.Selected().m_surfaceFormats);
+    VkPresentModeKHR presentMode = chooseSwapPresentMode(m_physDevices.Selected().m_presentModes);
+    VkExtent2D extent = chooseSwapExtent(surfaceCaps);
 
-    uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+    uint32_t imageCount = surfaceCaps.minImageCount + 1;
 
-    if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
+    if (surfaceCaps.maxImageCount > 0 && imageCount > surfaceCaps.maxImageCount)
     {
-        imageCount = swapChainSupport.capabilities.maxImageCount;
+        imageCount = surfaceCaps.maxImageCount;
     }
 
     VkSwapchainCreateInfoKHR createInfo{};
@@ -984,7 +959,7 @@ void VulkanContext::createSwapChain()
                             VK_IMAGE_USAGE_TRANSFER_SRC_BIT; // TODO: CHECK IF THIS NEEDS TO BE CHANGED FOR ADDING POST
                                                              // PROCESSING/RENDERING TO SCENE TAB
 
-    QueueFamilyIndices indices = findQueueFamilies(m_PhysicalDevice);
+    QueueFamilyIndices indices = findQueueFamilies(getPhysicalDevice());
     uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};
 
     if (indices.graphicsFamily != indices.presentFamily)
@@ -996,17 +971,17 @@ void VulkanContext::createSwapChain()
     else
     {
         createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        createInfo.queueFamilyIndexCount = 0;
-        createInfo.pQueueFamilyIndices = nullptr;
+        createInfo.queueFamilyIndexCount = 1;
+        createInfo.pQueueFamilyIndices = &indices.graphicsFamily.value();
     }
 
-    createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
+    createInfo.preTransform = surfaceCaps.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     createInfo.presentMode = presentMode;
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-    VkResult res = vkCreateSwapchainKHR(m_Device, &createInfo, nullptr, &m_SwapChain);
+    VkResult res = vkCreateSwapchainKHR(m_Device, &createInfo, VK_NULL_HANDLE, &m_SwapChain);
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create swapchain");
 
     vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
@@ -1044,7 +1019,7 @@ VkShaderModule VulkanContext::createShaderModule(const std::vector<char>& code) 
 
 void VulkanContext::createCommandPool()
 {
-    QueueFamilyIndices queueFamilyIndices = findQueueFamilies(m_PhysicalDevice);
+    QueueFamilyIndices queueFamilyIndices = findQueueFamilies(getPhysicalDevice());
 
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1092,6 +1067,8 @@ void VulkanContext::recreateSwapChain()
     }
 
     vkDeviceWaitIdle(m_Device);
+
+    m_physDevices.refreshDetails(m_Surface);
 
     cleanupSwapChain();
 

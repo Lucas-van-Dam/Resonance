@@ -106,8 +106,6 @@ void Renderer::RebuildDrawCommands()
     if (!mesh.Lock())
         return;
 
-    //TODO: make this take shared or weak pointers (if shared make sure to destroy after each frame to prevent them not freeing)
-
     for (auto submesh : mesh.Lock()->subMeshes)
     {
         if (submesh.materialIndex >= materials.size() || submesh.materialIndex < 0)
@@ -121,6 +119,11 @@ void Renderer::RebuildDrawCommands()
         cmd.startIndex = submesh.indexOffset;
         cmd.indexCount = submesh.indexCount;
         cmd.owner = this;
+        if (m_SkinIndex)
+        {
+            cmd.joinOffset = 0;
+            cmd.jointCount = animator->get_amount_of_joints(m_SkinIndex.value());
+        }
 
         drawCommands.push_back(cmd);
     }

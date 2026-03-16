@@ -10,6 +10,7 @@
 #include "REON/Rendering/Structs/LightData.h"
 #include "glm/glm.hpp"
 #include <REON/Rendering/LightManager.h>
+#include "Animator.h"
 
 namespace REON
 {
@@ -31,6 +32,9 @@ struct alignas(16) ObjectRenderData
 {
     glm::mat4 model;
     glm::mat4 transposeInverseModel;
+    int paletteOffset = -1;
+    int jointCount = -1;
+    glm::vec2 _padding;
 };
 
 class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>,
@@ -64,15 +68,13 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
 
     void SetMaterial(size_t index, const ResourceHandle<Material>& material);
 
-    [[nodiscard]] nlohmann::ordered_json serialize() const override
-    {
-        return {};
-    }
-    void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override {}
-
   public:
     ResourceHandle<Mesh> mesh;
     std::vector<ResourceHandle<Material>> materials;
+
+    std::optional<uint32_t> m_SkinIndex;
+
+    std::shared_ptr<Animator> animator; // only if skinned
 
     static glm::mat4 ViewProjMatrix;
 
@@ -106,6 +108,8 @@ struct DrawCommand
     uint32_t startIndex;
     uint32_t indexCount;
     Renderer* owner;
+    uint32_t jointCount = 0;
+    uint32_t joinOffset = 0;
 };
 
 } // namespace REON

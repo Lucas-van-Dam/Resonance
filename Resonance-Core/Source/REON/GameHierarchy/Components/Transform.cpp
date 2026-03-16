@@ -61,17 +61,28 @@ void Transform::UpdateLocalMatrix()
     glm::mat4 rotation = glm::toMat4(localRotation);
     glm::mat4 scale = glm::scale(glm::mat4(1.0f), localScale);
 
+    glm::quat q = glm::normalize(localRotation);
+    glm::mat3 R = glm::mat3_cast(q);
+
+    std::cout << "quat x=" << q.x << " y=" << q.y << " z=" << q.z << " w=" << q.w << "\n";
+
+    std::cout << "R columns:\n";
+    std::cout << R[0][0] << " " << R[0][1] << " " << R[0][2] << "\n";
+    std::cout << R[1][0] << " " << R[1][1] << " " << R[1][2] << "\n";
+    std::cout << R[2][0] << " " << R[2][1] << " " << R[2][2] << "\n";
+
+    glm::vec3 right = R * glm::vec3(1, 0, 0);
+    glm::vec3 up = R * glm::vec3(0, 1, 0);
+    glm::vec3 forward = R * glm::vec3(0, 0, -1);
+
+    std::cout << "right   = " << right.x << ", " << right.y << ", " << right.z << "\n";
+    std::cout << "up      = " << up.x << ", " << up.y << ", " << up.z << "\n";
+    std::cout << "forward = " << forward.x << ", " << forward.y << ", " << forward.z << "\n";
+
     m_LocalMatrix = translation * rotation * scale;
 }
 
 void Transform::cleanup() {}
-
-nlohmann::ordered_json Transform::serialize() const
-{
-    return nlohmann::ordered_json();
-}
-
-void Transform::deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) {}
 
 void Transform::on_game_object_added_to_scene() {}
 
@@ -122,7 +133,6 @@ glm::mat4 Transform::GetWorldTransform() const
 
 glm::vec3 Transform::GetForwardVector() const
 {
-    // Assuming your rotation quaternion is normalized
     glm::vec3 forward = glm::mat3_cast(glm::normalize(localRotation)) * glm::vec3(0.0f, 0.0f, -1.0f);
     return glm::normalize(forward);
 }

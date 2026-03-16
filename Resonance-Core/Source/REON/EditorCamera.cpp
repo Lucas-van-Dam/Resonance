@@ -37,7 +37,7 @@ glm::mat4 EditorCamera::GetProjectionMatrix() const
 {
     //   std::cout << "test" << Zoom;
     //    Zoom =45;
-    return glm::perspective(glm::radians(Zoom),
+    return glm::perspectiveRH(glm::radians(Zoom),
                             (float)SceneManager::Get()->GetCurrentScene()->renderManager->GetRenderWidth() /
                                 (float)SceneManager::Get()->GetCurrentScene()->renderManager->GetRenderHeight(),
                             0.1f, 100.0f);
@@ -113,7 +113,7 @@ glm::mat4 EditorCamera::GetViewMatrix() const
     //  return glm::tra();
     // return glm::lookAt(glm::vec3(0,0,3), glm::vec3(0,0,6) , glm::vec3(0,1,0));
     // std::cout << Position.x << "," << Position.y << "," << Position.z << std::endl;
-    return glm::lookAt(Position, Position + Front, Up);
+    return glm::lookAtRH(Position, Position + Front, Up);
 }
 
 glm::vec3 EditorCamera::GetPosition()

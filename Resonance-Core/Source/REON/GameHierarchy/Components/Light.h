@@ -20,7 +20,7 @@ class [[clang::annotate("serialize")]] Light : public ComponentBase<Light>, publ
 {
   public:
     explicit Light(LightType type = LightType::Point, float intensity = 1, glm::vec3 color = glm::vec3(1, 1, 1),
-                   float innerCutOff = -1, float outerCutOff = -1);
+                   float innerCutOff = -1, float outerCutOff = -1, float range = 100);
 
     void update(float deltaTime) override;
 
@@ -28,15 +28,13 @@ class [[clang::annotate("serialize")]] Light : public ComponentBase<Light>, publ
 
     void cleanup() override;
 
-    virtual nlohmann::ordered_json serialize() const override;
-    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
-
   public:
     LightType type;
     float intensity;
     glm::vec3 color;
     float innerCutOff;
     float outerCutOff;
+    float range;
 
   private:
     virtual void on_component_detach() override;

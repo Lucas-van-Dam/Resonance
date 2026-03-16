@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "REON/AssetManagement/Asset.h"
 
 namespace REON
 {
@@ -18,6 +19,16 @@ class [[clang::annotate("serialize")]] GameObject : public Object, public std::e
     GameObject(const std::string& id = "");
     ~GameObject();
     GameObject(const GameObject&);
+
+    void SetNodeId(AssetId id)
+    {
+        nodeId = id;
+    }
+
+    AssetId GetNodeId()
+    {
+        return nodeId;
+    }
 
     template <typename T> T* AddComponent(std::shared_ptr<T> component)
     {
@@ -88,6 +99,8 @@ class [[clang::annotate("serialize")]] GameObject : public Object, public std::e
     std::shared_ptr<Transform> m_Transform;
 
     std::weak_ptr<Scene> m_Scene;
+
+    AssetId nodeId;
 
     template <typename ClassType, typename FieldType, FieldType ClassType::* field> friend struct ReflectionAccessor;
 };

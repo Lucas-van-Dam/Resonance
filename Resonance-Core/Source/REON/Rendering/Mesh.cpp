@@ -30,7 +30,7 @@ namespace REON {
             vertex.Color = colors[i];
             vertex.Normal = normals[i];
             vertex.TexCoords = texCoords[i];
-            vertex.Tangent = tangents.size() > i ? tangents[i] : glm::vec4(0.0f,0.0f,0.0f,0.0f); //TODO: Calculate tangents when loading
+            vertex.Tangent = tangents.size() > i ? tangents[i] : glm::vec4(0.0f,0.0f,0.0f,0.0f);
 
             m_Vertices[i] = vertex;
         }

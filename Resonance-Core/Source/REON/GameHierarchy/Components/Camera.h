@@ -25,9 +25,6 @@ class [[clang::annotate("serialize")]] Camera : public ComponentBase<Camera>,
         return m_ProjectionMatrix;
     }
 
-    virtual nlohmann::ordered_json serialize() const override;
-    virtual void deserialize(const nlohmann::ordered_json& json, std::filesystem::path basePath) override;
-
   public:
     float fov = 60.0f;
     float nearPlane = 0.1f;

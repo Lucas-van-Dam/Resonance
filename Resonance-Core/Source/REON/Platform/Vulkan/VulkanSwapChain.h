@@ -29,7 +29,7 @@ namespace REON {
 		std::vector<VkImage> m_Images;
 		std::vector<VkImageView> m_Views;
 
-		SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+		//SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 		VkSurfaceFormatKHR chooseSwapChainFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);

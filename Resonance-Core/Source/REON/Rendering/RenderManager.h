@@ -11,6 +11,7 @@
 #include "RenderPasses/TransparentPass.h"
 #include "RenderPasses/UnlitPass.h"
 #include "vulkan/vulkan.h"
+
 #include <set>
 
 #define MAX_CAMERA_COUNT 10
@@ -71,10 +72,14 @@ struct FrameData
     VkBuffer lightDataBuffer;
     VmaAllocation lightDataBufferAllocation;
     void* lightDataBufferMapped;
+
+    //VkDescriptorSet skinMatDescriptorSet;
+    //VkBuffer skinMatDataBuffer;
+    //VmaAllocation skinMatDataBufferAllocation;
+    //void* skinMatDataBufferMapped;
 };
 
-using DrawCommandByShaderMaterial =
-    std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>>;
+using DrawCommandByShaderMaterial = std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>>;
 
 class RenderManager
 {
@@ -83,6 +88,8 @@ class RenderManager
     void preRender();
     void AddRenderer(const std::shared_ptr<Renderer>& renderer);
     void RemoveRenderer(std::shared_ptr<Renderer> renderer);
+    void AddAnimator(const std::shared_ptr<Animator>& animator);
+    void RemoveAnimator(std::shared_ptr<Animator> animator);
     RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera);
     void Initialize();
     void HotReloadShaders();
@@ -101,6 +108,8 @@ class RenderManager
     RenderMode renderMode = LIT;
 
   private:
+    void createCommandBuffers();
+
     void RenderOpaques(std::shared_ptr<Camera> camera);
     void RenderTransparents(std::shared_ptr<Camera> camera);
     void RenderPostProcessing();
@@ -178,12 +187,16 @@ class RenderManager
     VmaAllocation m_DummyImageAllocation;
     VkSampler m_DummySampler;
 
+    int m_NumImages = 0;
+    std::vector<VkCommandBuffer> m_CmdBufs;
+
     // OLD (some still used, but new things (vulkan) are above this, will filter out whats not used anymore once i get
     // everything working)
     CallbackID m_KeyPressedCallbackID;
 
     std::unordered_map<std::shared_ptr<Shader>, std::vector<std::shared_ptr<Renderer>>> m_ShaderToRenderer;
     std::vector<std::shared_ptr<Renderer>> m_Renderers;
+    std::vector<std::shared_ptr<Animator>> m_Animators;
     std::shared_ptr<EditorCamera> m_Camera;
 
     // Lighting

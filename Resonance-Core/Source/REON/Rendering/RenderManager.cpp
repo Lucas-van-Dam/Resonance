@@ -75,7 +75,23 @@ void RenderManager::RemoveRenderer(std::shared_ptr<Renderer> renderer)
     REON_CORE_INFO("Succesfully Removed renderer from object: {0}", renderer->get_owner()->GetName());
 }
 
+void RenderManager::AddAnimator(const std::shared_ptr<Animator>& animator) 
+{
+    m_Animators.push_back(animator);
+}
+
+void RenderManager::RemoveAnimator(std::shared_ptr<Animator> animator) 
+{
+    m_Animators.erase(std::remove(m_Animators.begin(), m_Animators.end(), animator), m_Animators.end());
+}
+
 void RenderManager::RenderSkyBox() {}
+
+void RenderManager::createCommandBuffers()
+{
+    m_CmdBufs.resize(m_NumImages);
+    m_Context->createCommandBuffers(m_CmdBufs, m_NumImages);
+}
 
 void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
 {
@@ -149,7 +165,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
             auto pipeline = getPipelineFromFlags(mat->materialFlags);
             if (pipeline == VK_NULL_HANDLE)
             {
-                REON_CORE_WARN("Cant render because pipeline is not found");
+                // REON_CORE_WARN("Cant render because pipeline is not found");
                 continue;
             }
             vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -185,9 +201,10 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                 ObjectRenderData data{};
                 data.model = cmd.owner->getModelMatrix();
                 data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
+                data.jointCount = cmd.jointCount;
+                data.paletteOffset = cmd.joinOffset;
                 memcpy(cmd.owner->objectDataBuffersMapped[m_Context->getCurrentFrame()], &data, sizeof(data));
 
-                //TODO: KEEP .LOCK OUT OF HERE, ITS KINDA EXPENSIVE!!
                 VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
@@ -261,9 +278,7 @@ void RenderManager::RenderTransparents(std::shared_ptr<Camera> camera)
                              m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet);
 }
 
-void RenderManager::RenderPostProcessing()
-{
-}
+void RenderManager::RenderPostProcessing() {}
 
 void RenderManager::GenerateShadows()
 {
@@ -272,7 +287,7 @@ void RenderManager::GenerateShadows()
     float near_plane = -50.0f, far_plane = 100;
     m_MainLightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);
     // m_MainLightProj[1][1] *= -1.0f;
-    m_MainLightView = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.0f),
+    m_MainLightView = glm::lookAtRH(glm::vec3(0.0f, 0.0f, 0.0f),
                                   (light->get_owner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, -1.0f)),
                                   (light->get_owner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
     lightSpaceMatrix = m_MainLightProj * m_MainLightView;
@@ -301,11 +316,15 @@ RenderManager::RenderManager(std::shared_ptr<LightManager> lightManager, std::sh
     m_SwapChainResourcesByCamera[m_Camera].resize(m_Context->getAmountOfSwapChainImages());
     // m_DrawCommandsByShaderMaterial.resize(m_Context->MAX_FRAMES_IN_FLIGHT);
 
+    m_NumImages = m_Context->getAmountOfSwapChainImages();
+
     createPipelineCache();
     createDummyResources();
     createOpaqueCommandPool();
     createOpaqueRenderPass();
     createOpaqueDescriptorSetLayout();
+
+    createCommandBuffers();
 
     std::vector<VkDescriptorSetLayout> layouts;
     layouts.push_back(m_OpaqueGlobalDescriptorSetLayout);
@@ -367,7 +386,7 @@ std::vector<LightData> RenderManager::GetLightingBuffer()
     float near_plane = -50.0f, far_plane = 100;
     glm::mat4 mainLightProj = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, near_plane, far_plane);
     // mainLightProj[1][1] *= -1.0f;
-    glm::mat4 mainLightView = glm::lookAt(
+    glm::mat4 mainLightView = glm::lookAtRH(
         glm::vec3(0.0f, 0.0f, 0.0f),
         (scene->lightManager->lights[0]->get_owner()->GetTransform()->localRotation * glm::vec3(0.0f, 0.0f, -1.0f)),
         (scene->lightManager->lights[0]->get_owner()->GetTransform()->localRotation * glm::vec3(0.0f, 1.0f, 0.0f)));
@@ -380,7 +399,7 @@ std::vector<LightData> RenderManager::GetLightingBuffer()
 
         LightData data(light->intensity, light->color, light->get_owner()->GetTransform()->localPosition,
                        light->get_owner()->GetTransform()->GetForwardVector(), light->innerCutOff, light->outerCutOff,
-                       (int)light->type, lightSpaceMatrix);
+                       (int)light->type, lightSpaceMatrix, light->range);
         lights.emplace_back(data);
     }
     return lights;
@@ -413,6 +432,16 @@ void RenderManager::setGlobalData(std::shared_ptr<Camera> camera)
 
     memcpy(m_FrameData[m_Context->getCurrentFrame()].lightDataBufferMapped, lights.data(),
            lights.size() * sizeof(LightData));
+
+    //std::vector<glm::mat4> mats;
+
+    //for (const auto& animator : m_Animators)
+    //{
+    //    mats = animator->getPalettes();
+    //}
+
+    //memcpy(m_FrameData[m_Context->getCurrentFrame()].skinMatDataBufferMapped, mats.data(),
+    //       mats.size() * sizeof(glm::mat4));
 }
 
 void RenderManager::prepareDrawCommands(int currentFrame)
@@ -870,6 +899,13 @@ void RenderManager::createOpaqueDescriptorSetLayout()
     globalDirectionalShadowBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     globalDirectionalShadowBinding.pImmutableSamplers = nullptr;
 
+    //VkDescriptorSetLayoutBinding globalSkinMatBinding{};
+    //globalLightBinding.binding = 3;
+    //globalLightBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    //globalLightBinding.descriptorCount = 1;
+    //globalLightBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    //globalLightBinding.pImmutableSamplers = nullptr;
+
     std::array<VkDescriptorSetLayoutBinding, 3> globalBindings{globalLayoutBinding, globalLightBinding,
                                                                globalDirectionalShadowBinding};
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
@@ -989,6 +1025,11 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
         lightBufferInfo.offset = 0;
         lightBufferInfo.range = sizeof(LightData) * REON_MAX_LIGHTS;
 
+        //VkDescriptorBufferInfo skinMatInfo{};
+        //skinMatInfo.buffer = m_FrameData[i].skinMatDataBuffer;
+        //skinMatInfo.offset = 0;
+        //skinMatInfo.range = sizeof(glm::mat4) * 1000;
+
         VkDescriptorImageInfo directionalShadowBufferInfo{};
         directionalShadowBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         directionalShadowBufferInfo.imageView = m_DirectionalShadowPass.getShadowViews()[i];
@@ -1019,6 +1060,14 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
         descriptorWrites[2].descriptorCount = 1;
         descriptorWrites[2].pImageInfo = &directionalShadowBufferInfo;
 
+        //descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        //descriptorWrites[3].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
+        //descriptorWrites[3].dstBinding = 3;
+        //descriptorWrites[3].dstArrayElement = 0;
+        //descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        //descriptorWrites[3].descriptorCount = 1;
+        //descriptorWrites[3].pBufferInfo = &skinMatInfo;
+
         vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()),
                                descriptorWrites.data(), 0, nullptr);
     }
@@ -1042,6 +1091,12 @@ void RenderManager::createGlobalBuffers(std::shared_ptr<Camera> camera)
                                 m_FrameData[i].lightDataBufferAllocation);
         vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation,
                      &m_FrameData[i].lightDataBufferMapped);
+
+        //m_Context->createBuffer(sizeof(glm::mat4) * 1000, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        //                        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_FrameData[i].skinMatDataBuffer,
+        //                        m_FrameData[i].skinMatDataBufferAllocation);
+        //vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].skinMatDataBufferAllocation,
+        //             &m_FrameData[i].skinMatDataBufferMapped);
     }
 }
 

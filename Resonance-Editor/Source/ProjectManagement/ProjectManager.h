@@ -73,7 +73,7 @@ class ProjectManager
     {
         deserializers[name] = [func](const std::string& str) -> void*
         {
-            T result = func(str); // Deserialize to the desired type
+            T result = func(str); // Deserialize tto the desired type
             return new T(result); // Allocate and return a pointer to the deserialized object
         };
     }

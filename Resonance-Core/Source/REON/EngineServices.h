@@ -4,6 +4,7 @@
 #include "ResourceManagement/loaders/MeshLoader.h"
 #include "ResourceManagement/loaders/TextureLoader.h"
 #include "ResourceManagement/loaders/MaterialLoader.h"
+#include "ResourceManagement/loaders/RigLoader.h"
 
 
 namespace REON
@@ -29,6 +30,7 @@ struct EngineServices
         resources.RegisterLoader(std::make_unique<MaterialLoader>());
         resources.RegisterLoader(std::make_unique<TextureLoader>());
         resources.RegisterLoader(std::make_unique<MeshLoader>());
+        resources.RegisterLoader(std::make_unique<RigLoader>());
     }
 };
 }

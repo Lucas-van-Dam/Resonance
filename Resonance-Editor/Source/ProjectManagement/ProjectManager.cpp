@@ -505,21 +505,21 @@ void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJ
             else if (componentJson["Type"] == "Light")
             {
                 auto light = std::make_shared<Light>();
-                light->deserialize(componentJson, GetCurrentProjectPath());
+                //light->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(light);
                 continue;
             }
             else if (componentJson["Type"] == "Renderer")
             {
                 std::shared_ptr<Renderer> renderer = {}; // std::make_shared<Renderer>();
-                renderer->deserialize(componentJson, GetCurrentProjectPath());
+                //renderer->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(renderer);
                 continue;
             }
             else if (componentJson["Type"] == "Camera")
             {
                 auto camera = std::make_shared<Camera>();
-                camera->deserialize(componentJson, GetCurrentProjectPath());
+                //camera->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(camera);
                 continue;
             }
@@ -587,7 +587,7 @@ nlohmann::json ProjectManager::SerializeGameObject(std::shared_ptr<REON::GameObj
     {
         nlohmann::json jsonComponent;
 
-        jsonComponent = component->serialize();
+        //jsonComponent = component->serialize();
         jsonObject["Components"].push_back(jsonComponent);
         continue;
     }

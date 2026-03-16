@@ -11,6 +11,8 @@ class SceneLoader
   public:
     static bool LoadSceneNodes(ModelBinContainerReader& model, IBlobReader& reader, std::vector<SceneNode>& outNodes)
     {
+        constexpr auto i = sizeof(SceneNode);
+
         uint64_t off = 0, sz = 0;
         if (!model.GetChunkSlice(ChunkType::SCENE, off, sz))
             return false;

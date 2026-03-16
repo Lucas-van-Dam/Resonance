@@ -206,6 +206,7 @@ enum : AssetTypeId
     ASSET_MATERIAL = 3,
     ASSET_MODEL = 4,
     ASSET_SKELETON = 5,
+    ASSET_RIG = 6,
 };
 
 struct AssetKey

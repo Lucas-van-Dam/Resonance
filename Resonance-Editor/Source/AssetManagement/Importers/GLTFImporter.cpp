@@ -3,6 +3,7 @@
 #include "AssetManagement/CookPipeline.h"
 
 #include <AssetManagement/Assets/Model/TangentCalculator.h>
+#include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 
@@ -226,12 +227,94 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
     std::unordered_map<int, std::string> nodeIdtoUuid;
 
+    importedModel.nodes.resize(model.nodes.size());
+
     for (auto& nodeId : model.scenes[sceneToLoad].nodes)
     {
         if (nodeId < 0)
             continue;
 
         importedModel.rootNodes.push_back(HandleGLTFNode(model, nodeId, importedModel, modelRecord));
+    }
+
+    if (!model.skins.empty())
+    {
+        importedModel.rig = ImportedRig{};
+        importedModel.rig.value().rigId = MakeRandomAssetId();
+    }
+
+    std::vector<uint32_t> rigJointNodes;
+    rigJointNodes.reserve(256);
+
+    auto add_unique = [&](uint32_t nodeIdx)
+    {
+        if (std::find(rigJointNodes.begin(), rigJointNodes.end(), nodeIdx) == rigJointNodes.end())
+            rigJointNodes.push_back(nodeIdx);
+    };
+
+    for (const auto& skin : model.skins)
+    {
+        for (int i = 0; i < (int)skin.joints.size(); ++i)
+            add_unique((uint32_t)skin.joints[i]);
+    }
+
+    std::unordered_map<uint32_t, uint32_t> nodeToPalette;
+    nodeToPalette.reserve(rigJointNodes.size());
+    for (uint32_t i = 0; i < (uint32_t)rigJointNodes.size(); ++i)
+        nodeToPalette[rigJointNodes[i]] = i;
+
+    if (importedModel.rig.has_value())
+    {
+        importedModel.rig->joints.resize(rigJointNodes.size());
+        for (uint32_t i = 0; i < (uint32_t)rigJointNodes.size(); ++i)
+        {
+            const uint32_t nodeIdx = rigJointNodes[i];
+
+            importedModel.rig->joints[i] = importedModel.nodes[nodeIdx].NodeId;
+        }
+    }
+
+    for (const auto& skin : model.skins)
+    {
+        ImportedSkin impSkin;
+
+        if (skin.inverseBindMatrices >= 0)
+        {
+            const auto& accessor = model.accessors.at(skin.inverseBindMatrices);
+            ReadAccessorMat4(model, accessor, impSkin.inverseBindMatrices);
+        }
+
+        impSkin.jointIndices.resize(skin.joints.size());
+        for (int i = 0; i < (int)skin.joints.size(); ++i)
+        {
+            const uint32_t nodeIdx = (uint32_t)skin.joints[i];
+            auto it = nodeToPalette.find(nodeIdx);
+            if (it == nodeToPalette.end())
+            {
+                REON_ERROR("Skin joint node {} missing from rig palette", nodeIdx);
+                impSkin.jointIndices[i] = 0;
+            }
+            else
+            {
+                impSkin.jointIndices[i] = it->second;
+            }
+        }
+
+        if (skin.skeleton >= 0)
+        {
+            const uint32_t skelNode = (uint32_t)skin.skeleton;
+            auto it = nodeToPalette.find(skelNode);
+            if (it != nodeToPalette.end())
+                impSkin.skeleton = it->second;
+            else
+                impSkin.skeleton = UINT32_MAX;
+        }
+        else
+        {
+            impSkin.skeleton = UINT32_MAX;
+        }
+
+        importedModel.skins.push_back(std::move(impSkin));
     }
 
     ctx.cache.modelCache[importedModel.modelId] = importedModel;
@@ -247,6 +330,10 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
     ImportedNode data{};
     data.parent = parentId;
 
+    data.debugName = node.name;
+
+    data.NodeId = MakeRandomAssetId();
+
     auto trs = GetTRSFromGLTFNode(node);
     data.t = std::get<0>(trs);
     data.r = std::get<1>(trs);
@@ -260,18 +347,30 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
         modelRecord.assetDeps.push_back(data.meshId);
     }
 
-    impModel.nodes.push_back(data);
+    if (node.skin >= 0)
+    {
+        REON_CORE_INFO("Mesh has skin");
+        data.skinIndex = node.skin;
+    }
+    else
+    {
+        data.skinIndex = UINT32_MAX;
+    }
+
+    impModel.nodes[nodeId] = data;
     auto currentId = impModel.nodes.size() - 1; // return index of this node in the imported model's node list
 
     for (auto& childId : node.children)
     {
-        if (childId < 0 || childId > model.nodes.size())
+        if (childId < 0 || childId > model.nodes.size() - 1)
             continue;
 
-        data.children.push_back(HandleGLTFNode(model, childId, impModel, modelRecord, scale, currentId));
+        const auto importedChildId = HandleGLTFNode(model, childId, impModel, modelRecord, scale, currentId);
+
+        impModel.nodes[nodeId].children.push_back(importedChildId);
     }
 
-    return currentId;
+    return nodeId;
 }
 
 AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel,
@@ -321,23 +420,31 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
             const tinygltf::Accessor& accessor = model.accessors.at(attribute.second);
             if (attribute.first.compare("POSITION") == 0)
             {
-                HandleGLTFBuffer(model, accessor, meshData.positions);
+                ReadAccessorVec3(model, accessor, meshData.positions);
             }
             else if (attribute.first.compare("NORMAL") == 0)
             {
-                HandleGLTFBuffer(model, accessor, meshData.normals, true);
+                ReadAccessorVec3(model, accessor, meshData.normals);
             }
             else if (attribute.first.compare("TEXCOORD_0") == 0)
             {
-                HandleGLTFBuffer(model, accessor, meshData.uv0);
+                ReadAccessorVec2(model, accessor, meshData.uv0);
             }
             else if (attribute.first.compare("TANGENT") == 0)
             {
-                HandleGLTFBuffer(model, accessor, meshData.tangents);
+                ReadAccessorVec4(model, accessor, meshData.tangents);
             }
             else if (attribute.first.compare("COLOR_0") == 0)
             {
-                HandleGLTFColor(model, accessor, meshData.colors);
+                ReadAccessorColor(model, accessor, meshData.colors);
+            }
+            else if (attribute.first.compare("JOINTS_0") == 0)
+            {
+                ReadAccessorJoints(model, accessor, meshData.joints_0);
+            }
+            else if (attribute.first.compare("WEIGHTS_0") == 0)
+            {
+                ReadAccessorWeights(model, accessor, meshData.weights_0);
             }
             else
             {
@@ -375,7 +482,7 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
         if (primitive.indices >= 0)
         {
             const tg::Accessor& indexAccessor = model.accessors.at(index);
-            HandleGLTFIndices(model, indexAccessor, vertexOffset, meshData.indices);
+            ReadAccessorIndices(model, indexAccessor, meshData.indices, vertexOffset);
         }
         else
         {
@@ -514,81 +621,71 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     // ctx.cache.textureCache[importedTexture.id] = importedTexture;
 }
 
-void GltfImporter::HandleGLTFBuffer(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec3>& data,
-                                    bool normal)
+std::tuple<glm::vec3, Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(const tg::Node& node)
 {
-    if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT)
+    glm::vec3 trans{0, 0, 0};
+    Quaternion rot{1, 0, 0, 0};
+    glm::vec3 scale{1, 1, 1};
+    if (node.matrix.size() == 16)
     {
-        REON_WARN("Only float component type is supported for vec3 buffers, accessor name: {}", accessor.name);
-        return;
-    }
+        glm::mat4 matrix(static_cast<float>(node.matrix[0]), static_cast<float>(node.matrix[1]),
+                         static_cast<float>(node.matrix[2]), static_cast<float>(node.matrix[3]),
+                         static_cast<float>(node.matrix[4]), static_cast<float>(node.matrix[5]),
+                         static_cast<float>(node.matrix[6]), static_cast<float>(node.matrix[7]),
+                         static_cast<float>(node.matrix[8]), static_cast<float>(node.matrix[9]),
+                         static_cast<float>(node.matrix[10]), static_cast<float>(node.matrix[11]),
+                         static_cast<float>(node.matrix[12]), static_cast<float>(node.matrix[13]),
+                         static_cast<float>(node.matrix[14]), static_cast<float>(node.matrix[15]));
+        glm::vec3 skew;
+        glm::vec4 perspective;
+        glm::decompose(matrix, scale, rot, trans, skew, perspective);
+        rot = glm::normalize(rot);
 
-    const tg::BufferView& bufferView = model.bufferViews.at(accessor.bufferView);
-    const tg::Buffer& buffer = model.buffers.at(bufferView.buffer);
-    const int bufferStart = bufferView.byteOffset + accessor.byteOffset;
-    const int stride = accessor.ByteStride(bufferView);
-    const int bufferEnd = bufferStart + accessor.count * stride;
-
-    const int dataStartAmount = data.size();
-    data.reserve(dataStartAmount + accessor.count);
-
-    if (normal)
-    {
-        for (size_t i = bufferStart; i < bufferEnd; i += stride)
-        {
-            const float* x = reinterpret_cast<const float*>(&buffer.data[i]);
-            const float* y = reinterpret_cast<const float*>(&buffer.data[i + sizeof(float)]);
-            const float* z = reinterpret_cast<const float*>(&buffer.data[i + 2 * sizeof(float)]);
-            data.push_back(glm::vec3((/*transform **/ glm::vec4(*x, *y, *z, 0.f))));
-        }
+        return {trans, rot, scale};
     }
     else
     {
-        for (size_t i = bufferStart; i < bufferEnd; i += stride)
-        {
-            const float* x = reinterpret_cast<const float*>(&buffer.data[i]);
-            const float* y = reinterpret_cast<const float*>(&buffer.data[i + sizeof(float)]);
-            const float* z = reinterpret_cast<const float*>(&buffer.data[i + 2 * sizeof(float)]);
-            data.push_back(glm::vec3((/*transform **/ glm::vec4(*x, *y, *z, 1.f))));
-        }
-    }
+        if (node.scale.size() == 3)
+            scale = glm::vec3(static_cast<float>(node.scale[0]), static_cast<float>(node.scale[1]),
+                              static_cast<float>(node.scale[2]));
 
-    if (accessor.sparse.isSparse)
-        REON_WARN("Sparse accessors are not supported yet (while processing buffer)");
+        if (node.rotation.size() == 4)
+            rot = Quaternion(static_cast<float>(node.rotation[3]), static_cast<float>(node.rotation[0]),
+                             static_cast<float>(node.rotation[1]), static_cast<float>(node.rotation[2]));
+        rot = glm::normalize(rot);
+
+        if (node.translation.size() == 3)
+            trans = glm::vec3(static_cast<float>(node.translation[0]), static_cast<float>(node.translation[1]),
+                              static_cast<float>(node.translation[2]));
+
+        return {trans, rot, scale};
+    }
 }
 
-template <typename T>
-void GltfImporter::HandleGLTFBuffer(const tinygltf::Model& model, const tinygltf::Accessor& accessor,
-                                    std::vector<T>& data)
+static inline size_t ComponentSizeBytes(int componentType)
 {
-    if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT)
-    {
-        REON_WARN("Only float component type is supported for template buffers at the moment, accessor name: {}",
-                  accessor.name);
-        return;
-    }
-
-    const tg::BufferView& bufferView = model.bufferViews.at(accessor.bufferView);
-    const tg::Buffer& buffer = model.buffers.at(bufferView.buffer);
-    const int bufferStart = bufferView.byteOffset + accessor.byteOffset;
-    const int stride = accessor.ByteStride(bufferView);
-    const int bufferEnd = bufferStart + accessor.count * stride;
-
-    const int dataStart = data.size();
-    data.reserve(dataStart + accessor.count);
-
-    for (size_t i = bufferStart; i < bufferEnd; i += stride)
-    {
-        T v;
-        std::memcpy(&v, &buffer.data[i], sizeof(T));
-        data.push_back(v);
-    }
-
-    if (accessor.sparse.isSparse)
-        REON_WARN("Sparse accessors are not supported yet (while processing template buffer)");
+    return size_t(tg::GetComponentSizeInBytes(componentType));
 }
 
-float GltfImporter::ReadNormalizedComponent(const uint8_t* p, int componentType, bool normalized)
+static inline int NumComps(int accessorType)
+{
+    return tg::GetNumComponentsInType(accessorType);
+}
+
+void GltfImporter::GetAccessorBaseAndStride(const tg::Model& model, const tg::Accessor& accessor, const uint8_t*& base,
+                                            size_t& strideBytes)
+{
+    const auto& bv = model.bufferViews.at(accessor.bufferView);
+    const auto& buf = model.buffers.at(bv.buffer);
+
+    base = buf.data.data() + size_t(bv.byteOffset) + size_t(accessor.byteOffset);
+
+    strideBytes = size_t(accessor.ByteStride(bv));
+    if (strideBytes == 0)
+        strideBytes = size_t(NumComps(accessor.type)) * ComponentSizeBytes(accessor.componentType);
+}
+
+float GltfImporter::ReadComponentAsFloat(const uint8_t* p, int componentType, bool normalized)
 {
     switch (componentType)
     {
@@ -609,151 +706,313 @@ float GltfImporter::ReadNormalizedComponent(const uint8_t* p, int componentType,
         std::memcpy(&v, p, sizeof(uint16_t));
         return normalized ? (float(v) / 65535.0f) : float(v);
     }
-    // glTF also allows BYTE/SHORT; add if you want:
     case TINYGLTF_COMPONENT_TYPE_BYTE:
     {
         int8_t v;
         std::memcpy(&v, p, sizeof(int8_t));
-        return normalized ? std::max(-1.0f, float(v) / 127.0f) : float(v);
+        if (!normalized)
+            return float(v);
+        // glTF: normalized signed maps to [-1, 1]
+        // clamp lower bound to -1 (because -128/127 < -1)
+        float f = float(v) / 127.0f;
+        return (f < -1.0f) ? -1.0f : f;
     }
     case TINYGLTF_COMPONENT_TYPE_SHORT:
     {
         int16_t v;
         std::memcpy(&v, p, sizeof(int16_t));
-        return normalized ? std::max(-1.0f, float(v) / 32767.0f) : float(v);
+        if (!normalized)
+            return float(v);
+        float f = float(v) / 32767.0f;
+        return (f < -1.0f) ? -1.0f : f;
     }
     default:
         return std::numeric_limits<float>::quiet_NaN();
     }
 }
 
-void GltfImporter::HandleGLTFColor(const tinygltf::Model& model, const tinygltf::Accessor& accessor,
-                                       std::vector<glm::vec4>& out)
+uint32_t GltfImporter::ReadComponentAsU32(const uint8_t* p, int componentType)
 {
-    const auto& bufferView = model.bufferViews.at(accessor.bufferView);
-    const auto& buffer = model.buffers.at(bufferView.buffer);
-
-    const size_t base = size_t(bufferView.byteOffset) + size_t(accessor.byteOffset);
-
-    int stride = accessor.ByteStride(bufferView);
-    if (stride == 0)
-    {
-        stride =
-            tinygltf::GetNumComponentsInType(accessor.type) * tinygltf::GetComponentSizeInBytes(accessor.componentType);
-    }
-
-    const int comps = tinygltf::GetNumComponentsInType(accessor.type);
-    if (accessor.type != TINYGLTF_TYPE_VEC3 && accessor.type != TINYGLTF_TYPE_VEC4)
-    {
-        REON_ERROR("Accessor type {} is not supported for color buffer, only vec3 and vec4 are supported",
-                   accessor.type);
-        return;
-    }
-
-    out.reserve(out.size() + accessor.count);
-
-    for (size_t idx = 0; idx < accessor.count; ++idx)
-    {
-        const uint8_t* p = buffer.data.data() + base + idx * size_t(stride);
-
-        float r = ReadNormalizedComponent(p + 0 * tinygltf::GetComponentSizeInBytes(accessor.componentType),
-                                          accessor.componentType, accessor.normalized);
-        float g = ReadNormalizedComponent(p + 1 * tinygltf::GetComponentSizeInBytes(accessor.componentType),
-                                          accessor.componentType, accessor.normalized);
-        float b = ReadNormalizedComponent(p + 2 * tinygltf::GetComponentSizeInBytes(accessor.componentType),
-                                          accessor.componentType, accessor.normalized);
-
-        float a = 1.0f;
-        if (comps == 4)
-        {
-            a = ReadNormalizedComponent(p + 3 * tinygltf::GetComponentSizeInBytes(accessor.componentType),
-                                        accessor.componentType, accessor.normalized);
-        }
-
-        out.emplace_back(r, g, b, a);
-    }
-
-    if (accessor.sparse.isSparse)
-        REON_WARN("Sparse accessors are not supported yet (while processing color buffer)");
-}
-
-void GltfImporter::HandleGLTFIndices(const tg::Model& model, const tg::Accessor& accessor, int offset,
-                                     std::vector<uint>& data)
-{
-    const tinygltf::BufferView& bufferView = model.bufferViews.at(accessor.bufferView);
-    const tinygltf::Buffer& buffer = model.buffers.at(bufferView.buffer);
-    const int bufferStart = bufferView.byteOffset + accessor.byteOffset;
-    const int stride = accessor.ByteStride(bufferView);
-    const int bufferEnd = bufferStart + accessor.count * stride;
-
-    const int dataStart = data.size();
-    data.reserve(dataStart + accessor.count);
-
-    switch (accessor.componentType)
+    switch (componentType)
     {
     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
-        for (int i = bufferStart; i < bufferEnd; i += stride)
-            data.push_back(static_cast<uint>(buffer.data[i] + offset));
-        break;
-
+        return uint32_t(*p);
     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-        for (int i = bufferStart; i < bufferEnd; i += stride)
-            data.push_back(static_cast<uint>(*reinterpret_cast<const UINT16*>(&buffer.data[i]) + offset));
-        break;
-
+    {
+        uint16_t v;
+        std::memcpy(&v, p, sizeof(uint16_t));
+        return uint32_t(v);
+    }
     case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-        for (int i = bufferStart; i < bufferEnd; i += stride)
-            data.push_back(*reinterpret_cast<const uint*>(&buffer.data[i]) + static_cast<uint>(offset));
-        break;
+    {
+        uint32_t v;
+        std::memcpy(&v, p, sizeof(uint32_t));
+        return v;
+    }
     default:
-        REON_WARN("Index component type not supported: {}", accessor.componentType);
+        return 0;
     }
-
-    if (accessor.sparse.isSparse)
-        REON_WARN("Sparse accessors are not supported yet (while processing indices)");
 }
 
-std::tuple<glm::vec3, Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(const tg::Node& node)
+glm::vec2 GltfImporter::ReadVec2(const tg::Accessor& accessor, const uint8_t* p)
 {
-    glm::vec3 trans{0, 0, 0};
-    Quaternion rot{1, 0, 0, 0};
-    glm::vec3 scale{1, 1, 1};
-    if (node.matrix.size() == 16)
-    {
-        glm::mat4 matrix(static_cast<float>(node.matrix[0]), static_cast<float>(node.matrix[1]),
-                         static_cast<float>(node.matrix[2]), static_cast<float>(node.matrix[3]),
-                         static_cast<float>(node.matrix[4]), static_cast<float>(node.matrix[5]),
-                         static_cast<float>(node.matrix[6]), static_cast<float>(node.matrix[7]),
-                         static_cast<float>(node.matrix[8]), static_cast<float>(node.matrix[9]),
-                         static_cast<float>(node.matrix[10]), static_cast<float>(node.matrix[11]),
-                         static_cast<float>(node.matrix[12]), static_cast<float>(node.matrix[13]),
-                         static_cast<float>(node.matrix[14]), static_cast<float>(node.matrix[15]));
-        glm::vec3 skew;
-        glm::vec4 perspective;
-        glm::decompose(matrix, scale, rot, trans, skew, perspective);
-        return {trans, rot, scale};
-    }
-    else
-    {
-        glm::vec3 trans{0, 0, 0};
-        Quaternion rot{1, 0, 0, 0};
-        glm::vec3 scale{1, 1, 1};
-
-        if (node.scale.size() == 3)
-            scale = glm::vec3(static_cast<float>(node.scale[0]), static_cast<float>(node.scale[1]),
-                              static_cast<float>(node.scale[2]));
-
-        if (node.rotation.size() == 4)
-            rot = Quaternion(static_cast<float>(node.rotation[3]), static_cast<float>(node.rotation[0]),
-                             static_cast<float>(node.rotation[1]), static_cast<float>(node.rotation[2]));
-
-        if (node.translation.size() == 3)
-            trans = glm::vec3(static_cast<float>(node.translation[0]), static_cast<float>(node.translation[1]),
-                              static_cast<float>(node.translation[2]));
-
-        return {trans, rot, scale};
-    }
+    glm::vec2 v;
+    const size_t cs = ComponentSizeBytes(accessor.componentType);
+    v.x = ReadComponentAsFloat(p + 0 * cs, accessor.componentType, accessor.normalized);
+    v.y = ReadComponentAsFloat(p + 1 * cs, accessor.componentType, accessor.normalized);
+    return v;
 }
+
+glm::vec3 GltfImporter::ReadVec3(const tg::Accessor& accessor, const uint8_t* p)
+{
+    glm::vec3 v;
+    const size_t cs = ComponentSizeBytes(accessor.componentType);
+    v.x = ReadComponentAsFloat(p + 0 * cs, accessor.componentType, accessor.normalized);
+    v.y = ReadComponentAsFloat(p + 1 * cs, accessor.componentType, accessor.normalized);
+    v.z = ReadComponentAsFloat(p + 2 * cs, accessor.componentType, accessor.normalized);
+    return v;
+}
+
+glm::vec4 GltfImporter::ReadVec4(const tg::Accessor& accessor, const uint8_t* p)
+{
+    glm::vec4 v;
+    const size_t cs = ComponentSizeBytes(accessor.componentType);
+    v.x = ReadComponentAsFloat(p + 0 * cs, accessor.componentType, accessor.normalized);
+    v.y = ReadComponentAsFloat(p + 1 * cs, accessor.componentType, accessor.normalized);
+    v.z = ReadComponentAsFloat(p + 2 * cs, accessor.componentType, accessor.normalized);
+    v.w = ReadComponentAsFloat(p + 3 * cs, accessor.componentType, accessor.normalized);
+    return v;
+}
+
+glm::mat4 GltfImporter::ReadMat4(const tg::Accessor& accessor, const uint8_t* p)
+{
+    glm::mat4 m(1.0f);
+
+    if (accessor.type != TINYGLTF_TYPE_MAT4)
+        return m;
+
+    // glTF matrices are stored column-major (same convention as GLM default).
+    // Each MAT4 is 16 scalars laid out as: m00,m10,m20,m30, m01,m11,... (i.e., columns contiguous).
+    const size_t cs = ComponentSizeBytes(accessor.componentType);
+
+    // Fast path: common case for inverseBindMatrices is FLOAT, not normalized
+    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && !accessor.normalized)
+    {
+        static_assert(sizeof(glm::mat4) == sizeof(float) * 16, "Unexpected glm::mat4 layout");
+        std::memcpy(glm::value_ptr(m), p, sizeof(float) * 16);
+        return m;
+    }
+
+    // Generic path (handles non-float, normalized, etc.)
+    for (int col = 0; col < 4; ++col)
+    {
+        for (int row = 0; row < 4; ++row)
+        {
+            const size_t idx = size_t(col * 4 + row); // column-major indexing in glTF
+            m[col][row] = ReadComponentAsFloat(p + idx * cs, accessor.componentType, accessor.normalized);
+        }
+    }
+
+    return m;
+}
+
+glm::u16vec4 GltfImporter::ReadJointsU16x4(const tg::Accessor& accessor, const uint8_t* p)
+{
+    glm::u16vec4 out(0);
+
+    // glTF allows JOINTS_0 componentType: UNSIGNED_BYTE or UNSIGNED_SHORT
+    if (accessor.type != TINYGLTF_TYPE_VEC4)
+        return out;
+    if (accessor.normalized)
+        return out;
+
+    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
+    {
+        out.x = uint16_t(p[0]);
+        out.y = uint16_t(p[1]);
+        out.z = uint16_t(p[2]);
+        out.w = uint16_t(p[3]);
+        return out;
+    }
+    if (accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+    {
+        uint16_t v[4];
+        std::memcpy(v, p, sizeof(v));
+        out = glm::u16vec4(v[0], v[1], v[2], v[3]);
+        return out;
+    }
+
+    return out;
+}
+
+glm::vec4 GltfImporter::ReadWeightsVec4(const tg::Accessor& accessor, const uint8_t* p)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC4)
+        return glm::vec4(0.0f);
+
+    const size_t cs = ComponentSizeBytes(accessor.componentType);
+
+    glm::vec4 w;
+    w.x = ReadComponentAsFloat(p + 0 * cs, accessor.componentType, accessor.normalized);
+    w.y = ReadComponentAsFloat(p + 1 * cs, accessor.componentType, accessor.normalized);
+    w.z = ReadComponentAsFloat(p + 2 * cs, accessor.componentType, accessor.normalized);
+    w.w = ReadComponentAsFloat(p + 3 * cs, accessor.componentType, accessor.normalized);
+    return w;
+}
+
+bool GltfImporter::ReadAccessorVec2(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec2>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC2)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadVec2(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorVec3(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec3>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC3)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadVec3(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorVec4(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec4>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC4)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadVec4(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorMat4(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::mat4>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_MAT4)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    // If ByteStride() returns 0, your helper sets it to numComps * compSize.
+    // For MAT4, NumComps(type) should be 16.
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadMat4(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorColor(const tg::Model& model, const tg::Accessor& accessor, std::vector<glm::vec4>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC3 && accessor.type != TINYGLTF_TYPE_VEC4)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    const int comps = NumComps(accessor.type);
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+    {
+        const uint8_t* p = base + i * stride;
+        glm::vec4 c = (comps == 3) ? glm::vec4(ReadVec3(accessor, p), 1.0f) : ReadVec4(accessor, p);
+        out.push_back(c);
+    }
+    return true;
+}
+
+bool GltfImporter::ReadAccessorJoints(const tg::Model& model, const tg::Accessor& accessor,
+                                      std::vector<glm::u16vec4>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC4)
+        return false;
+    if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE &&
+        accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadJointsU16x4(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorWeights(const tg::Model& model, const tg::Accessor& accessor,
+                                       std::vector<glm::vec4>& out)
+{
+    if (accessor.type != TINYGLTF_TYPE_VEC4)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadWeightsVec4(accessor, base + i * stride));
+
+    return true;
+}
+
+bool GltfImporter::ReadAccessorIndices(const tg::Model& model, const tg::Accessor& accessor, std::vector<uint32_t>& out,
+                                       uint32_t offset)
+{
+    if (accessor.type != TINYGLTF_TYPE_SCALAR)
+        return false;
+
+    if (accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE &&
+        accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT &&
+        accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT)
+        return false;
+
+    const uint8_t* base = nullptr;
+    size_t stride = 0;
+    GetAccessorBaseAndStride(model, accessor, base, stride);
+
+    out.reserve(out.size() + size_t(accessor.count));
+
+    for (size_t i = 0; i < size_t(accessor.count); ++i)
+        out.push_back(ReadComponentAsU32(base + i * stride, accessor.componentType) + offset);
+
+    return true;
+}
+
 static bool registered = []()
 {
     CookPipeline::RegisterImporter(ASSET_MODEL, std::make_unique<GltfImporter>());
