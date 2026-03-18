@@ -5,6 +5,8 @@
 #include "REON/ResourceManagement/Resource.h"
 #include <glm/glm.hpp>
 
+#include <REON/Platform/Vulkan/VulkanBuffer.h>
+
 #include "nlohmann/json.hpp"
 
 namespace REON
@@ -78,13 +80,11 @@ class [[clang::annotate("serialize")]] Material : public ResourceBase
     RenderingModes renderingMode = Opaque;
     BlendingModes blendingMode = Blend;
 
-    std::vector<VkBuffer> flatDataBuffers;
+    std::vector<VulkanBuffer> flatDataBuffers;
     std::vector<VkDescriptorSet> descriptorSets;
-    std::vector<void*> flatDataBuffersMapped;
 
   private:
     bool m_DoubleSided;
-    std::vector<VmaAllocation> m_FlatDataBufferAllocations;
     // void createDescriptorSets();
 };
 } // namespace REON

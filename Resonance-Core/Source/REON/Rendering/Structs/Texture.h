@@ -9,6 +9,8 @@
 
 #include "assimp/Importer.hpp"
 
+#include "REON/Platform/Vulkan/VulkanImage.h"
+
 namespace REON
 {
 
@@ -69,9 +71,7 @@ class [[clang::annotate("serialize")]] Texture : public ResourceBase
     static std::shared_ptr<Texture> getTextureFromId(const std::string& Id, const std::string& basePath);
 
   private:
-    VkImage m_Texture;
-    VkImageView m_TextureView;
-    VmaAllocation m_TextureAllocation;
+    VulkanImage m_Texture;
     VkSampler m_TextureSampler;
 };
 } // namespace REON

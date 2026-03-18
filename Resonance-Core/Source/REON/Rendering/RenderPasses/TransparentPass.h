@@ -10,9 +10,7 @@ namespace REON {
 		VkFramebuffer framebuffer;
 		VkFramebuffer compositeFramebuffer;
 
-		VkBuffer frameInfoBuffer;
-		VmaAllocation frameInfoAllocation;
-		void* frameInfoMapped;
+		VulkanBuffer frameInfoBuffer;
 		VkDescriptorSet compositeDescriptorSet;
 
 		VkImage colorAccumTarget;

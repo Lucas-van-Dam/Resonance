@@ -55,28 +55,32 @@ struct CameraSwapChainResources
 
 struct CameraData
 {
-    VkBuffer globalBuffer;
-    VmaAllocation globalBufferAllocation;
-    void* globalBufferMapped;
-    VkDescriptorSet globalDescriptorSet;
-
-    VkCommandBuffer commandBuffer;
+    VulkanBuffer globalBuffer{};
+    VkDescriptorSet globalDescriptorSet{VK_NULL_HANDLE};
+    VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
 };
+
+static_assert(std::is_move_constructible_v<CameraData>);
+static_assert(std::is_nothrow_move_constructible_v<CameraData>);
+static_assert(!std::is_copy_constructible_v<CameraData>);
 
 struct FrameData
 {
     // Holds the global render data for the current frame per camera
-    std::unordered_map<std::shared_ptr<Camera>, CameraData> cameraData =
-        std::unordered_map<std::shared_ptr<Camera>, CameraData>(MAX_CAMERA_COUNT);
-    VkDescriptorSet lightDescriptorSet;
-    VkBuffer lightDataBuffer;
-    VmaAllocation lightDataBufferAllocation;
-    void* lightDataBufferMapped;
+    std::unordered_map<std::shared_ptr<Camera>, CameraData> cameraData;
+    VkDescriptorSet lightDescriptorSet{VK_NULL_HANDLE};
+    VulkanBuffer lightDataBuffer{};
 
-    //VkDescriptorSet skinMatDescriptorSet;
-    //VkBuffer skinMatDataBuffer;
-    //VmaAllocation skinMatDataBufferAllocation;
-    //void* skinMatDataBufferMapped;
+    FrameData() = default;
+    FrameData(const FrameData&) = delete;
+    FrameData& operator=(const FrameData&) = delete;
+    FrameData(FrameData&&) noexcept = default;
+    FrameData& operator=(FrameData&&) noexcept = default;
+
+    // VkDescriptorSet skinMatDescriptorSet;
+    // VkBuffer skinMatDataBuffer;
+    // VmaAllocation skinMatDataBufferAllocation;
+    // void* skinMatDataBufferMapped;
 };
 
 using DrawCommandByShaderMaterial = std::unordered_map<AssetId, std::unordered_map<AssetId, std::vector<DrawCommand>>>;

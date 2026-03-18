@@ -1,5 +1,6 @@
-#include "Renderer.h"
 #include "reonpch.h"
+
+#include "Renderer.h"
 
 #include "REON/Application.h"
 #include "REON/EditorCamera.h"
@@ -36,17 +37,6 @@ void Renderer::cleanup()
 
     // vkFreeDescriptorSets(context->getDevice(), context->getDescriptorPool(), objectDescriptorSets.size(),
     // objectDescriptorSets.data());
-
-    for (int i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroyBuffer(context->getDevice(), objectDataBuffers[i], nullptr);
-        vmaUnmapMemory(context->getAllocator(), objectDataBufferAllocations[i]);
-        vmaFreeMemory(context->getAllocator(), objectDataBufferAllocations[i]);
-
-        vkDestroyBuffer(context->getDevice(), shadowObjectDataBuffers[i], nullptr);
-        vmaUnmapMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i]);
-        vmaFreeMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i]);
-    }
 }
 
 Renderer::Renderer(ResourceHandle<Mesh> mesh, std::vector<ResourceHandle<Material>> materials)
@@ -57,33 +47,33 @@ Renderer::Renderer(ResourceHandle<Mesh> mesh, std::vector<ResourceHandle<Materia
     VkDeviceSize bufferSize = sizeof(ObjectRenderData);
 
     objectDataBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
-    objectDataBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
-    objectDataBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
-        context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, objectDataBuffers[i],
-                              objectDataBufferAllocations[i]);
+        BufferCreateInfo bufCreateInfo;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bufCreateInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+        bufCreateInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+        bufCreateInfo.persistentlyMapped = true;
+        bufCreateInfo.size = bufferSize;
 
-        vmaMapMemory(context->getAllocator(), objectDataBufferAllocations[i], &objectDataBuffersMapped[i]);
+        objectDataBuffers[i] = context->createBuffer(bufCreateInfo);
     }
 
     bufferSize = sizeof(glm::mat4);
 
     shadowObjectDataBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
-    shadowObjectDataBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
-    shadowObjectDataBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
-        context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                              VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, shadowObjectDataBuffers[i],
-                              shadowObjectDataBufferAllocations[i]);
+        BufferCreateInfo bufCreateInfo;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bufCreateInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+        bufCreateInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+        bufCreateInfo.persistentlyMapped = true;
+        bufCreateInfo.size = bufferSize;
 
-        vmaMapMemory(context->getAllocator(), shadowObjectDataBufferAllocations[i], &shadowObjectDataBuffersMapped[i]);
+        shadowObjectDataBuffers[i] = context->createBuffer(bufCreateInfo);
     }
 }
 

@@ -11,6 +11,7 @@
 #include "glm/glm.hpp"
 #include <REON/Rendering/LightManager.h>
 #include "Animator.h"
+#include "REON/Platform/Vulkan/VulkanBuffer.h"
 
 namespace REON
 {
@@ -82,14 +83,12 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
     bool drawCommandsDirty = true;
 
     std::vector<VkDescriptorSet> objectDescriptorSets;
-    std::vector<VkBuffer> objectDataBuffers;
-    std::vector<VmaAllocation> objectDataBufferAllocations;
-    std::vector<void*> objectDataBuffersMapped;
+    std::vector<VulkanBuffer> objectDataBuffers{};
 
     std::vector<VkDescriptorSet> shadowObjectDescriptorSets;
-    std::vector<VkBuffer> shadowObjectDataBuffers;
-    std::vector<VmaAllocation> shadowObjectDataBufferAllocations;
-    std::vector<void*> shadowObjectDataBuffersMapped;
+    std::vector<VulkanBuffer> shadowObjectDataBuffers{};
+
+    static_assert(std::is_default_constructible_v<std::vector<VulkanBuffer>>);
 
   private:
     glm::mat4 m_ModelMatrix{};

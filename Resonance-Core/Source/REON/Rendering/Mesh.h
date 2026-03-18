@@ -6,8 +6,8 @@
 
 #include <filesystem>
 #include <mikktspace.h>
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
+
+#include <REON/Platform/Vulkan/VulkanBuffer.h>
 
 #include "cppcodec/base64_rfc4648.hpp"
 #include "nlohmann/json.hpp"
@@ -57,8 +57,8 @@ class [[clang::annotate("serialize")]] Mesh : public ResourceBase
 
     std::vector<SubMesh> subMeshes;
 
-    VkBuffer m_VertexBuffer = VK_NULL_HANDLE;
-    VkBuffer m_IndexBuffer = VK_NULL_HANDLE;
+    VulkanBuffer m_VertexBuffer;
+    VulkanBuffer m_IndexBuffer;
 
     uint32_t vertexCount = 0;
     uint32_t indexCount = 0;
@@ -70,9 +70,6 @@ class [[clang::annotate("serialize")]] Mesh : public ResourceBase
     void setupBuffers();
 
   private:
-    VmaAllocation m_VertexBufferAllocation = VK_NULL_HANDLE;
-    VmaAllocation m_IndexBufferAllocation = VK_NULL_HANDLE;
-
     //  render data
     unsigned int m_VBO, m_EBO;
     unsigned int m_DepthMap;

@@ -82,7 +82,7 @@ namespace REON {
 		scissor.extent = { MAIN_SHADOW_WIDTH, MAIN_SHADOW_HEIGHT };
 		vkCmdSetScissor(m_CommandBuffers[currentFrame], 0, 1, &scissor);
 
-		memcpy(m_PerLightBuffersMapped[currentFrame], &mainLightViewProj, sizeof(mainLightViewProj));
+		m_PerLightBuffers[currentFrame].Write(&mainLightViewProj, sizeof(mainLightViewProj));
 
 		for (const auto& renderer : renderers) {
 
@@ -100,13 +100,14 @@ namespace REON {
 
 				std::array<VkDescriptorSet, 2> descriptorSets{ m_PerLightDescriptorSets[currentFrame], cmd.owner->shadowObjectDescriptorSets[context->getCurrentFrame()] };
 				auto modelMatrix = cmd.owner->getModelMatrix();
-				memcpy(cmd.owner->shadowObjectDataBuffersMapped[context->getCurrentFrame()], &modelMatrix, sizeof(glm::mat4));
+				cmd.owner->shadowObjectDataBuffers[context->getCurrentFrame()].Write(&modelMatrix, sizeof(glm::mat4));
 
-				VkBuffer vertexBuffers[] = { mesh->m_VertexBuffer };
+				VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
 				VkDeviceSize offsets[] = { 0 };
 				vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
-				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer.GetVkBuffer(), 0,
+                                     VK_INDEX_TYPE_UINT32);
 
 				vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
 				vkCmdDrawIndexed(m_CommandBuffers[currentFrame], static_cast<uint32_t>(cmd.indexCount), 1, cmd.startIndex, 0, 0);
@@ -169,12 +170,6 @@ namespace REON {
 		}
 
 		vkDestroySampler(context->getDevice(), m_DepthImageSampler, nullptr);
-
-		for (int i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
-			vkDestroyBuffer(context->getDevice(), m_PerLightBuffers[i], nullptr);
-			vmaUnmapMemory(context->getAllocator(), m_PerLightBufferAllocations[i]);
-			vmaFreeMemory(context->getAllocator(), m_PerLightBufferAllocations[i]);
-		}
 
 		vkDestroyDescriptorSetLayout(context->getDevice(), m_PerLightDescriptorSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(context->getDevice(), m_PerObjectDescriptorSetLayout, nullptr);
@@ -485,14 +480,16 @@ namespace REON {
 		VkDeviceSize bufferSize = sizeof(glm::mat4);
 
 		m_PerLightBuffers.resize(context->MAX_FRAMES_IN_FLIGHT);
-		m_PerLightBufferAllocations.resize(context->MAX_FRAMES_IN_FLIGHT);
-		m_PerLightBuffersMapped.resize(context->MAX_FRAMES_IN_FLIGHT);
 
 		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
-			// TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
-			context->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_PerLightBuffers[i], m_PerLightBufferAllocations[i]);
+            BufferCreateInfo createInfo;
+            createInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+            createInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+            createInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+            createInfo.persistentlyMapped = true;
+            createInfo.size = bufferSize;
 
-			vmaMapMemory(context->getAllocator(), m_PerLightBufferAllocations[i], &m_PerLightBuffersMapped[i]);
+            m_PerLightBuffers[i] = context->createBuffer(createInfo);
 		}
 	}
 
@@ -514,7 +511,7 @@ namespace REON {
 
 		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo globalBufferInfo{};
-			globalBufferInfo.buffer = m_PerLightBuffers[i];
+			globalBufferInfo.buffer = m_PerLightBuffers[i].GetVkBuffer();
 			globalBufferInfo.offset = 0;
 			globalBufferInfo.range = sizeof(glm::mat4);
 
@@ -547,7 +544,7 @@ namespace REON {
 
 		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo objectBufferInfo{};
-			objectBufferInfo.buffer = renderer->shadowObjectDataBuffers[i];
+			objectBufferInfo.buffer = renderer->shadowObjectDataBuffers[i].GetVkBuffer();
 			objectBufferInfo.offset = 0;
 			objectBufferInfo.range = sizeof(glm::mat4);
 

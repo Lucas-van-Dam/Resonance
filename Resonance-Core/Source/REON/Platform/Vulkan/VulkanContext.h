@@ -1,7 +1,10 @@
 #pragma once
 
 #include "REON/Rendering/RenderContext.h"
+#include "VulkanBuffer.h"
 #include "VulkanDevice.h"
+#include "VulkanImage.h"
+#include "VulkanQueue.h"
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -12,7 +15,6 @@
 #include <vulkan/vulkan.h>
 
 #include "nlohmann/json.hpp"
-#include "VulkanQueue.h"
 
 namespace REON
 {
@@ -103,7 +105,8 @@ class VulkanContext : public RenderContext
     {
         return m_MsaaSamples;
     }
-    VulkanQueue* getQueue() {
+    VulkanQueue* getQueue()
+    {
         return &m_Queue;
     }
     VkQueue getGraphicsQueue() const
@@ -167,13 +170,16 @@ class VulkanContext : public RenderContext
     void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
                      VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
                      VmaAllocation& imageAllocation) const;
+    VulkanImage createImage(ImageCreateInfo createInfo, const void* initialData = nullptr) const;
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
                                uint32_t mipLevels) const;
+    void transitionImageLayout(VulkanImage& image, VkImageLayout newLayout) const;
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
+    void copyBufferToImage(VulkanBuffer& buffer, VkImage image, uint32_t width, uint32_t height) const;
+    void copyBufferToImage(VulkanBuffer& buffer, VulkanImage& image) const;
 
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaAllocationCreateFlags hostAccessFlags,
-                      VkBuffer& buffer, VmaAllocation& allocation) const;
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
+    VulkanBuffer createBuffer(BufferCreateInfo createInfo, const void* initialData = nullptr) const;
+    void copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size) const;
     VkShaderModule createShaderModule(const std::vector<char>& code) const;
     VkFormat findDepthFormat() const;
     void createCommandPool(VkCommandPool& commandPool, uint32_t queueFamilyIndex) const;

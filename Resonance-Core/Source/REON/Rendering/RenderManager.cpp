@@ -98,7 +98,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
     int currentFrame = m_Context->getCurrentFrame();
     int currentImageIndex = m_Context->getCurrentImageIndex();
 
-    auto commandBuffer = m_FrameData[currentFrame].cameraData[camera].commandBuffer;
+    auto commandBuffer = m_FrameData[currentFrame].cameraData.at(camera).commandBuffer;
 
     for (const auto& pair : m_DrawCommandsByShaderMaterial)
     {
@@ -184,7 +184,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
             scissor.extent = {camera->viewportSize.x, camera->viewportSize.y};
             vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-            memcpy(mat->flatDataBuffersMapped[currentFrame], &mat->flatData, sizeof(mat->flatData));
+            mat->flatDataBuffers[currentFrame].Write(&mat->flatData, sizeof(mat->flatData));
 
             vkCmdSetCullMode(commandBuffer, mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
@@ -195,7 +195,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                     continue;
 
                 std::vector<VkDescriptorSet> descriptorSets = {
-                    m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet, mat->descriptorSets[currentFrame],
+                    m_FrameData[currentFrame].cameraData.at(camera).globalDescriptorSet, mat->descriptorSets[currentFrame],
                     cmd.owner->objectDescriptorSets[m_Context->getCurrentFrame()]};
 
                 ObjectRenderData data{};
@@ -203,13 +203,13 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                 data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
                 data.jointCount = cmd.jointCount;
                 data.paletteOffset = cmd.joinOffset;
-                memcpy(cmd.owner->objectDataBuffersMapped[m_Context->getCurrentFrame()], &data, sizeof(data));
+                cmd.owner->objectDataBuffers[m_Context->getCurrentFrame()].Write(&data, sizeof(data));
 
-                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer};
+                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-                vkCmdBindIndexBuffer(commandBuffer, mesh->m_IndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(commandBuffer, mesh->m_IndexBuffer.GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0,
                                         descriptorSets.size(), descriptorSets.data(), 0, nullptr);
@@ -275,7 +275,7 @@ void RenderManager::RenderTransparents(std::shared_ptr<Camera> camera)
     int currentFrame = m_Context->getCurrentFrame();
     m_TransparentPass.render(m_Context, camera, m_DrawCommandsByShaderMaterial, m_OpaquePassDone[currentFrame],
                              m_Context->getCurrentRenderFinishedSemaphore(),
-                             m_FrameData[currentFrame].cameraData[camera].globalDescriptorSet);
+                             m_FrameData[currentFrame].cameraData.at(camera).globalDescriptorSet);
 }
 
 void RenderManager::RenderPostProcessing() {}
@@ -297,6 +297,29 @@ void RenderManager::GenerateShadows()
     GenerateMainLightShadows();
     GenerateAdditionalShadows();
 }
+
+static_assert(std::is_default_constructible_v<VulkanBuffer>);
+static_assert(std::is_move_constructible_v<VulkanBuffer>);
+static_assert(std::is_move_assignable_v<VulkanBuffer>);
+
+static_assert(std::is_default_constructible_v<CameraData>);
+static_assert(std::is_move_constructible_v<CameraData>);
+static_assert(std::is_move_assignable_v<CameraData>);
+static_assert(std::is_destructible_v<CameraData>);
+
+using Key = std::shared_ptr<Camera>;
+using Value = std::pair<const Key, CameraData>;
+
+static_assert(std::is_default_constructible_v<Key>);
+static_assert(std::is_constructible_v<Value, Key, CameraData>);
+static_assert(std::is_move_constructible_v<Value>);
+
+static_assert(std::is_default_constructible_v<FrameData>);
+static_assert(std::is_move_constructible_v<FrameData>);
+static_assert(std::is_move_assignable_v<FrameData>);
+
+static_assert(std::is_move_constructible_v<FrameData>);
+
 
 RenderManager::RenderManager(std::shared_ptr<LightManager> lightManager, std::shared_ptr<EditorCamera> camera)
     : m_LightManager(std::move(lightManager)),
@@ -428,10 +451,9 @@ void RenderManager::setGlobalData(std::shared_ptr<Camera> camera)
     }
     data.lightCount = glm::min(static_cast<int>(lightData.size()), REON_MAX_LIGHTS);
 
-    memcpy(m_FrameData[m_Context->getCurrentFrame()].cameraData[camera].globalBufferMapped, &data, sizeof(data));
+    m_FrameData[m_Context->getCurrentFrame()].cameraData.at(camera).globalBuffer.Write(&data, sizeof(data));
 
-    memcpy(m_FrameData[m_Context->getCurrentFrame()].lightDataBufferMapped, lights.data(),
-           lights.size() * sizeof(LightData));
+    m_FrameData[m_Context->getCurrentFrame()].lightDataBuffer.Write(lights.data(), lights.size() * sizeof(LightData));
 
     //std::vector<glm::mat4> mats;
 
@@ -491,17 +513,16 @@ void RenderManager::createDummyResources()
 
     REON_CORE_ASSERT(pixels, "Failed to load texture image");
 
-    VkBuffer stagingBuffer;
-    VmaAllocation stagingBufferAllocation;
+    //VkBuffer stagingBuffer;
+    //VmaAllocation stagingBufferAllocation;
 
-    m_Context->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, stagingBuffer,
-                            stagingBufferAllocation);
+    BufferCreateInfo createInfo;
+    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    createInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+    createInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+    createInfo.size = imageSize;
 
-    void* data;
-    vmaMapMemory(m_Context->getAllocator(), stagingBufferAllocation, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vmaUnmapMemory(m_Context->getAllocator(), stagingBufferAllocation);
+    VulkanBuffer stagingBuffer = m_Context->createBuffer(createInfo, pixels);
 
     stbi_image_free(pixels);
 
@@ -518,9 +539,6 @@ void RenderManager::createDummyResources()
     // generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
     m_Context->transitionImageLayout(m_DummyImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-
-    vkDestroyBuffer(m_Context->getDevice(), stagingBuffer, nullptr);
-    vmaFreeMemory(m_Context->getAllocator(), stagingBufferAllocation);
 
     m_DummyImageView = m_Context->createImageView(m_DummyImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
@@ -632,8 +650,8 @@ void RenderManager::createEndBufferSet(std::shared_ptr<Camera> camera)
 
 void RenderManager::createCameraResources(std::shared_ptr<Camera> camera)
 {
-    createOpaqueCommandBuffers(camera);
     createGlobalBuffers(camera);
+    createOpaqueCommandBuffers(camera);
     createOpaqueImages(camera);
     createEndImages(camera);
     createOpaqueFrameBuffers(camera);
@@ -681,7 +699,7 @@ void RenderManager::createOpaqueCommandBuffers(std::shared_ptr<Camera> camera)
 
     for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_FrameData[i].cameraData[camera].commandBuffer = commandBuffers[i];
+        m_FrameData[i].cameraData.at(camera).commandBuffer = commandBuffers[i];
     }
 }
 
@@ -1013,15 +1031,15 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
 
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        m_FrameData[i].cameraData[camera].globalDescriptorSet = allSets[i];
+        m_FrameData[i].cameraData.at(camera).globalDescriptorSet = allSets[i];
 
         VkDescriptorBufferInfo globalBufferInfo{};
-        globalBufferInfo.buffer = m_FrameData[i].cameraData[camera].globalBuffer;
+        globalBufferInfo.buffer = m_FrameData[i].cameraData.at(camera).globalBuffer.GetVkBuffer();
         globalBufferInfo.offset = 0;
         globalBufferInfo.range = sizeof(GlobalRenderData);
 
         VkDescriptorBufferInfo lightBufferInfo{};
-        lightBufferInfo.buffer = m_FrameData[i].lightDataBuffer;
+        lightBufferInfo.buffer = m_FrameData[i].lightDataBuffer.GetVkBuffer();
         lightBufferInfo.offset = 0;
         lightBufferInfo.range = sizeof(LightData) * REON_MAX_LIGHTS;
 
@@ -1037,7 +1055,7 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
 
         std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
+        descriptorWrites[0].dstSet = m_FrameData[i].cameraData.at(camera).globalDescriptorSet;
         descriptorWrites[0].dstBinding = 0;
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1045,7 +1063,7 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
         descriptorWrites[0].pBufferInfo = &globalBufferInfo;
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
+        descriptorWrites[1].dstSet = m_FrameData[i].cameraData.at(camera).globalDescriptorSet;
         descriptorWrites[1].dstBinding = 1;
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1053,7 +1071,7 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
         descriptorWrites[1].pBufferInfo = &lightBufferInfo;
 
         descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = m_FrameData[i].cameraData[camera].globalDescriptorSet;
+        descriptorWrites[2].dstSet = m_FrameData[i].cameraData.at(camera).globalDescriptorSet;
         descriptorWrites[2].dstBinding = 2;
         descriptorWrites[2].dstArrayElement = 0;
         descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -1079,18 +1097,26 @@ void RenderManager::createGlobalBuffers(std::shared_ptr<Camera> camera)
 
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
-        // TODO: use the VMA_ALLOCATION_CREATE_MAPPED_BIT along with VmaAllocationInfo object instead
-        m_Context->createBuffer(
-            bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-            m_FrameData[i].cameraData[camera].globalBuffer, m_FrameData[i].cameraData[camera].globalBufferAllocation);
-        vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].cameraData[camera].globalBufferAllocation,
-                     &m_FrameData[i].cameraData[camera].globalBufferMapped);
+        BufferCreateInfo bufCreateInfo;
+        bufCreateInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        bufCreateInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+        bufCreateInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+        bufCreateInfo.persistentlyMapped = true;
+        bufCreateInfo.size = bufferSize;
+        
+        auto globalBuffer = m_Context->createBuffer(bufCreateInfo);
 
-        m_Context->createBuffer(sizeof(LightData) * REON_MAX_LIGHTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_FrameData[i].lightDataBuffer,
-                                m_FrameData[i].lightDataBufferAllocation);
-        vmaMapMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation,
-                     &m_FrameData[i].lightDataBufferMapped);
+        CameraData data{std::move(globalBuffer)};
+
+        m_FrameData[i].cameraData.emplace(camera, std::move(data));
+
+        bufCreateInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        bufCreateInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
+        bufCreateInfo.memoryHint = BufferMemoryHint::CpuToGpu;
+        bufCreateInfo.persistentlyMapped = true;
+        bufCreateInfo.size = sizeof(LightData) * REON_MAX_LIGHTS;
+
+         m_FrameData[i].lightDataBuffer = m_Context->createBuffer(bufCreateInfo);
 
         //m_Context->createBuffer(sizeof(glm::mat4) * 1000, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         //                        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, m_FrameData[i].skinMatDataBuffer,
@@ -1119,7 +1145,7 @@ void RenderManager::createOpaqueMaterialDescriptorSets(std::shared_ptr<Material>
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo materialBufferInfo{};
-        materialBufferInfo.buffer = material->flatDataBuffers[i];
+        materialBufferInfo.buffer = material->flatDataBuffers[i].GetVkBuffer();
         materialBufferInfo.offset = 0;
         materialBufferInfo.range = sizeof(FlatData);
 
@@ -1243,7 +1269,7 @@ void RenderManager::createOpaqueObjectDescriptorSets(const std::shared_ptr<Rende
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo objectBufferInfo{};
-        objectBufferInfo.buffer = renderer->objectDataBuffers[i];
+        objectBufferInfo.buffer = renderer->objectDataBuffers[i].GetVkBuffer();
         objectBufferInfo.offset = 0;
         objectBufferInfo.range = sizeof(ObjectRenderData);
 
@@ -1651,19 +1677,6 @@ void RenderManager::cleanup()
 
     // vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_GlobalDescriptorSets.size(),
     // m_GlobalDescriptorSets.data());
-    for (int i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroyBuffer(m_Context->getDevice(), m_FrameData[i].lightDataBuffer, nullptr);
-        vmaUnmapMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation);
-        vmaFreeMemory(m_Context->getAllocator(), m_FrameData[i].lightDataBufferAllocation);
-
-        for (auto [key, resources] : m_FrameData[i].cameraData)
-        {
-            vkDestroyBuffer(m_Context->getDevice(), resources.globalBuffer, nullptr);
-            vmaUnmapMemory(m_Context->getAllocator(), resources.globalBufferAllocation);
-            vmaFreeMemory(m_Context->getAllocator(), resources.globalBufferAllocation);
-        }
-    }
 
     vkDestroySampler(m_Context->getDevice(), m_EndSampler, nullptr);
 

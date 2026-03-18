@@ -37,9 +37,7 @@ namespace REON {
 		VkDescriptorSetLayout m_PerLightDescriptorSetLayout;
 		VkDescriptorSetLayout m_PerObjectDescriptorSetLayout;
 		std::vector<VkDescriptorSet> m_PerLightDescriptorSets;
-		std::vector<VkBuffer> m_PerLightBuffers;
-		std::vector<VmaAllocation> m_PerLightBufferAllocations;
-		std::vector<void*> m_PerLightBuffersMapped;
+		std::vector<VulkanBuffer> m_PerLightBuffers;
 		VkPipelineLayout m_PipelineLayout;
 		VkPipeline m_GraphicsPipeline;
 		std::vector<VkImage> m_DepthImages;

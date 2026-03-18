@@ -1,38 +1,45 @@
 #pragma once
-#include <vulkan/vulkan.h>
 #include "VulkanContext.h"
 
-namespace REON {
-	//struct SwapChainSupportDetails {
-	//	VkSurfaceCapabilitiesKHR capabilities;
-	//	std::vector<VkSurfaceFormatKHR> formats;
-	//	std::vector<VkPresentModeKHR> presentModes;
-	//};
+#include <vulkan/vulkan.h>
 
-	class VulkanSwapChain
-	{
-	public:
-		VulkanSwapChain(VulkanContext& ctx);
-		~VulkanSwapChain();
+namespace REON
+{
+ struct SwapChainSupportDetails {
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
+ };
 
-		void init();
-		void cleanup();
-		void recreate(uint32_t w, uint32_t h);
+class VulkanSwapChain
+{
+  public:
+    VulkanSwapChain(VulkanContext& ctx, VkDevice& dev);
+    ~VulkanSwapChain();
 
-		VkExtent2D extent() const;
+    void init();
+    void cleanup();
+    void recreate(uint32_t w, uint32_t h);
 
-	private:
-		VulkanContext& m_Context;
-		VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
-		VkFormat m_Format;
-		VkExtent2D m_Extent;
-		std::vector<VkImage> m_Images;
-		std::vector<VkImageView> m_Views;
+    VkExtent2D extent() const;
 
-		//SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
-		VkSurfaceFormatKHR chooseSwapChainFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-		VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-	};
+  private:
+    VulkanContext& m_Context;
+    VkDevice& m_device;
+    VkSurfaceKHR m_Surface;
+    VkSwapchainKHR m_SwapChain = VK_NULL_HANDLE;
+    VkExtent2D m_Extent;
+    std::vector<VkImage> m_Images;
+    std::vector<VkImageView> m_Views;
+    std::vector<VkSemaphore> m_releaseSemaphores;
+    VkSurfaceFormat2KHR m_swapchainSurfaceFormat;
+    VkPresentModeKHR m_activePresentMode;
 
-}
+
+    SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+    VkSurfaceFormatKHR chooseSwapChainFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+    VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+    VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+};
+
+} // namespace REON

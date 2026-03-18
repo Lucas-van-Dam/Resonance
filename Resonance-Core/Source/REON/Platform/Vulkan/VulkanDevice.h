@@ -6,22 +6,39 @@
 
 namespace REON
 {
-struct PhysicalDevice
+
+
+
+class Device
 {
+
+};
+
+class PhysicalDevice
+{
+  public:
     VkPhysicalDevice m_physDevice;
-    VkPhysicalDeviceProperties m_devProps;
+    VkPhysicalDeviceProperties2 m_coreDevProps;
+    VkPhysicalDeviceVulkan11Properties m_v11DevProps;
+    VkPhysicalDeviceVulkan12Properties m_v12DevProps;
+    VkPhysicalDeviceVulkan13Properties m_v13DevProps;
+    VkPhysicalDeviceVulkan14Properties m_v14DevProps;
     std::vector<VkQueueFamilyProperties> m_qFamilyProps;
     std::vector<VkBool32> m_qSupportsPresent;
     std::vector<VkSurfaceFormatKHR> m_surfaceFormats;
     VkSurfaceCapabilitiesKHR m_surfaceCaps;
     VkPhysicalDeviceMemoryProperties m_memProps;
     std::vector<VkPresentModeKHR> m_presentModes;
-    VkPhysicalDeviceFeatures m_features;
+    VkPhysicalDeviceFeatures2 m_coreFeatures;
+    VkPhysicalDeviceVulkan11Features m_v11Features;
+    VkPhysicalDeviceVulkan12Features m_v12Features;
+    VkPhysicalDeviceVulkan13Features m_v13Features;
+    VkPhysicalDeviceVulkan14Features m_v14Features;
+    bool hasVk14;
 };
 
 class VulkanPhysicalDevices
 {
-
   public:
     VulkanPhysicalDevices() {}
     ~VulkanPhysicalDevices() {}
@@ -34,7 +51,7 @@ class VulkanPhysicalDevices
 
     const PhysicalDevice& Selected() const;
 
-    private:
+  private:
     std::vector<PhysicalDevice> m_devices;
 
     int m_devIndex = -1;
