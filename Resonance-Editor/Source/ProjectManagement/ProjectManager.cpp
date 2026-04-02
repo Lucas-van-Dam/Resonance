@@ -8,7 +8,7 @@
 namespace REON::EDITOR
 {
 
-ProjectManager::ProjectManager() : isProjectOpen(false)
+ProjectManager::ProjectManager()
 {
     serializers["int"] = [](const void* data) { return std::to_string(*static_cast<const int*>(data)); };
 
@@ -170,15 +170,14 @@ ProjectManager::ProjectManager() : isProjectOpen(false)
 
 bool ProjectManager::CreateNewProject(const std::string& projectName, const std::string& targetDirectory)
 {
-    m_CurrentProjectPath = targetDirectory + "/" + projectName;
+    m_EditorSession = std::make_unique<EditorSession>(targetDirectory + "/" + projectName);
 
-    if (!std::filesystem::exists(m_CurrentProjectPath))
+    if (!std::filesystem::exists(m_EditorSession->GetProjectPath()))
     {
-        std::filesystem::create_directories(m_CurrentProjectPath);
+        std::filesystem::create_directories(m_EditorSession->GetProjectPath());
         InitializeFolders();
         InitializeDefaultFiles(projectName);
-        isProjectOpen = true;
-        ProjectOpenedEvent event(m_CurrentProjectPath);
+        ProjectOpenedEvent event(m_EditorSession->GetProjectPath());
         EventBus::Get().publish(event);
         return true;
     }
@@ -197,15 +196,15 @@ bool ProjectManager::OpenProject(const std::string& projectPath)
         return false;
     }
 
-    m_CurrentProjectPath = projectPath;
+    m_EditorSession = std::make_unique<EditorSession>(projectPath);
 
-    if (!std::filesystem::exists(m_CurrentProjectPath + "/Settings/ProjectSettings.json", ec))
+    if (!std::filesystem::exists(projectPath + "/Settings/ProjectSettings.json", ec))
     {
         REON_ERROR("Error: Missing ProjectSettings.json in the project.\n");
         return false;
     }
 
-    SettingsManager::GetInstance().LoadSettings(m_CurrentProjectPath);
+    SettingsManager::GetInstance().LoadSettings(projectPath);
 
     auto scene = std::make_shared<Scene>("TestScene");
     scene->InitializeSceneWithObjects();
@@ -220,19 +219,19 @@ bool ProjectManager::OpenProject(const std::string& projectPath)
 
 bool ProjectManager::SaveProject()
 {
-    if (m_CurrentProjectPath.empty())
+    if (m_EditorSession == nullptr)
     {
         REON_ERROR("No project loaded");
         return false;
     }
 
-    if (!std::filesystem::exists(m_CurrentProjectPath))
+    if (!std::filesystem::exists(m_EditorSession->GetProjectPath()))
     {
-        REON_ERROR("Project does not exist at: {}", m_CurrentProjectPath);
+        REON_ERROR("Project does not exist at: {}", m_EditorSession->GetProjectPath().string());
         return false;
     }
 
-    SettingsManager::GetInstance().SaveSettings(m_CurrentProjectPath);
+    SettingsManager::GetInstance().SaveSettings(m_EditorSession->GetProjectPath().string());
 
     if (!SaveScenes())
     {
@@ -245,31 +244,32 @@ bool ProjectManager::SaveProject()
 
 void ProjectManager::InitializeFolders()
 {
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Materials");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Models");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Shaders");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Textures");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Videos");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Assets/Scenes");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Settings");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Outputs/Renders");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Outputs/Exports");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/Logs");
-    std::filesystem::create_directories(m_CurrentProjectPath + "/EngineCache");
+    //TODO: RELEASE ME OF THIS HELL
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Materials");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Models");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Shaders");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Textures");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Videos");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Scenes");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Settings");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Outputs/Renders");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Outputs/Exports");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Logs");
+    std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/EngineCache");
 }
 
 void ProjectManager::InitializeDefaultFiles(const std::string& projectName)
 {
     nlohmann::json projectSettings = {{"projectName", projectName}, {"version", 1}};
-    std::ofstream settingsFile(m_CurrentProjectPath + "/Settings/ProjectSettings.json");
+    std::ofstream settingsFile(m_EditorSession->GetProjectPath().string() + "/Settings/ProjectSettings.json");
     settingsFile << projectSettings.dump(4);
 
     nlohmann::json audioSettings = {{"device", "Default Microphone"}, {"sampleRate", 48000}, {"bufferSize", 512}};
-    std::ofstream audioSettingsFile(m_CurrentProjectPath + "/Settings/AudioInputSettings.json");
+    std::ofstream audioSettingsFile(m_EditorSession->GetProjectPath().string() + "/Settings/AudioInputSettings.json");
     audioSettingsFile << audioSettings.dump(4);
 
     nlohmann::json visualSettings = {{"resolution", {1920, 1080}}, {"frameRate", 60}};
-    std::ofstream visualSettingsFile(m_CurrentProjectPath + "/Settings/VisualSettings.json");
+    std::ofstream visualSettingsFile(m_EditorSession->GetProjectPath().string() + "/Settings/VisualSettings.json");
     visualSettingsFile << visualSettings.dump(4);
 }
 
@@ -303,7 +303,7 @@ bool ProjectManager::SaveScenes()
         SerializeGameObjectForScene(jsonScene, gameobject);
     }
 
-    std::ofstream file(m_CurrentProjectPath + "/Assets/Scenes/Scene1.scene");
+    std::ofstream file(m_EditorSession->GetProjectPath().string() + "/Assets/Scenes/Scene1.scene");
     if (file.is_open())
     {
         file << jsonScene.dump(4);
@@ -311,7 +311,8 @@ bool ProjectManager::SaveScenes()
     }
     else
     {
-        REON_ERROR("Failed to open file for writing: {0}", m_CurrentProjectPath + "/Assets/Scenes/Scene1.scene");
+        REON_ERROR("Failed to open file for writing: {0}",
+                   m_EditorSession->GetProjectPath().string() + "/Assets/Scenes/Scene1.scene");
         return false;
     }
 
@@ -379,11 +380,11 @@ bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
         try
         {
             std::filesystem::create_directories(newPath.parent_path());
-            std::filesystem::copy_file(m_CurrentProjectPath / sourcePath, newPath,
+            std::filesystem::copy_file(m_EditorSession->GetProjectPath() / sourcePath, newPath,
                                        std::filesystem::copy_options::overwrite_existing);
-            if (std::filesystem::exists((m_CurrentProjectPath / sourcePath).string() + ".meta"))
+            if (std::filesystem::exists((m_EditorSession->GetProjectPath() / sourcePath).string() + ".meta"))
             {
-                std::filesystem::copy_file((m_CurrentProjectPath / sourcePath).string() + ".meta",
+                std::filesystem::copy_file((m_EditorSession->GetProjectPath() / sourcePath).string() + ".meta",
                                            newPath.string() + ".meta",
                                            std::filesystem::copy_options::overwrite_existing);
             }
@@ -401,7 +402,7 @@ bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
     {
         std::filesystem::create_directories(buildPath / "Assets/Scenes");
     }
-    std::filesystem::copy_file(m_CurrentProjectPath + "/Assets/Scenes/Scene1.scene",
+    std::filesystem::copy_file(m_EditorSession->GetProjectPath().string() + "/Assets/Scenes/Scene1.scene",
                                buildPath / "Assets/Scenes/Scene1.scene",
                                std::filesystem::copy_options::overwrite_existing);
 

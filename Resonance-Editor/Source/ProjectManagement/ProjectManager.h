@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_set>
+#include "EditorSession.h"
 
 namespace REON::EDITOR
 {
@@ -39,11 +40,11 @@ class ProjectManager
 
     const std::string& GetCurrentProjectPath() const
     {
-        return m_CurrentProjectPath;
+        return m_EditorSession->GetProjectPath().string(); // TODO: JUST USE PATHS NOT STRINGS
     }
     bool IsProjectOpen() const
     {
-        return isProjectOpen;
+        return m_EditorSession != nullptr;
     }
 
   private:
@@ -105,8 +106,7 @@ class ProjectManager
         return nullptr;
     }
 
-    std::string m_CurrentProjectPath;
-    bool isProjectOpen;
+    std::unique_ptr<EditorSession> m_EditorSession;
 
     ProjectSettings m_ProjectSettings;
 
