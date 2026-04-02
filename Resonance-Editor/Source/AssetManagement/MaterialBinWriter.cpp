@@ -4,7 +4,7 @@
 
 namespace REON::EDITOR
 {
-CookOutput MaterialBinWriter::WriteMaterialBin(const ImportedMaterial& mat, const std::filesystem::path& path)
+CookOutput MaterialBinWriter::WriteMaterialBin(const MaterialSourceData& mat, const std::filesystem::path& path)
 {
     std::filesystem::create_directories(path.parent_path());
 

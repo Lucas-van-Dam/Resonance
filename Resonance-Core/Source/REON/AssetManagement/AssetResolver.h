@@ -16,10 +16,18 @@ struct IAssetResolver
 class ManifestAssetResolver final : public IAssetResolver
 {
   public:
-    bool LoadFromFile(std::filesystem::path p);
+    bool StartWatchingFile(std::filesystem::path p);
     bool Resolve(const AssetKey& key, ArtifactRef& out) const override;
 
   private:
+    bool ReloadManifestIfChanged();
+
+    std::filesystem::path manifestPath_;
+
+    std::jthread fileWatcherThread_;
+
+    std::optional<std::filesystem::file_time_type> lastWriteTime_;
+
     std::vector<ManifestEntry> entries_;
     std::vector<uint8_t> strings_;
 };

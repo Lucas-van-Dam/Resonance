@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AssetManagement/Assets/Model/ModelImport.h"
+#include "AssetManagement/Assets/Material/MaterialSourceData.h"
 #include "CookOutput.h"
 
 namespace REON::EDITOR
@@ -8,6 +8,6 @@ namespace REON::EDITOR
 class MaterialBinWriter
 {
   public:
-    static CookOutput WriteMaterialBin(const ImportedMaterial& mat, const std::filesystem::path& path);
+    static CookOutput WriteMaterialBin(const MaterialSourceData& mat, const std::filesystem::path& path);
 };
 }

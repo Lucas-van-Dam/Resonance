@@ -25,8 +25,6 @@ struct BuildJob
     BuildReason reason;
 
     bool doImport = true;
-    bool doCook = true;
-    bool doManifestUpdate = true;
 };
 
 class BuildQueue

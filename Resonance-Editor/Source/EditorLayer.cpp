@@ -506,7 +506,7 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
             AssetId assetId = jsonData["id"].get<AssetId>();
             AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
 
-            AssetRegistry::Instance().Upsert(AssetRecord{assetId, assetType, assetPath, assetPath.filename().string()});
+            AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId, .type = assetType, .origin = Native, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
         }
         else
         {
@@ -529,7 +529,7 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
                 AssetId assetId = jsonData["id"].get<AssetId>();
                 AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
                 AssetRegistry::Instance().Upsert(
-                    AssetRecord{assetId, assetType, assetPath, assetPath.filename().string()});
+                    AssetRecord{.id = assetId, .type = assetType, .origin = ImportedRootAsset, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
             }
             else
             {

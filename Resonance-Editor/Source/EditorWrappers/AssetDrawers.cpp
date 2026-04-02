@@ -8,49 +8,49 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <AssetManagement/Assets/Model/ModelSourceAsset.h>
 #include <AssetManagement/BuildQueue.h>
+#include <AssetManagement/Assets/Material/MaterialSourceData.h>
+#include <AssetManagement/Assets/Material/MaterialSerializer.h>
 
 namespace REON::EDITOR {
 
 
 
-	void AssetDrawers::DrawInspector_Material(std::filesystem::path path)
+	void AssetDrawers::DrawInspector_Material(std::filesystem::path path, CookPipeline& pipeline)
 	{
-		//std::shared_ptr<Material> mat;
-		//nlohmann::json j;
-		//std::ifstream inFile(path.string());
-		//if (inFile.is_open()) {
-		//	inFile >> j;
-		//	inFile.close();
-		//}
+        static auto& currentPath = path;
+        static MaterialSourceData data = MaterialSerializer::Load(path).value();
 
-		//mat = ResourceManager::GetInstance().GetResource<Material>(j["GUID"]);
+		if (path != currentPath)
+        {
+            currentPath = path;
+            data = MaterialSerializer::Load(path).value();
+        }
 
-		//if (!mat) {
-		//	mat = std::make_shared<Material>();
-		//	//std::filesystem::path relativePath = std::filesystem::relative(path, ProjectManager::GetInstance().GetCurrentProjectPath());
-		//	mat->Deserialize(path, ProjectManager::GetInstance().GetCurrentProjectPath());
-		//	ResourceManager::GetInstance().AddResource(mat);
-		//}
+		const char* renderingModes[2] = { "Opaque", "Transparent" };
+		ImGui::Combo("Rendering Mode", reinterpret_cast<int*>(&data.renderingMode), renderingModes, IM_ARRAYSIZE(renderingModes));
 
-		//const char* renderingModes[2] = { "Opaque", "Transparent" };
-		//ImGui::Combo("Rendering Mode", reinterpret_cast<int*>(&mat->renderingMode), renderingModes, IM_ARRAYSIZE(renderingModes));
+		ImGui::ColorEdit4("Albedo", glm::value_ptr(data.baseColorFactor));
+		ImGui::DragFloat("Roughness", &data.roughness, 0.005, 0.0, 1.0);
+		ImGui::DragFloat("Metallic", &data.metallic, 0.005, 0.0, 1.0);
+        ImGui::Checkbox("Flip Normal Y", &data.flipNormals);
+        ImGui::Checkbox("Double Sided", &data.doubleSided);
 
-		//ImGui::ColorEdit4("Albedo", glm::value_ptr(mat->flatData.albedo));
-		//ImGui::DragFloat("Roughness", &mat->flatData.roughness, 0.005, 0.0, 1.0);
-		//ImGui::DragFloat("Metallic", &mat->flatData.metallic, 0.005, 0.0, 1.0);
-		//bool flip = mat->flatData.normalYScale;
-		//if (ImGui::Checkbox("Flip Normal Y", &flip)) {
-		//	mat->flatData.normalYScale = flip;
-		//}
+		
+		if (ImGui::Button("Apply"))
+        {
+            MaterialSerializer::Save(currentPath, data);
 
-		//bool doubleSided = mat->getDoubleSided();
-		//if (ImGui::Checkbox("Double Sided", &doubleSided)) {
-		//	mat->setDoubleSided(doubleSided);
-		//}
-		//
-		//if (ImGui::Button("Apply")) {
-		//	mat->Serialize(path.parent_path());
-		//}
+            BuildJob job;
+            job.reason = BuildReason::ForceRebuild;
+            job.sourceId = data.id;
+            job.type = ASSET_MATERIAL;
+            job.doImport = false;
+
+            BuildQueue queue;
+            queue.Enqueue(job);
+
+            pipeline.CookAll(queue);
+        }
 	}
 
 	void AssetDrawers::DrawInspector_Model(std::filesystem::path path, CookPipeline& pipeline)
@@ -63,6 +63,7 @@ namespace REON::EDITOR {
 
 		if (path != currentPath)
         {
+            currentPath = path;
             metaPath = path.string() + ".meta";
             sourceAsset = LoadModelSourceAssetFromFile(metaPath);
 		}

@@ -4,37 +4,21 @@
 
 namespace REON
 {
-bool ManifestAssetResolver::LoadFromFile(std::filesystem::path p) {
-    std::vector<uint8_t> bytes;
-    {
-        std::ifstream f(p, std::ios::binary);
-        if (!f)
-            REON_CORE_ERROR("ManifestAssetResolver: failed to open manifest file: {}", p.string());
-        f.seekg(0, std::ios::end);
-        size_t sz = (size_t)f.tellg();
-        f.seekg(0, std::ios::beg);
-        bytes.resize(sz);
-        f.read((char*)bytes.data(), (std::streamsize)sz);
-        if (!f)
-            REON_CORE_ERROR("ManifestAssetResolver: failed to read manifest file: {}", p.string());
-    }
+bool ManifestAssetResolver::StartWatchingFile(std::filesystem::path p)
+{
+    manifestPath_ = std::move(p);
 
-    if (bytes.size() < sizeof(ManifestHeader))
-        REON_CORE_ERROR("Manifest too small");
-    const auto* hdr = reinterpret_cast<const ManifestHeader*>(bytes.data());
-    if (hdr->magic != MANIFEST_MAGIC || hdr->version != MANIFEST_VERSION)
-        REON_CORE_ERROR("Manifest bad magic/version");
-    if (hdr->entriesOffset + (uint64_t)hdr->entryCount * sizeof(ManifestEntry) > bytes.size())
-        REON_CORE_ERROR("Manifest entries out of range");
+    std::chrono::milliseconds interval = std::chrono::milliseconds(250);
 
-    const auto* entries = reinterpret_cast<const ManifestEntry*>(bytes.data() + hdr->entriesOffset);
-    entries_.assign(entries, entries + hdr->entryCount);
-
-    // Strings are whatever remains after entries
-    const uint64_t stringsOffset = hdr->entriesOffset + (uint64_t)hdr->entryCount * sizeof(ManifestEntry);
-    if (stringsOffset > bytes.size())
-        REON_CORE_ERROR("Manifest strings offset out of range");
-    strings_.assign(bytes.begin() + (ptrdiff_t)stringsOffset, bytes.end());
+    fileWatcherThread_ = std::jthread(
+        [this, interval](std::stop_token token)
+        {
+            while (!token.stop_requested())
+            {
+                ReloadManifestIfChanged();
+                std::this_thread::sleep_for(interval);
+            }
+        });
 
     return true;
 }
@@ -63,6 +47,56 @@ bool ManifestAssetResolver::Resolve(const AssetKey& k, ArtifactRef& out) const
     out.size = it->ref.size;
     out.format = it->ref.format;
     out.flags = it->ref.flags;
+    return true;
+}
+
+bool ManifestAssetResolver::ReloadManifestIfChanged()
+{
+    std::error_code ec;
+    auto currentWriteTime = std::filesystem::last_write_time(manifestPath_, ec);
+    if (ec)
+    {
+        return false;
+    }
+
+    if (lastWriteTime_ && *lastWriteTime_ == currentWriteTime)
+    {
+        return false;
+    }
+
+    std::vector<uint8_t> bytes;
+    {
+        std::ifstream f(manifestPath_, std::ios::binary);
+        if (!f)
+            REON_CORE_ERROR("ManifestAssetResolver: failed to open manifest file: {}", manifestPath_.string());
+        f.seekg(0, std::ios::end);
+        size_t sz = (size_t)f.tellg();
+        f.seekg(0, std::ios::beg);
+        bytes.resize(sz);
+        f.read((char*)bytes.data(), (std::streamsize)sz);
+        if (!f)
+            REON_CORE_ERROR("ManifestAssetResolver: failed to read manifest file: {}", manifestPath_.string());
+    }
+
+    if (bytes.size() < sizeof(ManifestHeader))
+        REON_CORE_ERROR("Manifest too small");
+    const auto* hdr = reinterpret_cast<const ManifestHeader*>(bytes.data());
+    if (hdr->magic != MANIFEST_MAGIC || hdr->version != MANIFEST_VERSION)
+        REON_CORE_ERROR("Manifest bad magic/version");
+    if (hdr->entriesOffset + (uint64_t)hdr->entryCount * sizeof(ManifestEntry) > bytes.size())
+        REON_CORE_ERROR("Manifest entries out of range");
+
+    const auto* entries = reinterpret_cast<const ManifestEntry*>(bytes.data() + hdr->entriesOffset);
+    entries_.assign(entries, entries + hdr->entryCount);
+
+    // Strings are whatever remains after entries
+    const uint64_t stringsOffset = hdr->entriesOffset + (uint64_t)hdr->entryCount * sizeof(ManifestEntry);
+    if (stringsOffset > bytes.size())
+        REON_CORE_ERROR("Manifest strings offset out of range");
+    strings_.assign(bytes.begin() + (ptrdiff_t)stringsOffset, bytes.end());
+
+    lastWriteTime_ = currentWriteTime;
+
     return true;
 }
 

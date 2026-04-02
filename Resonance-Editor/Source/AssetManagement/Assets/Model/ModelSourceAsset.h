@@ -38,6 +38,51 @@ struct ModelSourceAsset
     uint64_t lastBuildKey = 0; // hash(source + settings + tool version)
 };
 
+inline ModelSourceAsset LoadModelSourceAssetImportData(const std::filesystem::path& metaPath) {
+    ModelSourceAsset out{};
+
+    std::ifstream f(metaPath);
+    if (!f.is_open())
+        throw std::runtime_error("LoadModelSourceAssetFromFile: Failed to open " + metaPath.string());
+
+    nlohmann::json j;
+    f >> j;
+
+    // Basic header
+    if (j.contains("id"))
+        out.id = AssetId::from_string(j.at("id").get<std::string>());
+
+    out.name = j.value("name", std::string{});
+
+    // Source path
+    if (j.contains("sourcePath"))
+        out.sourcePath = std::filesystem::path(j.at("sourcePath").get<std::string>());
+    else if (j.contains("source"))
+        out.sourcePath = std::filesystem::path(j.at("source").get<std::string>()); // tolerate older key
+
+    // Import settings (support both flat and nested schemas)
+    if (j.contains("importSettings") && j["importSettings"].is_object())
+    {
+        const auto& s = j["importSettings"];
+        out.scale = s.value("scale", out.scale);
+        out.forceGenerateTangents = s.value("forceGenerateTangents", out.forceGenerateTangents);
+        out.mergeMeshes = s.value("mergeMeshes", out.mergeMeshes);
+        out.importMaterials = s.value("importMaterials", out.importMaterials);
+        out.importTextures = s.value("importTextures", out.importTextures);
+        out.flipNormals = s.value("flipNormals", out.flipNormals);
+    }
+    else
+    {
+        out.scale = j.value("scale", out.scale);
+        out.forceGenerateTangents = j.value("forceGenerateTangents", out.forceGenerateTangents);
+        out.mergeMeshes = j.value("mergeMeshes", out.mergeMeshes);
+        out.importMaterials = j.value("importMaterials", out.importMaterials);
+        out.importTextures = j.value("importTextures", out.importTextures);
+    }
+
+    return out;
+}
+
 inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path& metaPath)
 {
     ModelSourceAsset out{};

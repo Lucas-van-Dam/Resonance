@@ -32,7 +32,7 @@ struct IImporter
 {
     virtual ~IImporter() = default;
     virtual bool CanImport(std::filesystem::path ext) const = 0;
-    virtual ImportResult Import(std::filesystem::path src, ImportContext& ctx) = 0;
+    virtual ImportResult Import(std::filesystem::path src) = 0;
 };
 
 } // namespace REON::EDITOR
