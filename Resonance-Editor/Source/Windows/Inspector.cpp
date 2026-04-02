@@ -7,15 +7,15 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <imgui.h>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
-std::unordered_map<std::string, std::function<void(const FieldInfo&, void*)>> Inspector::handlers;
-std::unordered_map<std::string, std::function<void(const std::shared_ptr<GameObject>&)>> Inspector::componentMap;
+std::unordered_map<std::string, std::function<void(const REON::FieldInfo&, void*)>> Inspector::handlers;
+std::unordered_map<std::string, std::function<void(const std::shared_ptr<REON::GameObject>&)>> Inspector::componentMap;
 
 // Register handler for a specific type
 template <typename T>
-void Inspector::RegisterHandler(const std::string& typeName, std::function<void(const FieldInfo&, void*)> handler)
+void Inspector::RegisterHandler(const std::string& typeName, std::function<void(const REON::FieldInfo&, void*)> handler)
 {
     handlers[typeName] = handler;
 }
@@ -23,48 +23,48 @@ void Inspector::RegisterHandler(const std::string& typeName, std::function<void(
 void Inspector::Initialize()
 {
     componentMap.clear();
-    componentMap["Light"] = [](const std::shared_ptr<GameObject>& object)
+    componentMap["Light"] = [](const std::shared_ptr<REON::GameObject>& object)
     {
-        auto light = std::make_shared<Light>();
-        object->AddComponent<Light>(light);
+        auto light = std::make_shared<REON::Light>();
+        object->AddComponent<REON::Light>(light);
     };
 
-    componentMap["Renderer"] = [](const std::shared_ptr<GameObject>& object)
+    componentMap["Renderer"] = [](const std::shared_ptr<REON::GameObject>& object)
     {
-        auto renderer = std::make_shared<Renderer>();
-        object->AddComponent<Renderer>(renderer);
+        auto renderer = std::make_shared<REON::Renderer>();
+        object->AddComponent<REON::Renderer>(renderer);
     };
 
-    componentMap["Camera"] = [](const std::shared_ptr<GameObject>& object)
+    componentMap["Camera"] = [](const std::shared_ptr<REON::GameObject>& object)
     {
-        auto camera = std::make_shared<Camera>();
-        object->AddComponent<Camera>(camera);
+        auto camera = std::make_shared<REON::Camera>();
+        object->AddComponent<REON::Camera>(camera);
     };
 
     handlers.clear();
     Inspector::RegisterHandler<int>("int",
-                                    [](const FieldInfo& field, void* instance)
+                                    [](const REON::FieldInfo& field, void* instance)
                                     {
                                         int* ptr = reinterpret_cast<int*>(field.getter(instance));
                                         ImGui::InputInt(field.name, ptr);
                                     });
 
     Inspector::RegisterHandler<float>("float",
-                                      [](const FieldInfo& field, void* instance)
+                                      [](const REON::FieldInfo& field, void* instance)
                                       {
                                           float* ptr = reinterpret_cast<float*>(field.getter(instance));
                                           ImGui::DragFloat(field.name, ptr, 0.1f);
                                       });
 
     Inspector::RegisterHandler<bool>("bool",
-                                     [](const FieldInfo& field, void* instance)
+                                     [](const REON::FieldInfo& field, void* instance)
                                      {
                                          bool* ptr = reinterpret_cast<bool*>(field.getter(instance));
                                          ImGui::Checkbox(field.name, ptr);
                                      });
 
     Inspector::RegisterHandler<std::string>("std::string",
-                                            [](const FieldInfo& field, void* instance)
+                                            [](const REON::FieldInfo& field, void* instance)
                                             {
                                                 std::string* ptr =
                                                     reinterpret_cast<std::string*>(field.getter(instance));
@@ -80,7 +80,7 @@ void Inspector::Initialize()
                                             });
 
     Inspector::RegisterHandler<glm::vec3>("glm::vec3",
-                                          [](const FieldInfo& field, void* instance)
+                                          [](const REON::FieldInfo& field, void* instance)
                                           {
                                               glm::vec3* ptr = reinterpret_cast<glm::vec3*>(field.getter(instance));
 
@@ -90,7 +90,7 @@ void Inspector::Initialize()
                                           });
 
     Inspector::RegisterHandler<REON::Quaternion>("Quaternion",
-                                                 [](const FieldInfo& field, void* instance)
+                                                 [](const REON::FieldInfo& field, void* instance)
                                                  {
                                                      REON::Quaternion* ptr =
                                                          reinterpret_cast<REON::Quaternion*>(field.getter(instance));
@@ -101,7 +101,7 @@ void Inspector::Initialize()
                                                      // static glm::vec3 testVec(1.0f, 2.0f, 3.0f);
                                                      if (ImGui::DragFloat3(field.name, glm::value_ptr(angles), 0.01f))
                                                      {
-                                                         Quaternion quat;
+                                                         REON::Quaternion quat;
                                                          quat.setFromEulerAngles(angles.x, angles.y, angles.z);
                                                          quat.Normalize();
                                                          *ptr = quat;
@@ -110,7 +110,7 @@ void Inspector::Initialize()
 }
 
 // Render the field using the registered handler
-void Inspector::RenderField(const FieldInfo& field, void* instance)
+void Inspector::RenderField(const REON::FieldInfo& field, void* instance)
 {
     auto it = handlers.find(field.type);
     if (it != handlers.end())
@@ -131,7 +131,7 @@ void Inspector::RenderField(const FieldInfo& field, void* instance)
     } while (0)
 
 // Render all fields of an object
-void Inspector::InspectObject(std::shared_ptr<GameObject>& object)
+void Inspector::InspectObject(std::shared_ptr<REON::GameObject>& object)
 {
     ImGui::Begin("Inspector");
     if (!object)
@@ -154,7 +154,7 @@ void Inspector::InspectObject(std::shared_ptr<GameObject>& object)
         }
         else if (name == "Renderer")
         {
-            ComponentDrawers::DrawInspector_Renderer(std::dynamic_pointer_cast<Renderer>(component));
+            ComponentDrawers::DrawInspector_Renderer(std::dynamic_pointer_cast<REON::Renderer>(component));
             continue;
         }
         else

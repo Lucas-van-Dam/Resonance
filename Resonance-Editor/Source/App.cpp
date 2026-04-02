@@ -13,7 +13,7 @@ class Editor : public REON::Application
 {
 public:
 	Editor() {
-		PushLayer(new REON::EDITOR::EditorLayer());
+		PushLayer(new REON_EDITOR::EditorLayer());
 	}
 
 	~Editor(){

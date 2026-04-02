@@ -6,7 +6,7 @@
 
 namespace fs = std::filesystem;
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 namespace
@@ -58,19 +58,19 @@ bool ReadString(std::istream& is, std::string& s)
     return true;
 }
 
-bool WriteAssetId(std::ostream& os, const AssetId& id)
+bool WriteAssetId(std::ostream& os, const REON::AssetId& id)
 {
     os.write(reinterpret_cast<const char*>(id.bytes.data()), 16);
     return (bool)os;
 }
 
-bool ReadAssetId(std::istream& is, AssetId& id)
+bool ReadAssetId(std::istream& is, REON::AssetId& id)
 {
     is.read(reinterpret_cast<char*>(id.bytes.data()), 16);
     return (bool)is;
 }
 
-bool WriteAssetIdVector(std::ostream& os, const std::vector<AssetId>& v)
+bool WriteAssetIdVector(std::ostream& os, const std::vector<REON::AssetId>& v)
 {
     std::uint64_t count = v.size();
     if (!WriteRaw(os, count))
@@ -83,7 +83,7 @@ bool WriteAssetIdVector(std::ostream& os, const std::vector<AssetId>& v)
     return true;
 }
 
-bool ReadAssetIdVector(std::istream& is, std::vector<AssetId>& v)
+bool ReadAssetIdVector(std::istream& is, std::vector<REON::AssetId>& v)
 {
     std::uint64_t count = 0;
     if (!ReadRaw(is, count))
@@ -241,7 +241,7 @@ bool ReadImportedNode(std::istream& is, ImportedNode& v)
 
 } // namespace
 
-bool ImportedSourceStore::SaveModel(const AssetId& sourceId, const ImportedModel& model)
+bool ImportedSourceStore::SaveModel(const REON::AssetId& sourceId, const ImportedModel& model)
 {
     fs::path path = ProjectManager::GetInstance().GetCurrentProjectPath() + "/EngineCache/Imported/" + sourceId.to_string() + ".bin";
 
@@ -302,7 +302,7 @@ bool ImportedSourceStore::SaveModel(const AssetId& sourceId, const ImportedModel
     return true;
 }
 
-std::optional<ImportedModel> ImportedSourceStore::LoadModel(const AssetId& sourceId)
+std::optional<ImportedModel> ImportedSourceStore::LoadModel(const REON::AssetId& sourceId)
 {
     fs::path path = ProjectManager::GetInstance().GetCurrentProjectPath() + "/EngineCache/Imported/" +
                     sourceId.to_string() + ".bin";

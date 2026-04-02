@@ -1,6 +1,6 @@
 #include "AssetRegistry.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 AssetRegistry& AssetRegistry::Instance()
 {
@@ -8,7 +8,7 @@ AssetRegistry& AssetRegistry::Instance()
     return instance;
 }
 
-const AssetRecord* AssetRegistry::FindById(AssetId id) const
+const AssetRecord* AssetRegistry::FindById(REON::AssetId id) const
 {
     auto it = registry_.find(id);
     if (it != registry_.end())
@@ -37,13 +37,14 @@ void AssetRegistry::Upsert(const AssetRecord& record)
     registry_[record.id] = record;
 
     if (std::find_if(pathIndex_[record.sourcePath].begin(), pathIndex_[record.sourcePath].end(),
-                     [record](const AssetId& id) { return id == record.id; }) == pathIndex_[record.sourcePath].end())
+                     [record](const REON::AssetId& id)
+                     { return id == record.id; }) == pathIndex_[record.sourcePath].end())
     {
         pathIndex_[record.sourcePath].push_back(record.id);
     }
 }
 
-void AssetRegistry::Remove(AssetId id)
+void AssetRegistry::Remove(REON::AssetId id)
 {
     auto it = registry_.find(id);
     if (it != registry_.end())

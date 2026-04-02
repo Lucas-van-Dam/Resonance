@@ -3,7 +3,7 @@
 #include "AssetManagement/Assets/Material/MaterialSourceData.h"
 #include "CookOutput.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class MaterialBinWriter
 {

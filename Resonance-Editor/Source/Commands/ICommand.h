@@ -1,6 +1,6 @@
 #pragma once
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 	class ICommand {
 	public:
 		virtual ~ICommand() = default;

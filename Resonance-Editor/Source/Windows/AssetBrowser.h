@@ -8,7 +8,7 @@
 
 namespace fs = std::filesystem;
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 class AssetBrowser

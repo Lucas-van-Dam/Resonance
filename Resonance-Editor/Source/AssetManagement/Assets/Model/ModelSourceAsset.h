@@ -7,11 +7,11 @@
 #include <unordered_map>
 #include <vector>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 struct ModelSourceAsset
 {
-    AssetId id; // stable id for the source model asset
+    REON::AssetId id; // stable id for the source model asset
     std::string name;
     std::filesystem::path sourcePath; // relative to project
 
@@ -24,21 +24,22 @@ struct ModelSourceAsset
     bool flipNormals = true;
 
     // Outputs (sub-assets created by this import)
-    std::vector<AssetId> meshIds;
-    std::vector<AssetId> materialIds;
-    std::vector<AssetId> textureIds;
-    std::vector<AssetId> imageIds;
+    std::vector<REON::AssetId> meshIds;
+    std::vector<REON::AssetId> materialIds;
+    std::vector<REON::AssetId> textureIds;
+    std::vector<REON::AssetId> imageIds;
 
     std::filesystem::path cookedArtifact; // path to engine cache file
 
     // For stable IDs across reimport
     // key: "mesh:0:prim:0" -> uuid
-    std::unordered_map<std::string, AssetId> stableKeyToId;
+    std::unordered_map<std::string, REON::AssetId> stableKeyToId;
 
     uint64_t lastBuildKey = 0; // hash(source + settings + tool version)
 };
 
-inline ModelSourceAsset LoadModelSourceAssetImportData(const std::filesystem::path& metaPath) {
+inline ModelSourceAsset LoadModelSourceAssetImportData(const std::filesystem::path& metaPath)
+{
     ModelSourceAsset out{};
 
     std::ifstream f(metaPath);
@@ -50,7 +51,7 @@ inline ModelSourceAsset LoadModelSourceAssetImportData(const std::filesystem::pa
 
     // Basic header
     if (j.contains("id"))
-        out.id = AssetId::from_string(j.at("id").get<std::string>());
+        out.id = REON::AssetId::from_string(j.at("id").get<std::string>());
 
     out.name = j.value("name", std::string{});
 
@@ -96,7 +97,7 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
 
     // Basic header
     if (j.contains("id"))
-        out.id = AssetId::from_string(j.at("id").get<std::string>());
+        out.id = REON::AssetId::from_string(j.at("id").get<std::string>());
 
     out.name = j.value("name", std::string{});
 
@@ -127,7 +128,7 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
     }
 
     // Outputs
-    auto readIdArray = [](const nlohmann::json& arr, std::vector<AssetId>& dst)
+    auto readIdArray = [](const nlohmann::json& arr, std::vector<REON::AssetId>& dst)
     {
         dst.clear();
         if (!arr.is_array())
@@ -136,7 +137,7 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
         for (const auto& v : arr)
         {
             if (v.is_string())
-                dst.push_back(AssetId::from_string(v.get<std::string>()));
+                dst.push_back(REON::AssetId::from_string(v.get<std::string>()));
         }
     };
 
@@ -183,7 +184,7 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
         {
             if (!it.value().is_string())
                 continue;
-            out.stableKeyToId.emplace(it.key(), AssetId::from_string(it.value().get<std::string>()));
+            out.stableKeyToId.emplace(it.key(), REON::AssetId::from_string(it.value().get<std::string>()));
         }
     }
     else if (j.contains("stableKeyToId") && j["stableKeyToId"].is_object())
@@ -192,7 +193,7 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
         {
             if (!it.value().is_string())
                 continue;
-            out.stableKeyToId.emplace(it.key(), AssetId::from_string(it.value().get<std::string>()));
+            out.stableKeyToId.emplace(it.key(), REON::AssetId::from_string(it.value().get<std::string>()));
         }
     }
 
@@ -205,7 +206,7 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
 
     // Generic header
     j["metaVersion"] = 1;
-    j["assetType"] = ASSET_MODEL;
+    j["assetType"] = REON::ASSET_MODEL;
     j["id"] = a.id.to_string();
     j["name"] = a.name;
     j["sourcePath"] = a.sourcePath.generic_string();
@@ -221,7 +222,7 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
     };
 
     // Outputs
-    auto writeIdArray = [](const std::vector<AssetId>& src)
+    auto writeIdArray = [](const std::vector<REON::AssetId>& src)
     {
         nlohmann::json arr = nlohmann::json::array();
         for (const auto& id : src)
@@ -274,4 +275,4 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
     }
 }
 
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

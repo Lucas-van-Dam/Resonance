@@ -1,3 +1,4 @@
+#define TINYGLTF_IMPLEMENTATION
 #include "GLTFImporter.h"
 
 #include "AssetManagement/CookPipeline.h"
@@ -8,7 +9,7 @@
 #include <glm/gtx/quaternion.hpp>
 #include <AssetManagement/ImportedSourceStore.h>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 bool GltfImporter::CanImport(std::filesystem::path ext) const
@@ -16,7 +17,7 @@ bool GltfImporter::CanImport(std::filesystem::path ext) const
     return ext == ".gltf" || ext == ".glb";
 }
 
-static void getTexAndImageId(AssetId& texId, AssetId& imgId, ModelSourceAsset& asset, int& currentId)
+static void getTexAndImageId(REON::AssetId& texId, REON::AssetId& imgId, ModelSourceAsset& asset, int& currentId)
 {
     if (asset.textureIds.size() > currentId)
     {
@@ -24,7 +25,7 @@ static void getTexAndImageId(AssetId& texId, AssetId& imgId, ModelSourceAsset& a
     }
     else
     {
-        texId = MakeRandomAssetId();
+        texId = REON::MakeRandomAssetId();
         asset.textureIds.push_back(texId);
     }
     if (asset.imageIds.size() > currentId)
@@ -33,7 +34,7 @@ static void getTexAndImageId(AssetId& texId, AssetId& imgId, ModelSourceAsset& a
     }
     else
     {
-        imgId = MakeRandomAssetId();
+        imgId = REON::MakeRandomAssetId();
         asset.imageIds.push_back(imgId);
     }
     currentId++;
@@ -82,7 +83,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
 
     currentModelAsset = LoadModelSourceAssetFromFile(metaPath);
 
-    if (currentModelAsset.id == NullAssetId)
+    if (currentModelAsset.id == REON::NullAssetId)
     {
         REON_ERROR("GLTF Importer: Source asset missing or invalid ID: {}, stopping import", metaPath);
         return {};
@@ -95,7 +96,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
 
     AssetRecord modelRecord{};
     modelRecord.id = importedModel.modelId;
-    modelRecord.type = ASSET_MODEL;
+    modelRecord.type = REON::ASSET_MODEL;
     modelRecord.sourcePath = importedModel.sourcePath;
     modelRecord.logicalName = currentModelAsset.name;
     modelRecord.origin = AssetOrigin::ImportedRootAsset;
@@ -119,7 +120,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
             auto& srcMat = model.materials[i];
             ImportedMaterial mat{};
             if (ReassignIds)
-                mat.id = MakeRandomAssetId();
+                mat.id = REON::MakeRandomAssetId();
             else
                 mat.id = currentModelAsset.materialIds[i];
 
@@ -129,7 +130,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
             matRecord.id = mat.id;
             matRecord.logicalName = mat.debugName;
             matRecord.sourcePath = importedModel.sourcePath;
-            matRecord.type = ASSET_MATERIAL;
+            matRecord.type = REON::ASSET_MATERIAL;
             matRecord.parentSourceId = importedModel.modelId;
             matRecord.origin = AssetOrigin::ImportedSubAsset;
 
@@ -139,18 +140,18 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
 
             if (srcMat.alphaMode == "OPAQUE")
             {
-                mat.renderingMode = Opaque;
+                mat.renderingMode = REON::Opaque;
             }
             else if (srcMat.alphaMode == "MASK")
             {
-                mat.renderingMode = Transparent;
-                mat.blendingMode = Mask;
-                flags |= AlphaCutoff;
+                mat.renderingMode = REON::Transparent;
+                mat.blendingMode = REON::Mask;
+                flags |= REON::AlphaCutoff;
             }
             else if (srcMat.alphaMode == "BLEND")
             {
-                mat.renderingMode = Transparent;
-                mat.blendingMode = Blend;
+                mat.renderingMode = REON::Transparent;
+                mat.blendingMode = REON::Blend;
             }
             else
             {
@@ -170,13 +171,13 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
 
             if (pbrData.baseColorTexture.index >= 0)
             {
-                AssetId imgId;
-                AssetId texId;
+                REON::AssetId imgId;
+                REON::AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.baseColorTex = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index],
                                                      importedModel, true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.baseColorTex);
-                flags |= AlbedoTexture;
+                flags |= REON::AlbedoTexture;
                 if (pbrData.baseColorTexture.texCoord != 0)
                     REON_WARN("Albedo texture has non 0 texcoord and is not used");
             }
@@ -228,39 +229,39 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
 
             if (srcMat.emissiveTexture.index >= 0)
             {
-                AssetId imgId;
-                AssetId texId;
+                REON::AssetId imgId;
+                REON::AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.emissiveTex = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], importedModel,
                                                     true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.emissiveTex);
-                flags |= EmissiveTexture;
+                flags |= REON::EmissiveTexture;
                 if (srcMat.emissiveTexture.texCoord != 0)
                     REON_WARN("Emission texture has non 0 texcoord and is not used");
             }
 
             if (pbrData.metallicRoughnessTexture.index >= 0)
             {
-                AssetId imgId;
-                AssetId texId;
+                REON::AssetId imgId;
+                REON::AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.mrTex = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index],
                                               importedModel, false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.mrTex);
-                flags |= MetallicRoughnessTexture;
+                flags |= REON::MetallicRoughnessTexture;
                 if (pbrData.metallicRoughnessTexture.texCoord != 0)
                     REON_WARN("MetallicRoughness texture has non 0 texcoord and is not used");
             }
 
             if (srcMat.normalTexture.index >= 0)
             {
-                AssetId imgId;
-                AssetId texId;
+                REON::AssetId imgId;
+                REON::AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.normalTex = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], importedModel,
                                                   false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.normalTex);
-                flags |= NormalTexture;
+                flags |= REON::NormalTexture;
                 mat.normalScalar = srcMat.normalTexture.scale;
                 if (srcMat.normalTexture.texCoord != 0)
                     REON_WARN("Normal texture has non 0 texcoord and is not used");
@@ -290,7 +291,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src)
     if (!model.skins.empty())
     {
         importedModel.rig = ImportedRig{};
-        importedModel.rig.value().rigId = MakeRandomAssetId();
+        importedModel.rig.value().rigId = REON::MakeRandomAssetId();
     }
 
     std::vector<uint32_t> rigJointNodes;
@@ -399,7 +400,7 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
 
     data.debugName = node.name;
 
-    data.NodeId = MakeRandomAssetId();
+    data.NodeId = REON::MakeRandomAssetId();
 
     auto trs = GetTRSFromGLTFNode(node);
     data.t = std::get<0>(trs);
@@ -410,12 +411,12 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
 
     if (meshId >= 0 && meshId < model.meshes.size())
     {
-        AssetId id;
+        REON::AssetId id;
         if (currentModelAsset.meshIds.size() > currentMeshId)
             id = currentModelAsset.meshIds[currentMeshId];
         else
         {
-            id = MakeRandomAssetId();
+            id = REON::MakeRandomAssetId();
             currentModelAsset.meshIds.push_back(id);
         }
         data.meshId = HandleGLTFMesh(model, model.meshes[meshId], impModel, data, id);
@@ -448,8 +449,8 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
     return nodeId;
 }
 
-AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel,
-                                     ImportedNode& impNode, AssetId id)
+REON::AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel,
+                                           ImportedNode& impNode, REON::AssetId id)
 {
     ImportedMesh meshData{};
     meshData.id = id;
@@ -459,11 +460,11 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
     meshRecord.id = meshData.id;
     meshRecord.logicalName = meshData.debugName;
     meshRecord.sourcePath = impModel.sourcePath;
-    meshRecord.type = ASSET_MESH;
+    meshRecord.type = REON::ASSET_MESH;
     meshRecord.origin = AssetOrigin::ImportedSubAsset;
     meshRecord.parentSourceId = impModel.modelId;
 
-    std::vector<AssetId> matIDsPerMesh;
+    std::vector<REON::AssetId> matIDsPerMesh;
 
     int primitiveIndex = 0;
     for (auto primitive : mesh.primitives)
@@ -560,7 +561,7 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
         if (index > model.accessors.size())
         {
             REON_WARN("Invalid index accessor index in primitive: {}", std::to_string(primitiveIndex));
-            return NullAssetId;
+            return REON::NullAssetId;
         }
 
         if (primitive.indices >= 0)
@@ -593,8 +594,9 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
     return meshData.id;
 }
 
-AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                                        bool isSRGB, AssetId texId, AssetId imgId)
+REON::AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture,
+                                              ImportedModel& impModel, bool isSRGB, REON::AssetId texId,
+                                              REON::AssetId imgId)
 {
     const auto& image = model.images[texture.source];
 
@@ -617,7 +619,7 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     textureRecord.id = importedTexture.id;
     textureRecord.logicalName = importedTexture.debugName;
     textureRecord.sourcePath = impModel.sourcePath;
-    textureRecord.type = ASSET_TEXTURE;
+    textureRecord.type = REON::ASSET_TEXTURE;
     textureRecord.origin = ImportedSubAsset;
     textureRecord.parentSourceId = impModel.modelId;
 
@@ -629,10 +631,10 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
         switch (sampler.magFilter)
         {
         case TINYGLTF_TEXTURE_FILTER_NEAREST:
-            importedTexture.samplerStateMagFilter = Nearest;
+            importedTexture.samplerStateMagFilter = REON::Nearest;
             break;
         case TINYGLTF_TEXTURE_FILTER_LINEAR:
-            importedTexture.samplerStateMagFilter = Linear;
+            importedTexture.samplerStateMagFilter = REON::Linear;
             break;
         default:
             REON_WARN("Unknown magfilter on texture {}", sampler.magFilter);
@@ -641,22 +643,22 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
         switch (sampler.minFilter)
         {
         case TINYGLTF_TEXTURE_FILTER_NEAREST:
-            importedTexture.samplerStateMinFilter = Nearest;
+            importedTexture.samplerStateMinFilter = REON::Nearest;
             break;
         case TINYGLTF_TEXTURE_FILTER_LINEAR:
-            importedTexture.samplerStateMinFilter = Linear;
+            importedTexture.samplerStateMinFilter = REON::Linear;
             break;
         case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
-            importedTexture.samplerStateMinFilter = Nearest;
+            importedTexture.samplerStateMinFilter = REON::Nearest;
             break;
         case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
-            importedTexture.samplerStateMinFilter = Nearest;
+            importedTexture.samplerStateMinFilter = REON::Nearest;
             break;
         case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-            importedTexture.samplerStateMinFilter = Linear;
+            importedTexture.samplerStateMinFilter = REON::Linear;
             break;
         case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-            importedTexture.samplerStateMinFilter = Linear;
+            importedTexture.samplerStateMinFilter = REON::Linear;
             break;
         default:
             REON_WARN("Unknown minFilter on texture {}", sampler.minFilter);
@@ -665,13 +667,13 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
         switch (sampler.wrapS)
         {
         case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
-            importedTexture.samplerStateWrapU = ClampToEdge;
+            importedTexture.samplerStateWrapU = REON::ClampToEdge;
             break;
         case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
-            importedTexture.samplerStateWrapU = MirroredRepeat;
+            importedTexture.samplerStateWrapU = REON::MirroredRepeat;
             break;
         case TINYGLTF_TEXTURE_WRAP_REPEAT:
-            importedTexture.samplerStateWrapU = Repeat;
+            importedTexture.samplerStateWrapU = REON::Repeat;
             break;
         default:
             REON_WARN("Unknown wrap U on texture {}", sampler.wrapS);
@@ -680,13 +682,13 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
         switch (sampler.wrapT)
         {
         case TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE:
-            importedTexture.samplerStateWrapV = ClampToEdge;
+            importedTexture.samplerStateWrapV = REON::ClampToEdge;
             break;
         case TINYGLTF_TEXTURE_WRAP_MIRRORED_REPEAT:
-            importedTexture.samplerStateWrapV = MirroredRepeat;
+            importedTexture.samplerStateWrapV = REON::MirroredRepeat;
             break;
         case TINYGLTF_TEXTURE_WRAP_REPEAT:
-            importedTexture.samplerStateWrapV = Repeat;
+            importedTexture.samplerStateWrapV = REON::Repeat;
             break;
         default:
             REON_WARN("Unknown wrap V on texture {}", sampler.wrapT);
@@ -706,10 +708,10 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     return importedTexture.id;
 }
 
-std::tuple<glm::vec3, Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(const tg::Node& node)
+std::tuple<glm::vec3, REON::Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(const tg::Node& node)
 {
     glm::vec3 trans{0, 0, 0};
-    Quaternion rot{1, 0, 0, 0};
+    REON::Quaternion rot{1, 0, 0, 0};
     glm::vec3 scale{1, 1, 1};
     if (node.matrix.size() == 16)
     {
@@ -735,7 +737,7 @@ std::tuple<glm::vec3, Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(co
                               static_cast<float>(node.scale[2]));
 
         if (node.rotation.size() == 4)
-            rot = Quaternion(static_cast<float>(node.rotation[3]), static_cast<float>(node.rotation[0]),
+            rot = REON::Quaternion(static_cast<float>(node.rotation[3]), static_cast<float>(node.rotation[0]),
                              static_cast<float>(node.rotation[1]), static_cast<float>(node.rotation[2]));
         rot = glm::normalize(rot);
 
@@ -1100,7 +1102,7 @@ bool GltfImporter::ReadAccessorIndices(const tg::Model& model, const tg::Accesso
 
 static bool registered = []()
 {
-    CookPipeline::RegisterImporter(ASSET_MODEL, std::make_unique<GltfImporter>());
+    CookPipeline::RegisterImporter(REON::ASSET_MODEL, std::make_unique<GltfImporter>());
     return true;
 }();
 } // namespace REON::EDITOR

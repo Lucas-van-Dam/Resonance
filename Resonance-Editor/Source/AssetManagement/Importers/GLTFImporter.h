@@ -3,14 +3,14 @@
 #include "AssetManagement/AssetImporter.h"
 #include "tiny_gltf.h"
 
+#include <AssetManagement/Assets/Model/ModelSourceAsset.h>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <tuple>
-#include <AssetManagement/Assets/Model/ModelSourceAsset.h>
 
 namespace tg = tinygltf;
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class GltfImporter final : public IImporter
 {
@@ -19,13 +19,14 @@ class GltfImporter final : public IImporter
     ImportResult Import(std::filesystem::path src) override;
 
   private:
-    AssetId HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                              bool isSRGB, AssetId texId, AssetId imgId);
-    NodeIndex HandleGLTFNode(const tg::Model& model, int nodeId, ImportedModel& impModel, AssetRecord& modelRecord, float scale = 1.0f,
-                             uint32_t parentId = UINT32_MAX);
-    AssetId HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel, ImportedNode& impNode, AssetId id);
+    REON::AssetId HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
+                                    bool isSRGB, REON::AssetId texId, REON::AssetId imgId);
+    NodeIndex HandleGLTFNode(const tg::Model& model, int nodeId, ImportedModel& impModel, AssetRecord& modelRecord,
+                             float scale = 1.0f, uint32_t parentId = UINT32_MAX);
+    REON::AssetId HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel,
+                                 ImportedNode& impNode, REON::AssetId id);
 
-    std::tuple<glm::vec3, Quaternion, glm::vec3> GetTRSFromGLTFNode(const tg::Node& node);
+    std::tuple<glm::vec3, REON::Quaternion, glm::vec3> GetTRSFromGLTFNode(const tg::Node& node);
 
     void GetAccessorBaseAndStride(const tg::Model& model, const tg::Accessor& accessor, const uint8_t*& base,
                                   size_t& strideBytes);
@@ -54,11 +55,11 @@ class GltfImporter final : public IImporter
     bool ReadAccessorIndices(const tg::Model& model, const tg::Accessor& accessor, std::vector<uint32_t>& out,
                              uint32_t offset = 0);
 
-    std::vector<AssetId> materialIDs;
+    std::vector<REON::AssetId> materialIDs;
 
     int currentMeshId = 0;
 
     ModelSourceAsset currentModelAsset;
     std::vector<AssetRecord> producedAssets;
 };
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

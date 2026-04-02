@@ -1,6 +1,6 @@
 #include "ManifestWriter.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 }

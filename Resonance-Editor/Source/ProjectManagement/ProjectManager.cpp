@@ -5,7 +5,7 @@
 #include "REON/Events/EventBus.h"
 #include "REON/GameHierarchy/Components/Transform.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 ProjectManager::ProjectManager()
@@ -28,7 +28,7 @@ ProjectManager::ProjectManager()
 
     serializers["Quaternion"] = [](const void* data)
     {
-        const auto& quat = *static_cast<const Quaternion*>(data);
+        const auto& quat = *static_cast<const REON::Quaternion*>(data);
         return "(" + std::to_string(quat.x) + ", " + std::to_string(quat.y) + ", " + std::to_string(quat.z) + ", " +
                std::to_string(quat.w) + ")";
     };
@@ -38,7 +38,7 @@ ProjectManager::ProjectManager()
 
     serializers["LightType"] = [](const void* data)
     {
-        const auto& lightType = *static_cast<const LightType*>(data);
+        const auto& lightType = *static_cast<const REON::LightType*>(data);
         return std::to_string((int)lightType);
     };
 
@@ -110,42 +110,42 @@ ProjectManager::ProjectManager()
                                          return result;
                                      });
 
-    RegisterDeserializer<Quaternion>("Quaternion",
-                                     [](const std::string& str)
-                                     {
-                                         Quaternion result;
+    RegisterDeserializer<REON::Quaternion>(
+        "Quaternion",
+        [](const std::string& str)
+        {
+            REON::Quaternion result;
 
-                                         // Find the positions of the first and last parentheses
-                                         size_t first = str.find('(');
-                                         size_t last = str.find(')');
+            // Find the positions of the first and last parentheses
+            size_t first = str.find('(');
+            size_t last = str.find(')');
 
-                                         if (first == std::string::npos || last == std::string::npos || first >= last)
-                                         {
-                                             throw std::runtime_error("Invalid Quaternion format: " + str);
-                                         }
+            if (first == std::string::npos || last == std::string::npos || first >= last)
+            {
+                throw std::runtime_error("Invalid Quaternion format: " + str);
+            }
 
-                                         // Extract the inner string between the parentheses
-                                         std::string inner = str.substr(first + 1, last - first - 1);
+            // Extract the inner string between the parentheses
+            std::string inner = str.substr(first + 1, last - first - 1);
 
-                                         // Split the inner string by commas
-                                         size_t pos1 = inner.find(',');
-                                         size_t pos2 = inner.find(',', pos1 + 1);
-                                         size_t pos3 = inner.find(',', pos2 + 1);
+            // Split the inner string by commas
+            size_t pos1 = inner.find(',');
+            size_t pos2 = inner.find(',', pos1 + 1);
+            size_t pos3 = inner.find(',', pos2 + 1);
 
-                                         if (pos1 == std::string::npos || pos2 == std::string::npos ||
-                                             pos3 == std::string::npos)
-                                         {
-                                             throw std::runtime_error("Invalid Quaternion format: " + str);
-                                         }
+            if (pos1 == std::string::npos || pos2 == std::string::npos || pos3 == std::string::npos)
+            {
+                throw std::runtime_error("Invalid Quaternion format: " + str);
+            }
 
-                                         // Extract x, y, z, w substrings and convert to floats
-                                         result.x = std::stof(inner.substr(0, pos1));
-                                         result.y = std::stof(inner.substr(pos1 + 1, pos2 - pos1 - 1));
-                                         result.z = std::stof(inner.substr(pos2 + 1, pos3 - pos2 - 1));
-                                         result.w = std::stof(inner.substr(pos3 + 1));
+            // Extract x, y, z, w substrings and convert to floats
+            result.x = std::stof(inner.substr(0, pos1));
+            result.y = std::stof(inner.substr(pos1 + 1, pos2 - pos1 - 1));
+            result.z = std::stof(inner.substr(pos2 + 1, pos3 - pos2 - 1));
+            result.w = std::stof(inner.substr(pos3 + 1));
 
-                                         return result;
-                                     });
+            return result;
+        });
 
     RegisterDeserializer<std::string>("std::string",
                                       [](const std::string& str)
@@ -160,12 +160,12 @@ ProjectManager::ProjectManager()
                                           return str.substr(1, str.size() - 2);
                                       });
 
-    RegisterDeserializer<LightType>("LightType",
-                                    [](const std::string& str)
-                                    {
-                                        int value = std::stoi(str);           // Convert string to int
-                                        return static_cast<LightType>(value); // Convert int to LightType
-                                    });
+    RegisterDeserializer<REON::LightType>("LightType",
+                                          [](const std::string& str)
+                                          {
+                                              int value = std::stoi(str);                 // Convert string to int
+                                              return static_cast<REON::LightType>(value); // Convert int to LightType
+                                          });
 }
 
 bool ProjectManager::CreateNewProject(const std::string& projectName, const std::string& targetDirectory)
@@ -178,7 +178,7 @@ bool ProjectManager::CreateNewProject(const std::string& projectName, const std:
         InitializeFolders();
         InitializeDefaultFiles(projectName);
         ProjectOpenedEvent event(m_EditorSession->GetProjectPath());
-        EventBus::Get().publish(event);
+        REON::EventBus::Get().publish(event);
         return true;
     }
     else
@@ -206,13 +206,13 @@ bool ProjectManager::OpenProject(const std::string& projectPath)
 
     SettingsManager::GetInstance().LoadSettings(projectPath);
 
-    auto scene = std::make_shared<Scene>("TestScene");
+    auto scene = std::make_shared<REON::Scene>("TestScene");
     scene->InitializeSceneWithObjects();
 
-    SceneManager::Get()->SetActiveScene(scene);
+    REON::SceneManager::Get()->SetActiveScene(scene);
 
     ProjectOpenedEvent event(projectPath);
-    EventBus::Get().publish(event);
+    REON::EventBus::Get().publish(event);
 
     return true;
 }
@@ -244,7 +244,7 @@ bool ProjectManager::SaveProject()
 
 void ProjectManager::InitializeFolders()
 {
-    //TODO: RELEASE ME OF THIS HELL
+    // TODO: RELEASE ME OF THIS HELL
     std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Materials");
     std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Models");
     std::filesystem::create_directories(m_EditorSession->GetProjectPath().string() + "/Assets/Shaders");
@@ -321,7 +321,7 @@ bool ProjectManager::SaveScenes()
 
 void ProjectManager::LoadScene(const std::filesystem::path& path)
 {
-    std::shared_ptr<Scene> scene = std::make_shared<Scene>(path.filename().string());
+    std::shared_ptr<REON::Scene> scene = std::make_shared<REON::Scene>(path.filename().string());
 
     nlohmann::json j;
 
@@ -336,7 +336,7 @@ void ProjectManager::LoadScene(const std::filesystem::path& path)
     for (const auto& object : j["RootObjects"])
     {
         nlohmann::json objectJson;
-        std::shared_ptr<GameObject> rootObject = std::make_shared<GameObject>(object);
+        std::shared_ptr<REON::GameObject> rootObject = std::make_shared<REON::GameObject>(object);
         for (const auto& gameObject : j["GameObjects"])
         {
             if (gameObject.contains("Id") && gameObject["Id"] == object)
@@ -353,7 +353,7 @@ void ProjectManager::LoadScene(const std::filesystem::path& path)
         DeSerializeGameObjectForScene(objectJson, rootObject, j);
     }
 
-    SceneManager::Get()->SetActiveScene(scene);
+    REON::SceneManager::Get()->SetActiveScene(scene);
     scene->selectedObject = nullptr;
 }
 
@@ -370,7 +370,7 @@ bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
     }
 
     // copy assets to build directory now
-    std::unordered_set<std::string> usedAssets = getUsedAssetsFromScene(SceneManager::Get()->GetCurrentScene());
+    std::unordered_set<std::string> usedAssets = getUsedAssetsFromScene(REON::SceneManager::Get()->GetCurrentScene());
 
     for (const auto& asset : usedAssets)
     {
@@ -439,7 +439,7 @@ bool ProjectManager::BuildProject(const std::filesystem::path& buildDirectory)
     return false;
 }
 
-std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std::shared_ptr<Scene>& scene)
+std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std::shared_ptr<REON::Scene>& scene)
 {
     /*AssetRegistry& assetRegistry = AssetRegistry::Instance();
     std::unordered_set<std::string> usedAssets;
@@ -475,7 +475,8 @@ std::unordered_set<std::string> ProjectManager::getUsedAssetsFromScene(const std
     return {};
 }
 
-void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<GameObject> object,
+void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJson,
+                                                   std::shared_ptr<REON::GameObject> object,
                                                    const nlohmann::json& sceneJson)
 {
     object->SetName(objectJson["Name"]);
@@ -485,7 +486,7 @@ void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJ
         auto transformJson = objectJson["Transform"];
         auto transform = object->GetTransform();
         transform->localPosition = Deserialize<glm::vec3>("glm::vec3", transformJson["Position"]);
-        transform->localRotation = Deserialize<Quaternion>("Quaternion", transformJson["Rotation"]);
+        transform->localRotation = Deserialize<REON::Quaternion>("Quaternion", transformJson["Rotation"]);
         transform->localScale = Deserialize<glm::vec3>("glm::vec3", transformJson["Scale"]);
     }
     else
@@ -505,22 +506,22 @@ void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJ
             }
             else if (componentJson["Type"] == "Light")
             {
-                auto light = std::make_shared<Light>();
-                //light->deserialize(componentJson, GetCurrentProjectPath());
+                auto light = std::make_shared<REON::Light>();
+                // light->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(light);
                 continue;
             }
             else if (componentJson["Type"] == "Renderer")
             {
-                std::shared_ptr<Renderer> renderer = {}; // std::make_shared<Renderer>();
-                //renderer->deserialize(componentJson, GetCurrentProjectPath());
+                std::shared_ptr<REON::Renderer> renderer = {}; // std::make_shared<Renderer>();
+                // renderer->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(renderer);
                 continue;
             }
             else if (componentJson["Type"] == "Camera")
             {
-                auto camera = std::make_shared<Camera>();
-                //camera->deserialize(componentJson, GetCurrentProjectPath());
+                auto camera = std::make_shared<REON::Camera>();
+                // camera->deserialize(componentJson, GetCurrentProjectPath());
                 object->AddComponent(camera);
                 continue;
             }
@@ -537,7 +538,7 @@ void ProjectManager::DeSerializeGameObjectForScene(const nlohmann::json& objectJ
         nlohmann::json j;
         for (const auto& child : objectJson["Children"])
         {
-            std::shared_ptr<GameObject> childObject = std::make_shared<GameObject>(child);
+            std::shared_ptr<REON::GameObject> childObject = std::make_shared<REON::GameObject>(child);
             for (const auto& gameObject : sceneJson["GameObjects"])
             {
                 if (gameObject.contains("Id") && gameObject["Id"] == child)
@@ -588,7 +589,7 @@ nlohmann::json ProjectManager::SerializeGameObject(std::shared_ptr<REON::GameObj
     {
         nlohmann::json jsonComponent;
 
-        //jsonComponent = component->serialize();
+        // jsonComponent = component->serialize();
         jsonObject["Components"].push_back(jsonComponent);
         continue;
     }
@@ -616,4 +617,4 @@ std::string ProjectManager::ExtractInnerType(const std::string& typeString)
     return typeString.substr(start + 1, end - start - 1);
 }
 
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

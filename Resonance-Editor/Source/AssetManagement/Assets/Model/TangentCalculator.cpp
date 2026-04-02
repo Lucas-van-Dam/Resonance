@@ -1,12 +1,10 @@
 #include "TangentCalculator.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
-void TangentCalculator::CalculateTangents(std::vector<glm::vec3>& positions,
-                                                        std::vector<glm::vec2>& texCoords,
-                                                        std::vector<glm::vec3>& normals,
-                                                        std::vector<glm::vec4>& tangents,
-                                                        const std::vector<uint32_t>& indices)
+void TangentCalculator::CalculateTangents(std::vector<glm::vec3>& positions, std::vector<glm::vec2>& texCoords,
+                                          std::vector<glm::vec3>& normals, std::vector<glm::vec4>& tangents,
+                                          const std::vector<uint32_t>& indices)
 {
     tangents.resize(indices.size());
     SMikkTSpaceMeshContext userContext{positions, texCoords, normals, tangents, indices};
@@ -25,4 +23,4 @@ void TangentCalculator::CalculateTangents(std::vector<glm::vec3>& positions,
 
     genTangSpaceDefault(&context);
 }
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

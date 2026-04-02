@@ -10,8 +10,9 @@
 #include <string>
 #include <unordered_set>
 #include "EditorSession.h"
+#include "REON/GameHierarchy/GameObject.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 class ProjectManager
@@ -36,7 +37,7 @@ class ProjectManager
 
     bool BuildProject(const std::filesystem::path& buildDirectory);
 
-    std::unordered_set<std::string> getUsedAssetsFromScene(const std::shared_ptr<Scene>& scene);
+    std::unordered_set<std::string> getUsedAssetsFromScene(const std::shared_ptr<REON::Scene>& scene);
 
     const std::string& GetCurrentProjectPath() const
     {
@@ -59,7 +60,7 @@ class ProjectManager
     bool SaveScene(const REON::Scene& scene);
     bool SaveScenes();
 
-    void DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<GameObject> object,
+    void DeSerializeGameObjectForScene(const nlohmann::json& objectJson, std::shared_ptr<REON::GameObject> object,
                                        const nlohmann::json& sceneJson);
 
     void SerializeGameObjectForScene(nlohmann::json& sceneJson, std::shared_ptr<REON::GameObject> object);

@@ -3,10 +3,9 @@
 #include <memory>
 #include "Reon.h"
 #include "imgui.h"
-#include "ProjectManagement/Processors/Model.h"
 
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 	class SceneHierarchy
 	{
 	public:

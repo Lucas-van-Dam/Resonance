@@ -9,9 +9,9 @@
 #include <REON/Rendering/Structs/Texture.h>
 #include "ShaderProperty.h"
 
-namespace REON::SG
+namespace REON_EDITOR::SG
 {
-	using ShaderValue = std::variant<float, glm::vec2, glm::vec3, glm::vec4, glm::mat4, bool, std::string, SamplerData>;
+	using ShaderValue = std::variant<float, glm::vec2, glm::vec3, glm::vec4, glm::mat4, bool, std::string, REON::SamplerData>;
 
 	enum class ShaderValueType {
 		Undefined = -1,
@@ -59,7 +59,7 @@ namespace REON::SG
 		std::vector<ShaderPinTemplate> outputs;
 	};
 
-	struct ShaderNodeTemplate : public Object
+	struct ShaderNodeTemplate : public REON::Object
 	{
 		std::string name; 
 		std::string codeTemplate;
@@ -83,7 +83,8 @@ namespace REON::SG
 		// TODO: Maybe add a system for one json structure per node, with overloads being stored in a map or something
 	};
 
-	struct ShaderNode : public Object {
+	struct ShaderNode : public REON::Object
+    {
 		ShaderNodeType type = ShaderNodeType::Undefined; // Type of the node
 		std::string name;
 		ImVec4 color = ImVec4(0.0, 255.0, 255.0, 255.0);

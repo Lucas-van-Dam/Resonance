@@ -2,20 +2,22 @@
 
 #include "REON/AssetManagement/MaterialBinFormat.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 CookOutput MaterialBinWriter::WriteMaterialBin(const MaterialSourceData& mat, const std::filesystem::path& path)
 {
     std::filesystem::create_directories(path.parent_path());
 
-    MatBinHeader header;
-    header.headerSize = static_cast<uint16_t>(sizeof(MatBinHeader));
+    REON::MatBinHeader header;
+    header.headerSize = static_cast<uint16_t>(sizeof(REON::MatBinHeader));
     std::memcpy(header.baseColorFactor, &mat.baseColorFactor.r, sizeof(header.baseColorFactor));
     uint32_t flags = 0;
-    flags |= mat.doubleSided ? MAT_DOUBLE_SIDED : 0;
-    flags |= mat.renderingMode == Transparent ? MAT_TRANSPARENT : 0;
-    flags |= mat.renderingMode == Transparent ? mat.blendingMode == Blend ? MAT_MODE_BLEND : MAT_MODE_MASK : 0;
-    flags |= mat.flipNormals ? MAT_FLIP_NORMALS : 0;
+    flags |= mat.doubleSided ? REON::MAT_DOUBLE_SIDED : 0;
+    flags |= mat.renderingMode == REON::Transparent ? REON::MAT_TRANSPARENT : 0;
+    flags |= mat.renderingMode == REON::Transparent
+                 ? mat.blendingMode == REON::Blend ? REON::MAT_MODE_BLEND : REON::MAT_MODE_MASK
+                 : 0;
+    flags |= mat.flipNormals ? REON::MAT_FLIP_NORMALS : 0;
 
     header.flags = flags;
 
@@ -41,14 +43,14 @@ CookOutput MaterialBinWriter::WriteMaterialBin(const MaterialSourceData& mat, co
 
     const uint64_t fileSize = std::filesystem::file_size(path);
 
-    ArtifactRef ref{};
+    REON::ArtifactRef ref{};
     ref.uri = path.filename().generic_string();
     ref.offset = 0;
     ref.size = fileSize;
-    ref.flags = ARTIFACT_FLAG_LITTLE_ENDIAN;
+    ref.flags = REON::ARTIFACT_FLAG_LITTLE_ENDIAN;
 
     CookOutput output;
-    output.artifacts[AssetKey{ASSET_MATERIAL, mat.id}] = ref;
+    output.artifacts[REON::AssetKey{REON::ASSET_MATERIAL, mat.id}] = ref;
     return output;
 }
 } // namespace REON::EDITOR

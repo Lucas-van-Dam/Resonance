@@ -4,7 +4,7 @@
 #include <glm/ext/vector_float3.hpp>
 #include <functional>
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
 	class DrawFuncs
 	{

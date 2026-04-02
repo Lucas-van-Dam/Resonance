@@ -5,12 +5,12 @@
 #include "REON/AssetManagement/AssetResolver.h"
 #include "REON/AssetManagement/Artifact.h"
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 class EditorAssetResolver final : public IAssetResolver
 {
   public:
     EditorAssetResolver(AssetRegistry& reg, std::filesystem::path cookedRoot);
-    bool Resolve(const AssetKey& key, ArtifactRef& out) const override;
+    bool Resolve(const REON::AssetKey& key, REON::ArtifactRef& out) const override;
 
   private:
     AssetRegistry& reg_;

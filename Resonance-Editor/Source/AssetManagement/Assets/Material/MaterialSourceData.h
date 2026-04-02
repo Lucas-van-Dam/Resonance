@@ -1,14 +1,14 @@
 #pragma once
+#include <AssetManagement/Assets/Model/ModelImport.h>
 #include <REON/AssetManagement/Asset.h>
 #include <REON/Rendering/Material.h>
 #include <glm/glm.hpp>
-#include <AssetManagement/Assets/Model/ModelImport.h>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 struct MaterialSourceData
 {
-    AssetId id;
+    REON::AssetId id;
     std::string debugName;
 
     glm::vec4 baseColorFactor = glm::vec4(1.0f);
@@ -20,16 +20,16 @@ struct MaterialSourceData
     bool doubleSided = false;
     bool flipNormals = false;
 
-    AssetId baseColorTex = NullAssetId;
-    AssetId normalTex = NullAssetId;
-    AssetId mrTex = NullAssetId;
-    AssetId emissiveTex = NullAssetId;
-    AssetId specularTex = NullAssetId;
-    AssetId specularColorTex = NullAssetId;
+    REON::AssetId baseColorTex = REON::NullAssetId;
+    REON::AssetId normalTex = REON::NullAssetId;
+    REON::AssetId mrTex = REON::NullAssetId;
+    REON::AssetId emissiveTex = REON::NullAssetId;
+    REON::AssetId specularTex = REON::NullAssetId;
+    REON::AssetId specularColorTex = REON::NullAssetId;
 
     uint32_t flags = 0;
-    BlendingModes blendingMode = BlendingModes::Mask;
-    RenderingModes renderingMode = RenderingModes::Opaque;
+    REON::BlendingModes blendingMode = REON::BlendingModes::Mask;
+    REON::RenderingModes renderingMode = REON::RenderingModes::Opaque;
 };
 
 inline MaterialSourceData FromImportedMaterial(const ImportedMaterial& impMat)
@@ -56,4 +56,4 @@ inline MaterialSourceData FromImportedMaterial(const ImportedMaterial& impMat)
     mat.renderingMode = impMat.renderingMode;
     return mat;
 }
-} // namespace REON
+} // namespace REON_EDITOR

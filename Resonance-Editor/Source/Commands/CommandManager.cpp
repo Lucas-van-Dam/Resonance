@@ -1,6 +1,6 @@
 #include "CommandManager.h"
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 	std::unique_ptr<ICommand> CommandManager::m_CurrentBatch;
 	std::vector<std::unique_ptr<ICommand>> CommandManager::m_UndoStack;
 	std::vector<std::unique_ptr<ICommand>> CommandManager::m_RedoStack;

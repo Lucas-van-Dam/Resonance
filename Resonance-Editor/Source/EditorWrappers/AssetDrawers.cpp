@@ -11,7 +11,7 @@
 #include <AssetManagement/Assets/Material/MaterialSourceData.h>
 #include <AssetManagement/Assets/Material/MaterialSerializer.h>
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
 
 
@@ -43,7 +43,7 @@ namespace REON::EDITOR {
             BuildJob job;
             job.reason = BuildReason::ForceRebuild;
             job.sourceId = data.id;
-            job.type = ASSET_MATERIAL;
+            job.type = REON::ASSET_MATERIAL;
             job.doImport = false;
 
             BuildQueue queue;
@@ -84,7 +84,7 @@ namespace REON::EDITOR {
 			BuildJob job;
             job.reason = BuildReason::ForceRebuild;
             job.sourceId = sourceAsset.id;
-            job.type = ASSET_MODEL;
+            job.type = REON::ASSET_MODEL;
             job.doImport = true;
 
 			BuildQueue queue;

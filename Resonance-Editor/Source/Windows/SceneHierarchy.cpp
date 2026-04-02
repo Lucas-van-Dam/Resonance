@@ -3,7 +3,7 @@
 #include "REON/ResourceManagement/loaders/ModelLoader.h"
 #include "AssetManagement/AssetRegistry.h"
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
 	std::shared_ptr<REON::GameObject> SceneHierarchy::pendingReparentSource;
 	std::shared_ptr<REON::GameObject> SceneHierarchy::pendingReparentTarget;
@@ -92,10 +92,8 @@ namespace REON::EDITOR {
                 {
 					REON_INFO("Dropped file: \"{}\" into scene", filePath);
                     const auto& records = AssetRegistry::Instance().FindBySource(filePath);
-                    const auto& it = std::find_if(records.begin(), records.end(),
-                                 [](const AssetRecord& record) { return record.type == ASSET_MODEL; });
-                    ModelLoader::LoadModelFromFile(it->id,
-                                                   SceneManager::Get()->GetCurrentScene());
+                    const auto& it = std::find_if(records.begin(), records.end(), [](const AssetRecord& record)
+                                                  { return record.type == REON::ASSET_MODEL; });
 				}
 			}
 			ImGui::EndDragDropTarget();

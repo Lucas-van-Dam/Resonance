@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-namespace REON::EDITOR {
+namespace REON_EDITOR {
     struct ProjectSettings {
         std::string projectName = "Untitled";
         std::string authorName = "Unknown";

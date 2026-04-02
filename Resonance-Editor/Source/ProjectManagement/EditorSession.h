@@ -2,7 +2,7 @@
 
 #include <filesystem>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class EditorSession
 {
@@ -20,5 +20,6 @@ class EditorSession
 
   private:
     std::filesystem::path m_projectPath;
+
 };
 } // namespace REON::EDITOR

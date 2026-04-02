@@ -10,10 +10,10 @@
 #include <ProjectManagement/ProjectManager.h>
 #include <REON/ResourceManagement/ResourceManager.h>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
-void ComponentDrawers::DrawInspector_Transform(std::shared_ptr<Transform> transform)
+void ComponentDrawers::DrawInspector_Transform(std::shared_ptr<REON::Transform> transform)
 {
     static bool wasChangingPosition = false;
     if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen))
@@ -51,7 +51,7 @@ void ComponentDrawers::DrawInspector_Transform(std::shared_ptr<Transform> transf
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
 }
 
-void ComponentDrawers::DrawInspector_Light(std::shared_ptr<Light> light)
+void ComponentDrawers::DrawInspector_Light(std::shared_ptr<REON::Light> light)
 {
     if (ImGui::CollapsingHeader("Light", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -60,7 +60,7 @@ void ComponentDrawers::DrawInspector_Light(std::shared_ptr<Light> light)
     }
     ImGui::Dummy(ImVec2(0.0f, 4.0f));
 }
-void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<Renderer> renderer)
+void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<REON::Renderer> renderer)
 {
     if (ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen))
     {
@@ -93,7 +93,8 @@ void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<Renderer> renderer
                                                                "/" + filePath.string())
                                           .value();
                         auto matId = source.id;
-                        auto material = Application::Get().GetEngineServices().resources.GetOrLoad<Material>(matId);
+                        auto material =
+                            REON::Application::Get().GetEngineServices().resources.GetOrLoad<REON::Material>(matId);
                         renderer->SetMaterial(i, material);
                     }
                 }

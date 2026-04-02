@@ -4,7 +4,7 @@
 #include <REON/GameHierarchy/GameObject.h>  
 #include <REON/GameHierarchy/Components/Transform.h>  
 
-namespace REON::EDITOR {  
+namespace REON_EDITOR {  
 	template<typename T>
     class PropertyChangeCommand : public ICommand {
     public:  

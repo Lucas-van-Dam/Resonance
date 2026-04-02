@@ -11,11 +11,11 @@
 
 namespace ed = ax::NodeEditor;
 namespace util = ax::NodeEditor::Utilities;
-using namespace REON::SG;
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
-	struct ShaderGraphLink : public Object {
+	struct ShaderGraphLink : public REON::Object
+{
 		ed::PinId startPin;
 		ed::PinId endPin;
 		ImVec4 color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
@@ -80,25 +80,25 @@ namespace REON::EDITOR {
 		std::list<SG::ShaderNode> nodes;
 		std::unordered_map<std::string, uint64_t> guidToIdMap;
 		std::unordered_map<uint64_t, std::string> idToGuidMap;
-		std::vector<std::shared_ptr<ShaderProperty>> properties;
+		std::vector<std::shared_ptr<SG::ShaderProperty>> properties;
 		int selectedProperty = -1;
 		ed::NodeId selectedNode = 1;
 
 		static std::unordered_map<std::string, const SG::ShaderPin*> pins;
 
 	private:
-		ImColor GetIconColor(ShaderValueType type);
-		void DrawPinIcon(const ShaderPin& pin, bool connected, int alpha);
+		ImColor GetIconColor(SG::ShaderValueType type);
+		void DrawPinIcon(const SG::ShaderPin& pin, bool connected, int alpha);
 		bool CanCreateLink(const SG::ShaderPin* a, const SG::ShaderPin* b);
-		const ShaderPin* findPin(ed::PinId id);
+		const SG::ShaderPin* findPin(ed::PinId id);
 		bool findLink(ed::PinId id, ShaderGraphLink&);
 		bool findLink(ed::LinkId id, ShaderGraphLink&);
 		bool IsPinLinked(ed::PinId id);
 		void DrawShaderNode(SG::ShaderNode& node, util::BlueprintNodeBuilder builder);
 		void CreateNode(const std::string& templateName);
-		void CreateNode(std::shared_ptr<ShaderProperty> property);
+		void CreateNode(std::shared_ptr<SG::ShaderProperty> property);
 		void ChangeNodeVariant(SG::ShaderNode* node, const SG::ShaderNodeVariant& variant);
-		bool CanChangeType(const SG::ShaderPin& pin, const ShaderValueType& type, const ShaderNodeVariant*& variant);
+		bool CanChangeType(const SG::ShaderPin& pin, const SG::ShaderValueType& type, const SG::ShaderNodeVariant*& variant);
 
 		static bool createNewNode;
 		static const SG::ShaderPin* newNodeLinkPin;

@@ -4,7 +4,7 @@
 #include "REON/AssetManagement/Artifact.h"
 #include "AssetManagement/CookOutput.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class ModelBinWriter
 {

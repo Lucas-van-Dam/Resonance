@@ -1,15 +1,15 @@
 #pragma once
 
-#include "REON/AssetManagement/Asset.h"
 #include "REON/AssetManagement/Artifact.h"
+#include "REON/AssetManagement/Asset.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 struct CookOutput
 {
     uint64_t buildKey;
-    std::vector<AssetId> assetDeps;
+    std::vector<REON::AssetId> assetDeps;
     std::vector<std::filesystem::path> fileDeps;
-    std::unordered_map<AssetKey, ArtifactRef, AssetKeyHash> artifacts;
+    std::unordered_map<REON::AssetKey, REON::ArtifactRef, REON::AssetKeyHash> artifacts;
 };
-}
+} // namespace REON_EDITOR

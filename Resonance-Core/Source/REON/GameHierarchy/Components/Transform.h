@@ -6,10 +6,11 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <nlohmann/json_fwd.hpp>
 
-class GameObject;
 
 namespace REON
 {
+
+class GameObject;
 
 class [[clang::annotate("serialize")]] Transform : public ComponentBase<Transform>
 {

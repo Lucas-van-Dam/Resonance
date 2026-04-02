@@ -4,10 +4,10 @@
 #include "Assets/Model/ModelImport.h"
 
 #include <filesystem>
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 struct ImportResult
 {
@@ -16,16 +16,10 @@ struct ImportResult
 
 struct ImportCache
 {
-    std::unordered_map<AssetId, ImportedModel> modelCache;
-    std::unordered_map<AssetId, ImportedTexture> textureCache;
-    std::unordered_map<AssetId, ImportedMaterial> materialCache;
-    //std::unordered_map<AssetId, 
-};
-
-struct ImportContext
-{
-    ImportCache& cache;
-    AssetRegistry& registry;
+    std::unordered_map<REON::AssetId, ImportedModel> modelCache;
+    std::unordered_map<REON::AssetId, ImportedTexture> textureCache;
+    std::unordered_map<REON::AssetId, ImportedMaterial> materialCache;
+    // std::unordered_map<AssetId,
 };
 
 struct IImporter
@@ -35,4 +29,4 @@ struct IImporter
     virtual ImportResult Import(std::filesystem::path src) = 0;
 };
 
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

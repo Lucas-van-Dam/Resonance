@@ -2,10 +2,10 @@
 
 #include <cstdint>
 #include <glm/glm.hpp>
-#include <vector>
 #include <mikktspace.h>
+#include <vector>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class TangentCalculator
 {
@@ -38,7 +38,6 @@ class TangentCalculator
     static void getPosition(const SMikkTSpaceContext* pContext, float fvPosOut[], int face, int vert)
     {
         auto* ctx = static_cast<SMikkTSpaceMeshContext*>(pContext->m_pUserData);
-        
 
         int index = ctx->indices[face * 3 + vert];
         fvPosOut[0] = ctx->positions[index].x;
@@ -74,4 +73,4 @@ class TangentCalculator
         ctx->tangents[index].w = fSign;
     }
 };
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

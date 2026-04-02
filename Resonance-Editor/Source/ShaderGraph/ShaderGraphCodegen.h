@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace REON::SG {
+namespace REON_EDITOR::SG {
 
     struct ShaderNode; // Forward declare
 

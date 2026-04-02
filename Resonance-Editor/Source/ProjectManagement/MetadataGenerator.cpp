@@ -1,6 +1,6 @@
 #include "MetadataGenerator.h"
 
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 }

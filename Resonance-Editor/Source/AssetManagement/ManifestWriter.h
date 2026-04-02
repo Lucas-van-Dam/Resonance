@@ -7,18 +7,18 @@
 #include "REON/Application.h"
 #include <filesystem>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class ManifestWriter
 {
   public:
-    void Upsert(const std::unordered_map<AssetKey, ArtifactRef, AssetKeyHash>& refs)
+    void Upsert(const std::unordered_map<REON::AssetKey, REON::ArtifactRef, REON::AssetKeyHash>& refs)
     {
         for (const auto& [k, incoming] : refs)
         {
             auto it = entries_.find(k);
 
-            ArtifactRef updated = incoming;
+            REON::ArtifactRef updated = incoming;
 
             if (it != entries_.end())
             {
@@ -26,7 +26,7 @@ class ManifestWriter
 
                 it->second = updated;
 
-                Application::Get().GetEngineServices().resources.NotifyResourceChanged(k, updated);
+                REON::Application::Get().GetEngineServices().resources.NotifyResourceChanged(k, updated);
             }
             else
             {
@@ -36,7 +36,7 @@ class ManifestWriter
         }
     }
 
-    void Remove(const AssetKey& k)
+    void Remove(const REON::AssetKey& k)
     {
         entries_.erase(k);
     }
@@ -46,7 +46,7 @@ class ManifestWriter
         std::filesystem::create_directories(manifestPath.parent_path());
 
         // Sort for deterministic output + easy binary search runtime
-        std::vector<std::pair<AssetKey, ArtifactRef>> sorted;
+        std::vector<std::pair<REON::AssetKey, REON::ArtifactRef>> sorted;
         sorted.reserve(entries_.size());
         for (auto& kv : entries_)
             sorted.push_back(kv);
@@ -84,14 +84,14 @@ class ManifestWriter
             stringBytes += (uint32_t)s.size();
         }
 
-        std::vector<ManifestEntry> outEntries;
+        std::vector<REON::ManifestEntry> outEntries;
         outEntries.reserve(sorted.size());
 
         for (auto& [k, r] : sorted)
         {
             auto span = uriToSpan.at(r.uri);
 
-            ManifestEntry e{};
+            REON::ManifestEntry e{};
             e.key.type = k.type;
             std::memcpy(e.key.id, k.id.bytes.data(), 16);
             e.ref.uriOffset = span.first;
@@ -103,12 +103,12 @@ class ManifestWriter
             outEntries.push_back(e);
         }
 
-        ManifestHeader hdr{};
-        hdr.headerSize = (uint16_t)sizeof(ManifestHeader);
+        REON::ManifestHeader hdr{};
+        hdr.headerSize = (uint16_t)sizeof(REON::ManifestHeader);
         hdr.entryCount = (uint32_t)outEntries.size();
-        hdr.entriesOffset = sizeof(ManifestHeader);
+        hdr.entriesOffset = sizeof(REON::ManifestHeader);
 
-        const uint64_t entriesBytes = (uint64_t)outEntries.size() * sizeof(ManifestEntry);
+        const uint64_t entriesBytes = (uint64_t)outEntries.size() * sizeof(REON::ManifestEntry);
         const uint64_t stringsOffset = hdr.entriesOffset + entriesBytes;
 
         // Write: header | entries | string table (raw concatenated bytes)
@@ -128,6 +128,6 @@ class ManifestWriter
     }
 
   private:
-    std::unordered_map<AssetKey, ArtifactRef, AssetKeyHash> entries_;
+    std::unordered_map<REON::AssetKey, REON::ArtifactRef, REON::AssetKeyHash> entries_;
 };
 } // namespace REON::EDITOR

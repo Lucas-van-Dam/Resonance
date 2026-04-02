@@ -8,7 +8,7 @@
 #include "Reon.h"
 #include "Settings.h"
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
     class SettingsManager {
     public:
         static SettingsManager& GetInstance() {

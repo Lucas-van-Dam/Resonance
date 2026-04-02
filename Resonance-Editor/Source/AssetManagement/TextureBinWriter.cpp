@@ -2,7 +2,7 @@
 
 #include "REON/AssetManagement/TextureBinFormat.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 CookOutput TextureBinWriter::WriteTextureBin(const ImportedTexture& texture, const ImportedImage& img,
@@ -12,18 +12,19 @@ CookOutput TextureBinWriter::WriteTextureBin(const ImportedTexture& texture, con
 
     const uint64_t dataSize = static_cast<uint64_t>(img.rgba8.size());
 
-    TexBinHeader hdr{};
-    hdr.headerSize = static_cast<uint16_t>(sizeof(TexBinHeader));
+    REON::TexBinHeader hdr{};
+    hdr.headerSize = static_cast<uint16_t>(sizeof(REON::TexBinHeader));
     hdr.width = img.width;
     hdr.height = img.height;
     hdr.mipCount = 1;
-    hdr.format = static_cast<uint32_t>(img.srgb ? TexPayloadFormat::RGBA8_SRGB : TexPayloadFormat::RGBA8_UNORM);
+    hdr.format =
+        static_cast<uint32_t>(img.srgb ? REON::TexPayloadFormat::RGBA8_SRGB : REON::TexPayloadFormat::RGBA8_UNORM);
     hdr.flags = 0;
     hdr.wrapU = static_cast<uint8_t>(texture.samplerStateWrapU);
     hdr.wrapV = static_cast<uint8_t>(texture.samplerStateWrapV);
     hdr.minFilter = static_cast<uint8_t>(texture.samplerStateMinFilter);
     hdr.magFilter = static_cast<uint8_t>(texture.samplerStateMagFilter);
-    hdr.dataOffset = static_cast<uint32_t>(sizeof(TexBinHeader));
+    hdr.dataOffset = static_cast<uint32_t>(sizeof(REON::TexBinHeader));
     hdr.dataSize = dataSize;
 
     std::ofstream out(outFile, std::ios::binary | std::ios::trunc);
@@ -39,14 +40,14 @@ CookOutput TextureBinWriter::WriteTextureBin(const ImportedTexture& texture, con
 
     const uint64_t fileSize = std::filesystem::file_size(outFile);
 
-    ArtifactRef ref{};
+    REON::ArtifactRef ref{};
     ref.uri = outFile.filename().generic_string();
     ref.offset = 0;
     ref.size = fileSize;
-    ref.flags = ARTIFACT_FLAG_LITTLE_ENDIAN;
+    ref.flags = REON::ARTIFACT_FLAG_LITTLE_ENDIAN;
 
     CookOutput output;
-    output.artifacts[AssetKey{ASSET_TEXTURE, texture.id}] = ref;
+    output.artifacts[REON::AssetKey{REON::ASSET_TEXTURE, texture.id}] = ref;
     return output;
 }
 

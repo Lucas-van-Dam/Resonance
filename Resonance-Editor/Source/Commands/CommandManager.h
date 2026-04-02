@@ -5,7 +5,7 @@
 #include <functional>
 #include <Reon.h>
 
-namespace REON::EDITOR{
+namespace REON_EDITOR{
 
 class CommandManager
 {

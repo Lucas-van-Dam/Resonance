@@ -1,5 +1,5 @@
 #include "SettingsManager.h"
-namespace REON::EDITOR {
+namespace REON_EDITOR {
     void SettingsManager::LoadFromJson(const std::string& filepath, ProjectSettings& settings) {
         std::ifstream file(filepath);
         if (!file.is_open()) {

@@ -1,7 +1,7 @@
 #include "ShaderNode.h"
 #include <Windows/ShaderGraph.h>
 
-namespace REON::SG {
+namespace REON_EDITOR::SG {
 
 bool IsImplicitlyConvertible(ShaderValueType from, ShaderValueType to)
 {

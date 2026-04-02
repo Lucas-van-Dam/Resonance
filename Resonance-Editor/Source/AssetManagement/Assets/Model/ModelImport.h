@@ -1,21 +1,21 @@
 #pragma once
 
 #include "REON/AssetManagement/Asset.h"
-#include "REON/Rendering/Material.h"
 #include "REON/Math/Quaternion.h"
+#include "REON/Rendering/Material.h"
 #include "REON/Rendering/Structs/Texture.h"
 
-#include <string>
 #include <set>
+#include <string>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 using NodeIndex = uint32_t;
 
 struct ImportedImage
 {
-    AssetId id;
+    REON::AssetId id;
     std::string debugName;
     uint32_t width, height;
     std::vector<std::uint8_t> rgba8;
@@ -25,18 +25,18 @@ struct ImportedImage
 
 struct ImportedTexture
 {
-    AssetId id;
+    REON::AssetId id;
     std::string debugName;
-    AssetId imageId;
-    SamplerWrapMode samplerStateWrapU;
-    SamplerWrapMode samplerStateWrapV;
-    SamplerFilterMode samplerStateMinFilter;
-    SamplerFilterMode samplerStateMagFilter;
+    REON::AssetId imageId;
+    REON::SamplerWrapMode samplerStateWrapU;
+    REON::SamplerWrapMode samplerStateWrapV;
+    REON::SamplerFilterMode samplerStateMinFilter;
+    REON::SamplerFilterMode samplerStateMagFilter;
 };
 
 struct ImportedMaterial
 {
-    AssetId id;
+    REON::AssetId id;
     std::string debugName;
 
     glm::vec4 baseColorFactor;
@@ -48,16 +48,16 @@ struct ImportedMaterial
     bool doubleSided;
     bool flipNormals;
 
-    AssetId baseColorTex;
-    AssetId normalTex;
-    AssetId mrTex;
-    AssetId emissiveTex;
-    AssetId specularTex;
-    AssetId specularColorTex;
+    REON::AssetId baseColorTex;
+    REON::AssetId normalTex;
+    REON::AssetId mrTex;
+    REON::AssetId emissiveTex;
+    REON::AssetId specularTex;
+    REON::AssetId specularColorTex;
 
     uint32_t flags;
-    BlendingModes blendingMode;
-    RenderingModes renderingMode;
+    REON::BlendingModes blendingMode;
+    REON::RenderingModes renderingMode;
 };
 
 struct ImportedMesh
@@ -69,14 +69,14 @@ struct ImportedMesh
         int materialId; // nil if none
     };
 
-    AssetId id;
+    REON::AssetId id;
     std::string debugName;
 
     std::vector<glm::vec3> positions;
-    std::vector<glm::vec3> normals;  
-    std::vector<glm::vec4> tangents; 
-    std::vector<glm::vec2> uv0;      
-    std::vector<glm::vec4> colors;   
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec4> tangents;
+    std::vector<glm::vec2> uv0;
+    std::vector<glm::vec4> colors;
     std::vector<uint32_t> indices;
     std::vector<glm::u16vec4> joints_0;
     std::vector<glm::u16vec4> joints_1;
@@ -97,31 +97,31 @@ struct ImportedSkin
 
 struct ImportedRig
 {
-    AssetId rigId;
-    std::vector<AssetId> joints;
+    REON::AssetId rigId;
+    std::vector<REON::AssetId> joints;
     std::vector<uint32_t> skinIndices;
 };
 
 struct ImportedNode
 {
-    AssetId NodeId;
+    REON::AssetId NodeId;
     NodeIndex parent = UINT32_MAX;
     std::vector<NodeIndex> children;
     std::string debugName;
 
     glm::vec3 t;
-    Quaternion r; // quat
+    REON::Quaternion r; // quat
     glm::vec3 s;
 
     // render binding
-    AssetId meshId;     // nil if none
+    REON::AssetId meshId; // nil if none
     uint32_t skinIndex;
-    std::vector<AssetId> materialId; // max 10, nil if none
+    std::vector<REON::AssetId> materialId; // max 10, nil if none
 };
 
 struct ImportedModel
 {
-    AssetId modelId;        // import root id (container)
+    REON::AssetId modelId;  // import root id (container)
     std::string sourcePath; // for editor/debug only
     std::string debugName;
 
@@ -135,6 +135,4 @@ struct ImportedModel
     std::vector<NodeIndex> rootNodes = {0};
 };
 
-
-
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

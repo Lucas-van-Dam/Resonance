@@ -3,7 +3,7 @@
 #include <Commands/CommandManager.h>
 #include <Commands/PropertyChangeCommand.h>
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
     bool DrawFuncs::DrawVec3WithUndoRedo(const std::string& label, glm::vec3& values, std::function<void(const glm::vec3&)> setter, std::function<glm::vec3()> getter, float speed, float columnWidth)
     {
         bool isEditing = false;

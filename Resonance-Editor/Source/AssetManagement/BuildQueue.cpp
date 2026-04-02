@@ -1,10 +1,11 @@
 #include "BuildQueue.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 void BuildQueue::Enqueue(BuildJob item) 
 {
-	uint64_t hash = std::hash<AssetId>{}(item.sourceId) ^ std::hash<AssetTypeId>{}(item.type) ^ std::hash<int>{}(static_cast<int>(item.reason));
+    uint64_t hash = std::hash<REON::AssetId>{}(item.sourceId) ^ std::hash<REON::AssetTypeId>{}(item.type) ^
+                    std::hash<int>{}(static_cast<int>(item.reason));
 	if (m_Dedup.find(hash) == m_Dedup.end())
 	{
 		m_Items.push_back(std::move(item));
@@ -17,7 +18,8 @@ bool BuildQueue::TryDequeue(BuildJob& out)
 		return false;
 	out = std::move(m_Items.front());
 	m_Items.pop_front();
-	uint64_t hash = std::hash<AssetId>{}(out.sourceId) ^ std::hash<AssetTypeId>{}(out.type) ^ std::hash<int>{}(static_cast<int>(out.reason));
+    uint64_t hash = std::hash<REON::AssetId>{}(out.sourceId) ^ std::hash<REON::AssetTypeId>{}(out.type) ^
+                    std::hash<int>{}(static_cast<int>(out.reason));
 	m_Dedup.erase(hash);
     return true;
 }

@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <optional>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 class MaterialSerializer
 {
@@ -13,4 +13,4 @@ class MaterialSerializer
     static bool Save(const std::filesystem::path& path, const MaterialSourceData& mat);
     static std::optional<MaterialSourceData> Load(const std::filesystem::path& path);
 };
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

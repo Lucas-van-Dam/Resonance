@@ -1,8 +1,9 @@
 #include "AssetBrowser.h"
-#include <AssetManagement/Assets/Material/MaterialSourceData.h>
-#include <AssetManagement/Assets/Material/MaterialSerializer.h>
 
-namespace REON::EDITOR
+#include <AssetManagement/Assets/Material/MaterialSerializer.h>
+#include <AssetManagement/Assets/Material/MaterialSourceData.h>
+
+namespace REON_EDITOR
 {
 
 void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
@@ -83,8 +84,7 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
             {
                 auto path = std::filesystem::relative(entry.path(), m_RootDirectory.parent_path());
-                ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", path.string().c_str(),
-                                          path.string().size() + 1);
+                ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", path.string().c_str(), path.string().size() + 1);
                 ImGui::Text("Dragging: %s", name.c_str());
                 ImGui::EndDragDropSource();
             }
@@ -105,21 +105,23 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
         {
             // Create .mat file
             // write bin file
-            auto id = MakeRandomAssetId();
+            auto id = REON::MakeRandomAssetId();
 
             MaterialSourceData data{};
             data.id = id;
 
             MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.mat", data);
 
-            AssetRegistry::Instance().Upsert(
-                AssetRecord{.id = id, .type = ASSET_MATERIAL, .origin = Native, .sourcePath = m_CurrentDirectory / "DefaultMaterial.mat", .logicalName = "DefaultMaterial.mat"});
-
+            AssetRegistry::Instance().Upsert(AssetRecord{.id = id,
+                                                         .type = REON::ASSET_MATERIAL,
+                                                         .origin = Native,
+                                                         .sourcePath = m_CurrentDirectory / "DefaultMaterial.mat",
+                                                         .logicalName = "DefaultMaterial.mat"});
 
             BuildJob job;
             job.doImport = false;
             job.sourceId = id;
-            job.type = ASSET_MATERIAL;
+            job.type = REON::ASSET_MATERIAL;
             job.reason = BuildReason::SourceChanged;
 
             BuildQueue queue;
@@ -185,4 +187,4 @@ void AssetBrowser::RenderDirectoryTree(const fs::path& directory)
         }
     }
 }
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

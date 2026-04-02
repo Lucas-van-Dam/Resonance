@@ -2,7 +2,7 @@
 #include <filesystem>
 #include <AssetManagement/CookPipeline.h>
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
 	class AssetDrawers
 	{

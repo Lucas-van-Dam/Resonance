@@ -12,14 +12,14 @@
 namespace fs = std::filesystem;
 using json = nlohmann::ordered_json;
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 using MetaInitFn = void (*)(nlohmann::json&);
 
 struct MetaTypeInfo
 {
-    AssetTypeId assetType;
+    REON::AssetTypeId assetType;
     MetaInitFn init;
 };
 
@@ -54,7 +54,7 @@ class MetadataGenerator
         nlohmann::json metaData;
         metaData["metaVersion"] = 1;
         metaData["assetType"] = typeInfo.assetType;
-        metaData["id"] = MakeRandomAssetId();
+        metaData["id"] = REON::MakeRandomAssetId();
         metaData["sourcePath"] = fs::relative(assetPath, projectRoot).generic_string();
 
         typeInfo.init(metaData);

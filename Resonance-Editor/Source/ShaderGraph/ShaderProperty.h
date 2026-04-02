@@ -6,9 +6,9 @@
 #include <REON/Rendering/Structs/Texture.h>
 #include <unordered_set>
 
-namespace REON::SG
+namespace REON_EDITOR::SG
 {
-	using ShaderValue = std::variant<float, glm::vec2, glm::vec3, glm::vec4, glm::mat4, bool, std::string, SamplerData>;
+	using ShaderValue = std::variant<float, glm::vec2, glm::vec3, glm::vec4, glm::mat4, bool, std::string, REON::SamplerData>;
 
 	struct ShaderPropertyUI {
 		

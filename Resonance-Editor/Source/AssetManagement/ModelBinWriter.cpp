@@ -4,7 +4,7 @@
 
 #include <type_traits>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 static uint64_t AlignUp(uint64_t v, uint64_t a)
 {
@@ -340,7 +340,7 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
         if (jointIdCount > 0)
         {
             rh.jointNodeIdsOffset = (uint32_t)((uint64_t)out.tellp() - chunkStart);
-            for (const AssetId& id : model.rig->joints)
+            for (const REON::AssetId& id : model.rig->joints)
                 out.write((const char*)id.bytes.data(), 16);
 
             cur = AlignUp((uint64_t)out.tellp(), 16);
@@ -424,26 +424,29 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
     if (!out.good())
         throw std::runtime_error("ModelBinWriter: write failed");
 
-    std::unordered_map<AssetKey, ArtifactRef, AssetKeyHash> assetMap;
+    std::unordered_map<REON::AssetKey, REON::ArtifactRef, REON::AssetKeyHash> assetMap;
 
     for (const auto& mie : meshIndex)
     {
-        ArtifactRef ref{};
+        REON::ArtifactRef ref{};
         ref.uri = outFile.filename().generic_string();
         ref.revision = 0;
         ref.offset = mie.dataOffset;
         ref.size = mie.dataSize;
         ref.format = /*MESH_V1*/ 0x1001;
-        AssetKey key;
-        key.type = ASSET_MESH;
+        REON::AssetKey key;
+        key.type = REON::ASSET_MESH;
         std::copy(std::begin(mie.id), std::end(mie.id), key.id.begin());
         assetMap[key] = ref;
     }
 
-    assetMap[AssetKey{ASSET_MODEL, model.modelId}] = {outFile.generic_string(), 0, 0, std::filesystem::file_size(outFile),
+    assetMap[REON::AssetKey{REON::ASSET_MODEL, model.modelId}] = {outFile.generic_string(), 0, 0,
+                                                            std::filesystem::file_size(outFile),
                                                       0x2001};
     if (model.rig.has_value())
-        assetMap[AssetKey{ASSET_RIG, model.rig.value().rigId}] = {outFile.generic_string(), 0, chunks[3].offset, chunks[3].size,
+        assetMap[REON::AssetKey{REON::ASSET_RIG, model.rig.value().rigId}] = {outFile.generic_string(), 0,
+                                                                              chunks[3].offset,
+                                                                        chunks[3].size,
                                                                   0x3001};
 
     return {0, {}, {}, assetMap};

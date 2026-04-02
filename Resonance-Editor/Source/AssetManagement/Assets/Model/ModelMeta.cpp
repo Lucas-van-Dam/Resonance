@@ -2,7 +2,7 @@
 #include "ProjectManagement/MetadataGenerator.h"
 
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 static void InitModelMeta(nlohmann::json& meta)
 {
@@ -19,8 +19,8 @@ static void InitModelMeta(nlohmann::json& meta)
 // Registration (could be in module init)
 static bool registered = []
 {
-    MetadataGenerator::Register(".glb", {ASSET_MODEL, &InitModelMeta});
-    MetadataGenerator::Register(".gltf", {ASSET_MODEL, &InitModelMeta});
+    MetadataGenerator::Register(".glb", {REON::ASSET_MODEL, &InitModelMeta});
+    MetadataGenerator::Register(".gltf", {REON::ASSET_MODEL, &InitModelMeta});
     return true;
 }();
 

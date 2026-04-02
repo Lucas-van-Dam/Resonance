@@ -1,7 +1,7 @@
 #include "ShaderNodeLibrary.h"
 #include <nlohmann/json.hpp>
 
-namespace REON::SG {
+namespace REON_EDITOR::SG {
 	void ShaderNodeLibrary::RegisterTemplate(const ShaderNodeTemplate& nodeTemplate)
 	{
 		if (m_Templates.find(nodeTemplate.name) != m_Templates.end()) {

@@ -6,7 +6,7 @@
 
 #include <filesystem>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 struct CookOptions
 {
@@ -25,7 +25,7 @@ class CookPipeline
     bool runImport(const BuildJob& job, const AssetRecord& record, BuildQueue& queue);
     bool cookAsset(const BuildJob& job, const AssetRecord& record, CookOutput& out);
 
-    static void RegisterImporter(AssetTypeId type, std::unique_ptr<IImporter> importer)
+    static void RegisterImporter(REON::AssetTypeId type, std::unique_ptr<IImporter> importer)
     {
         m_Importers[type] = std::move(importer);
     }
@@ -36,9 +36,8 @@ class CookPipeline
     CookOutput CookMaterial(const AssetRecord& record);
 
     // importer map
-    static std::unordered_map<AssetTypeId, std::unique_ptr<IImporter>> m_Importers;
+    static std::unordered_map<REON::AssetTypeId, std::unique_ptr<IImporter>> m_Importers;
     ImportCache cache;
-    ImportContext importCtx;
     ManifestWriter manifestWriter;
     CookOptions options;
 };

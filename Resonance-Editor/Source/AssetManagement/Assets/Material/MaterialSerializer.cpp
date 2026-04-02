@@ -2,7 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 bool MaterialSerializer::Save(const std::filesystem::path& path, const MaterialSourceData& material)
@@ -14,7 +14,7 @@ bool MaterialSerializer::Save(const std::filesystem::path& path, const MaterialS
 
     nlohmann::json j;
     j["id"] = material.id.to_string();
-    j["assetType"] = ASSET_MATERIAL;
+    j["assetType"] = REON::ASSET_MATERIAL;
     j["debugName"] = material.debugName;
 
     j["baseColorFactor"] = {material.baseColorFactor.x, material.baseColorFactor.y, material.baseColorFactor.z,
@@ -70,7 +70,7 @@ std::optional<MaterialSourceData> MaterialSerializer::Load(const std::filesystem
 
     try
     {
-        material.id = AssetId::from_string(j.at("id").get<std::string>());
+        material.id = REON::AssetId::from_string(j.at("id").get<std::string>());
         material.debugName = j.value("debugName", "");
 
         const auto& baseColor = j.at("baseColorFactor");
@@ -93,18 +93,18 @@ std::optional<MaterialSourceData> MaterialSerializer::Load(const std::filesystem
         material.doubleSided = j.value("doubleSided", false);
         material.flipNormals = j.value("flipNormals", false);
 
-        material.baseColorTex = AssetId::from_string(j.at("baseColorTex").get<std::string>());
-        material.normalTex = AssetId::from_string(j.at("normalTex").get<std::string>());
-        material.mrTex = AssetId::from_string(j.at("mrTex").get<std::string>());
-        material.emissiveTex = AssetId::from_string(j.at("emissiveTex").get<std::string>());
-        material.specularTex = AssetId::from_string(j.at("specularTex").get<std::string>());
-        material.specularColorTex = AssetId::from_string(j.at("specularColorTex").get<std::string>());
+        material.baseColorTex = REON::AssetId::from_string(j.at("baseColorTex").get<std::string>());
+        material.normalTex = REON::AssetId::from_string(j.at("normalTex").get<std::string>());
+        material.mrTex = REON::AssetId::from_string(j.at("mrTex").get<std::string>());
+        material.emissiveTex = REON::AssetId::from_string(j.at("emissiveTex").get<std::string>());
+        material.specularTex = REON::AssetId::from_string(j.at("specularTex").get<std::string>());
+        material.specularColorTex = REON::AssetId::from_string(j.at("specularColorTex").get<std::string>());
 
         material.flags = j.value("flags", 0u);
         material.blendingMode =
-            static_cast<BlendingModes>(j.value("blendingMode", static_cast<int>(BlendingModes::Mask)));
+            static_cast<REON::BlendingModes>(j.value("blendingMode", static_cast<int>(REON::BlendingModes::Mask)));
         material.renderingMode =
-            static_cast<RenderingModes>(j.value("renderingMode", static_cast<int>(RenderingModes::Opaque)));
+            static_cast<REON::RenderingModes>(j.value("renderingMode", static_cast<int>(REON::RenderingModes::Opaque)));
     }
     catch (...)
     {

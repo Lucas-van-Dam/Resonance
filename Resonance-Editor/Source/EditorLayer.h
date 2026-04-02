@@ -12,12 +12,14 @@
 #include "AssetManagement/BuildQueue.h"
 #include "AssetManagement/CookPipeline.h"
 
+#include <ProjectManagement/EditorSession.h>
+
 #include <ReflectionSystem.h>
 #include <functional>
 #include <future>
 #include <string>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 class EditorLayer : public REON::Layer
@@ -67,14 +69,16 @@ class EditorLayer : public REON::Layer
     double m_SavedX = 0, m_SavedY = 0;
     bool m_CursorLocked = false;
 
-    CallbackID m_KeyPressedCallbackID;
-    CallbackID m_ProjectOpenedCallbackID;
+    REON::CallbackID m_KeyPressedCallbackID;
+    REON::CallbackID m_ProjectOpenedCallbackID;
 
     AssetBrowser m_AssetBrowser;
 
     CookPipeline cookPipeline;
 
     BuildQueue m_BuildQueue;
+
+    std::unique_ptr<EditorSession> m_editorSession;
 
     std::vector<std::future<void>> futures;
     std::future<void> futureCheckingFuture;

@@ -19,7 +19,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 EditorLayer::EditorLayer() : Layer("EditorLayer")
@@ -40,17 +40,17 @@ void EditorLayer::OnUpdate()
 void EditorLayer::OnAttach()
 {
     m_KeyPressedCallbackID =
-        EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
+        REON::EventBus::Get().subscribe<REON::KeyPressedEvent>(REON_BIND_EVENT_FN(EditorLayer::ProcessKeyPress));
     m_ProjectOpenedCallbackID =
-        EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
+        REON::EventBus::Get().subscribe<ProjectOpenedEvent>(REON_BIND_EVENT_FN(EditorLayer::OnProjectLoaded));
     SG::ShaderNodeLibrary::GetInstance().Initialize("Assets/ShaderGraph/ShaderNodeTemplates.json");
     ShaderGraph::GetInstance().initialize();
 }
 
 void EditorLayer::OnDetach()
 {
-    EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
-    EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
+    REON::EventBus::Get().unsubscribe<REON::KeyPressedEvent>(m_KeyPressedCallbackID);
+    REON::EventBus::Get().unsubscribe<ProjectOpenedEvent>(m_ProjectOpenedCallbackID);
     ShaderGraph::GetInstance().shutdown();
 }
 
@@ -122,12 +122,12 @@ void EditorLayer::OnImGuiRender()
             {
                 if (ImGui::Button("PointLight"))
                 {
-                    std::shared_ptr<GameObject> lightObject = std::make_shared<GameObject>();
-                    SceneManager::Get()->GetCurrentScene()->AddGameObject(lightObject);
+                    std::shared_ptr<REON::GameObject> lightObject = std::make_shared<REON::GameObject>();
+                    REON::SceneManager::Get()->GetCurrentScene()->AddGameObject(lightObject);
                     lightObject->SetName("point light");
-                    std::shared_ptr<Light> light = std::make_shared<Light>();
-                    light->type = LightType::Point;
-                    lightObject->AddComponent<Light>(light);
+                    std::shared_ptr<REON::Light> light = std::make_shared<REON::Light>();
+                    light->type = REON::LightType::Point;
+                    lightObject->AddComponent<REON::Light>(light);
                 }
                 ImGui::EndMenu();
             }
@@ -179,7 +179,8 @@ void EditorLayer::OnImGuiRender()
 
     if (!m_ProjectLoaded || m_FirstFrame)
     {
-        const VulkanContext* context = static_cast<const VulkanContext*>(Application::Get().GetRenderContext());
+        const REON::VulkanContext* context =
+            static_cast<const REON::VulkanContext*>(REON::Application::Get().GetRenderContext());
 
         VkSemaphore signalSemaphores[] = {context->getCurrentRenderFinishedSemaphore()};
         VkSemaphore waitSemaphores[] = {context->getCurrentImageAvailableSemaphore()};
@@ -201,7 +202,7 @@ void EditorLayer::OnImGuiRender()
     // ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     // ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
 
-    auto scene = SceneManager::Get()->GetCurrentScene();
+    auto scene = REON::SceneManager::Get()->GetCurrentScene();
 
     bool ClearSelection = false;
 
@@ -254,7 +255,7 @@ void EditorLayer::OnImGuiRender()
                     bool isSelected = (currentIndex == i);
                     if (ImGui::Selectable(modeNames[i], isSelected))
                     {
-                        scene->renderManager->renderMode = static_cast<RenderMode>(i);
+                        scene->renderManager->renderMode = static_cast<REON::RenderMode>(i);
                     }
                     if (isSelected)
                         ImGui::SetItemDefaultFocus();
@@ -412,7 +413,7 @@ void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
 
     if (event.GetKeyCode() == REON_KEY_Z && event.GetRepeatCount() == 0)
     {
-        if (Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canUndo)
+        if (REON::Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canUndo)
         {
             CommandManager::undo();
         }
@@ -420,7 +421,7 @@ void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
 
     if (event.GetKeyCode() == REON_KEY_Y && event.GetRepeatCount() == 0)
     {
-        if (Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canRedo)
+        if (REON::Input::IsKeyPressed(REON_KEY_LEFT_CONTROL) && CommandManager::canRedo)
         {
             CommandManager::redo();
         }
@@ -485,7 +486,7 @@ void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
     cookPipeline.SetOptions({event.GetProjectDirectory().string(), "EngineCache"});
     cookPipeline.CookAll(m_BuildQueue);
 
-    Application::Get().Init(event.GetProjectDirectory().string() + "\\EngineCache\\manifest.bin");
+    REON::Application::Get().Init(event.GetProjectDirectory().string() + "\\EngineCache\\manifest.bin");
 
     Inspector::Initialize();
     m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
@@ -503,8 +504,8 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
         if (primaryFile.is_open())
         {
             primaryFile >> jsonData;
-            AssetId assetId = jsonData["id"].get<AssetId>();
-            AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
+            REON::AssetId assetId = jsonData["id"].get<REON::AssetId>();
+            REON::AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
 
             AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId, .type = assetType, .origin = Native, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
         }
@@ -526,8 +527,8 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
             {
                 metaFile >> jsonData;
 
-                AssetId assetId = jsonData["id"].get<AssetId>();
-                AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
+                REON::AssetId assetId = jsonData["id"].get<REON::AssetId>();
+                REON::AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
                 AssetRegistry::Instance().Upsert(
                     AssetRecord{.id = assetId, .type = assetType, .origin = ImportedRootAsset, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
             }
@@ -552,7 +553,7 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
         REON_INFO("Asset {} has changed since last build, marking for reimport", assetPath.string());
         BuildJob job;
         job.reason = BuildReason::SourceChanged;
-        job.sourceId = jsonData["id"].get<AssetId>();
+        job.sourceId = jsonData["id"].get<REON::AssetId>();
         job.type = jsonData["assetType"].get<uint32_t>();
         m_BuildQueue.Enqueue(job);
     }

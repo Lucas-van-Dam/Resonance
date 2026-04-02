@@ -8,11 +8,11 @@
 #include "ModelBinWriter.h"
 #include "TextureBinWriter.h"
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
-std::unordered_map<AssetTypeId, std::unique_ptr<IImporter>> CookPipeline::m_Importers;
+std::unordered_map<REON::AssetTypeId, std::unique_ptr<IImporter>> CookPipeline::m_Importers;
 
-CookPipeline::CookPipeline() : importCtx(cache, AssetRegistry::Instance()) {}
+CookPipeline::CookPipeline() {}
 
 void CookPipeline::SetOptions(CookOptions options)
 {
@@ -77,15 +77,15 @@ bool CookPipeline::cookAsset(const BuildJob& job, const AssetRecord& record, Coo
 {
     switch (record.type)
     {
-    case ASSET_MODEL:
+    case REON::ASSET_MODEL:
         out = CookModel(record);
         return true;
 
-    case ASSET_MATERIAL:
+    case REON::ASSET_MATERIAL:
         out = CookMaterial(record);
         return true;
 
-    case ASSET_TEXTURE:
+    case REON::ASSET_TEXTURE:
         out = CookTexture(record);
         return true;
 

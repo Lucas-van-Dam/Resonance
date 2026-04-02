@@ -5,7 +5,7 @@
 #include <filesystem>
 #include "ShaderNode.h"
 
-namespace REON::SG {
+namespace REON_EDITOR::SG {
 	class ShaderNodeLibrary
 	{
 	public:

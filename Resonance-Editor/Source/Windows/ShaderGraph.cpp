@@ -4,7 +4,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <ShaderGraph/ShaderGraphCodegen.h>
 
-namespace REON::EDITOR {
+namespace REON_EDITOR {
 
 	using namespace ax::Drawing;
 	using namespace ax::Widgets;
@@ -45,32 +45,44 @@ namespace REON::EDITOR {
 		}
 	}
 
-	ImColor ShaderGraph::GetIconColor(ShaderValueType type)
+	ImColor ShaderGraph::GetIconColor(SG::ShaderValueType type)
 	{
 		switch (type)
 		{
 		default:
-		case ShaderValueType::Bool:			return ImColor(169, 6, 245);
+        case SG::ShaderValueType::Bool:
+            return ImColor(169, 6, 245);
 		//case ShaderValueType::Int:			return ImColor(68, 201, 156);
-		case ShaderValueType::Float:		return ImColor(6, 229, 245);
-		case ShaderValueType::Float2:		return ImColor(6, 245, 43);
-		case ShaderValueType::Float3:		return ImColor(237, 245, 6);
-		case ShaderValueType::Float4:		return ImColor(245, 6, 237);
-		case ShaderValueType::Float4x4:		return ImColor(6, 45, 245);
-		case ShaderValueType::Texture2D:	return ImColor(245, 6, 10);
-		case ShaderValueType::SamplerState:	return ImColor(84, 84, 84);
+        case SG::ShaderValueType::Float:
+            return ImColor(6, 229, 245);
+        case SG::ShaderValueType::Float2:
+            return ImColor(6, 245, 43);
+        case SG::ShaderValueType::Float3:
+            return ImColor(237, 245, 6);
+        case SG::ShaderValueType::Float4:
+            return ImColor(245, 6, 237);
+        case SG::ShaderValueType::Float4x4:
+            return ImColor(6, 45, 245);
+        case SG::ShaderValueType::Texture2D:
+            return ImColor(245, 6, 10);
+        case SG::ShaderValueType::SamplerState:
+            return ImColor(84, 84, 84);
 		}
 	};
 
-	void ShaderGraph::DrawPinIcon(const ShaderPin& pin, bool connected, int alpha)
+	void ShaderGraph::DrawPinIcon(const SG::ShaderPin& pin, bool connected, int alpha)
 	{
 		IconType iconType;
 		ImColor  color = GetIconColor(pin.templateData->type);
 		color.Value.w = alpha / 255.0f;
 		switch (pin.templateData->type)
 		{
-		case ShaderValueType::Bool:     iconType = IconType::Circle; break;
-		case ShaderValueType::Float:    iconType = IconType::Circle; break;
+        case SG::ShaderValueType::Bool:
+            iconType = IconType::Circle;
+            break;
+        case SG::ShaderValueType::Float:
+            iconType = IconType::Circle;
+            break;
 		default:
 			iconType = IconType::Circle;
 		}
@@ -83,9 +95,9 @@ namespace REON::EDITOR {
 		if (!a || !b || a == b || a->templateData->kind == b->templateData->kind || a->node == b->node)
 			return false;
 
-		const ShaderNodeVariant* variant;
+		const SG::ShaderNodeVariant* variant;
 		bool typeChangable = false;
-		if (a->templateData->kind == PinKind::Input)
+        if (a->templateData->kind == SG::PinKind::Input)
 			typeChangable = CanChangeType(*a, b->templateData->type, variant);
 		else
 			typeChangable = CanChangeType(*b, a->templateData->type, variant);
@@ -96,7 +108,8 @@ namespace REON::EDITOR {
 		return true;
 	}
 
-	const ShaderPin* ShaderGraph::findPin(ed::PinId id) {
+	const SG::ShaderPin* ShaderGraph::findPin(ed::PinId id)
+    {
 		std::string guid = idToGuidMap[id.Get()];
 		std::string nodeGuid = guid.substr(0, guid.find_first_of('_'));
 		size_t firstUnderScore = guid.find('_');
@@ -179,7 +192,7 @@ namespace REON::EDITOR {
 					const char* typeNames[] = { "float", "float2", "float3", "float4", "float4x4", "bool", "texture2D", "sampler2D" };
 					int typeIndex = static_cast<int>(prop->type);
 					if (ImGui::Combo("Type", &typeIndex, typeNames, IM_ARRAYSIZE(typeNames))) {
-						prop->type = static_cast<ShaderValueType>(typeIndex);
+                        prop->type = static_cast<SG::ShaderValueType>(typeIndex);
 						prop->value = prop->GetDefaultValue();
 						for (auto& node : prop->referencingNodes) {
 							if (!node->outputConnections.empty()) {
@@ -260,7 +273,8 @@ namespace REON::EDITOR {
 					}
 
 					if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
-						ImGui::SetDragDropPayload("PROPERTY_DRAG", &properties[i], sizeof(std::shared_ptr<ShaderProperty>));
+                        ImGui::SetDragDropPayload("PROPERTY_DRAG", &properties[i],
+                                                  sizeof(std::shared_ptr<SG::ShaderProperty>));
 						ImGui::Text("%s", properties[i]->name.c_str());
 						ImGui::EndDragDropSource();
 					}
@@ -280,10 +294,11 @@ namespace REON::EDITOR {
 				}
 
 				if (ImGui::Button("Add Property")) {
-					properties.push_back(std::make_shared<ShaderProperty>("NewProperty", ShaderValueType::Float, 0.0f));
+                    properties.push_back(
+                        std::make_shared<SG::ShaderProperty>("NewProperty", SG::ShaderValueType::Float, 0.0f));
 				}
 				if (ImGui::Button("Test generation")) {
-					REON_INFO(::generateShaderCode(m_MasterNode));
+                    REON_INFO(SG::generateShaderCode(m_MasterNode));
 				}
 			}
 
@@ -335,7 +350,7 @@ namespace REON::EDITOR {
 
 						newLinkPin = startPin ? startPin : endPin;
 
-						if (startPin->templateData->kind == PinKind::Input)
+						if (startPin->templateData->kind == SG::PinKind::Input)
 						{
 							std::swap(startPin, endPin);
 							std::swap(startPinId, endPinId);
@@ -345,7 +360,7 @@ namespace REON::EDITOR {
 						{
 							bool canConnect = false;
 							bool variantFound = false;
-							const ShaderNodeVariant* variant = nullptr;
+                            const SG::ShaderNodeVariant* variant = nullptr;
 							if (startPinId == endPinId)
 							{
 								ed::RejectNewItem(ImColor(255, 0, 0), 2.0f);
@@ -432,7 +447,8 @@ namespace REON::EDITOR {
 					ed::NodeId nodeId;
 					while (ed::QueryDeletedNode(&nodeId)) {
 						if (ed::AcceptDeletedItem()) {
-							auto it = std::find_if(nodes.begin(), nodes.end(), [&](const ShaderNode& n) { return n.GetID() == GetGuidFromId(nodeId.Get()); });
+                            auto it = std::find_if(nodes.begin(), nodes.end(), [&](const SG::ShaderNode& n)
+                                                   { return n.GetID() == GetGuidFromId(nodeId.Get()); });
 							if (it != nodes.end()) {
 								if (it->property) {
 									it->property->referencingNodes.erase(&(*it));
@@ -469,8 +485,9 @@ namespace REON::EDITOR {
 
 			if (ImGui::BeginDragDropTarget()) {
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PROPERTY_DRAG")) {
-					IM_ASSERT(payload->DataSize == sizeof(std::shared_ptr<ShaderProperty>));
-					std::shared_ptr<ShaderProperty> prop = *static_cast<std::shared_ptr<ShaderProperty>*>(payload->Data);
+                    IM_ASSERT(payload->DataSize == sizeof(std::shared_ptr<SG::ShaderProperty>));
+                    std::shared_ptr<SG::ShaderProperty> prop =
+                        *static_cast<std::shared_ptr<SG::ShaderProperty>*>(payload->Data);
 
 					if (prop) {
 						CreateNode(prop);
@@ -512,7 +529,8 @@ namespace REON::EDITOR {
 
 		builder.Begin(nodeId);
 
-		if (node.type != ShaderNodeType::Property) {
+		if (node.type != SG::ShaderNodeType::Property)
+        {
 			builder.Header(node.color);
 			ImGui::Spring(0);
 			ImGui::TextUnformatted(node.name.c_str());
@@ -522,8 +540,9 @@ namespace REON::EDITOR {
 			builder.EndHeader();
 		}
 
-		for (const ShaderPin& input : node.inputs) {
-			if (input.templateData->kind == PinKind::Output)
+		for (const SG::ShaderPin& input : node.inputs)
+        {
+            if (input.templateData->kind == SG::PinKind::Output)
 				continue;
 
 			auto alpha = ImGui::GetStyle().Alpha;
@@ -550,7 +569,8 @@ namespace REON::EDITOR {
 			builder.EndInput();
 		}
 
-		if (node.type == ShaderNodeType::Property) {
+		if (node.type == SG::ShaderNodeType::Property)
+        {
 			builder.Middle();
 
 			ImGui::Spring(1, 0);
@@ -588,14 +608,14 @@ namespace REON::EDITOR {
 		auto nodeTemplate = SG::ShaderNodeLibrary::GetInstance().GetTemplate(templateName);
 		SG::ShaderNode tempNode;
 		nodes.push_back(tempNode);
-		ShaderNode& newNode = nodes.back();
+        SG::ShaderNode& newNode = nodes.back();
 		newNode.templateData = std::move(nodeTemplate);
 		newNode.name = newNode.templateData->name;
-		newNode.type = ShaderNodeType::Standard;
-		const std::vector<ShaderPinTemplate>* inputs;
-		const std::vector<ShaderPinTemplate>* outputs;
+        newNode.type = SG::ShaderNodeType::Standard;
+        const std::vector<SG::ShaderPinTemplate>* inputs;
+        const std::vector<SG::ShaderPinTemplate>* outputs;
 		if (!newNode.templateData->variants.empty()) {
-			const ShaderNodeVariant& variant = newNode.templateData->variants.front();
+            const SG::ShaderNodeVariant& variant = newNode.templateData->variants.front();
 			inputs = &variant.inputs;
 			outputs = &variant.outputs;
 		}
@@ -603,16 +623,18 @@ namespace REON::EDITOR {
 			inputs = &newNode.templateData->inputs;
 			outputs = &newNode.templateData->outputs;
 		}
-		for (const ShaderPinTemplate& input : *inputs) {
-			ShaderPin newInput;
+        for (const SG::ShaderPinTemplate& input : *inputs)
+        {
+            SG::ShaderPin newInput;
 			newInput.templateData = &input;
 			newInput.node = &newNode;
 			newInput.overrideValue = input.defaultValue;
 			newNode.inputs.push_back(newInput);
 			MakePinId(newNode.GetID(), input.name, true);
 		}
-		for (const ShaderPinTemplate& output : *outputs) {
-			ShaderPin newOutput;
+        for (const SG::ShaderPinTemplate& output : *outputs)
+        {
+            SG::ShaderPin newOutput;
 			newOutput.templateData = &output;
 			newOutput.node = &newNode;
 			newOutput.overrideValue = output.defaultValue;
@@ -627,19 +649,19 @@ namespace REON::EDITOR {
 		ed::SetNodePosition(MakeNodeId(newNode.GetID()), canvasPos);
 	}
 
-	void ShaderGraph::CreateNode(std::shared_ptr<ShaderProperty> property)
+	void ShaderGraph::CreateNode(std::shared_ptr<SG::ShaderProperty> property)
 	{
 		auto nodeTemplate = SG::ShaderNodeLibrary::GetInstance().GetTemplate("Property");
 		SG::ShaderNode tempNode;
 		nodes.push_back(tempNode);
-		ShaderNode& newNode = nodes.back();
+        SG::ShaderNode& newNode = nodes.back();
 		newNode.templateData = std::move(nodeTemplate);
 		newNode.name = newNode.templateData->name;
-		newNode.type = ShaderNodeType::Property;
+        newNode.type = SG::ShaderNodeType::Property;
 		newNode.property = property;
 		property->referencingNodes.insert(&newNode);
-		const std::vector<ShaderPinTemplate>* inputs{};
-		const std::vector<ShaderPinTemplate>* outputs{};
+        const std::vector<SG::ShaderPinTemplate>* inputs{};
+        const std::vector<SG::ShaderPinTemplate>* outputs{};
 		if (!newNode.templateData->variants.empty()) {
 			for (const auto& variant : newNode.templateData->variants) {
 				if (variant.outputs.front().type == property->type) {
@@ -653,16 +675,18 @@ namespace REON::EDITOR {
 			inputs = &newNode.templateData->inputs;
 			outputs = &newNode.templateData->outputs;
 		}
-		for (const ShaderPinTemplate& input : *inputs) {
-			ShaderPin newInput;
+        for (const SG::ShaderPinTemplate& input : *inputs)
+        {
+            SG::ShaderPin newInput;
 			newInput.templateData = &input;
 			newInput.node = &newNode;
 			newInput.overrideValue = input.defaultValue;
 			newNode.inputs.push_back(newInput);
 			MakePinId(newNode.GetID(), input.name, true);
 		}
-		for (const ShaderPinTemplate& output : *outputs) {
-			ShaderPin newOutput;
+        for (const SG::ShaderPinTemplate& output : *outputs)
+        {
+            SG::ShaderPin newOutput;
 			newOutput.templateData = &output;
 			newOutput.node = &newNode;
 			newOutput.overrideValue = output.defaultValue;
@@ -696,7 +720,8 @@ namespace REON::EDITOR {
 		}
 	}
 
-	bool ShaderGraph::CanChangeType(const SG::ShaderPin& pin, const ShaderValueType& type, const ShaderNodeVariant*& variant)
+	bool ShaderGraph::CanChangeType(const SG::ShaderPin& pin, const SG::ShaderValueType& type,
+                                    const SG::ShaderNodeVariant*& variant)
 	{
 		if (pin.templateData->type == type)
 			return true;
@@ -724,7 +749,7 @@ namespace REON::EDITOR {
 			if (!variantAvailable)
 			{
 				for (auto& input : variantOption.inputs) {
-					if (input.type == type || REON::SG::IsImplicitlyConvertible(type, input.type)) {
+					if (input.type == type || SG::IsImplicitlyConvertible(type, input.type)) {
 						variant = &variantOption;
 						variantAvailable = true;
 						break;
@@ -733,7 +758,7 @@ namespace REON::EDITOR {
 
 				if (!variantAvailable) {
 					for (auto& output : variantOption.outputs) {
-						if (output.type == type || REON::SG::IsImplicitlyConvertible(type, output.type)) {
+						if (output.type == type || SG::IsImplicitlyConvertible(type, output.type)) {
 							variant = &variantOption;
 							variantAvailable = true;
 							break;
@@ -754,7 +779,7 @@ namespace REON::EDITOR {
 				bool foundCompatible = false;
 				for (const auto& input : variant->inputs) {
 					if (connection.second.templateData->type == input.type ||
-						REON::SG::IsImplicitlyConvertible(connection.second.templateData->type, input.type)) {
+						SG::IsImplicitlyConvertible(connection.second.templateData->type, input.type)) {
 						foundCompatible = true;
 						break;
 					}
@@ -773,7 +798,7 @@ namespace REON::EDITOR {
 					bool foundCompatible = false;
 					for (const auto& output : variant->outputs) {
 						if (connectedPin.templateData->type == output.type ||
-							REON::SG::IsImplicitlyConvertible(output.type, connectedPin.templateData->type)) {
+							SG::IsImplicitlyConvertible(output.type, connectedPin.templateData->type)) {
 							foundCompatible = true;
 							break;
 						}
@@ -790,7 +815,7 @@ namespace REON::EDITOR {
 				return true;
 		}
 
-		if (REON::SG::IsImplicitlyConvertible(pin.templateData->type, type)) {
+		if (SG::IsImplicitlyConvertible(pin.templateData->type, type)) {
 			variant = nullptr;
 			return true;
 		}

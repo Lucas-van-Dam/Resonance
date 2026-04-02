@@ -5,7 +5,7 @@
 #include <deque>
 #include <unordered_set>
 
-namespace REON::EDITOR
+namespace REON_EDITOR
 {
 
 enum class BuildReason : uint8_t
@@ -20,8 +20,8 @@ enum class BuildReason : uint8_t
 
 struct BuildJob
 {
-    AssetId sourceId;
-    AssetTypeId type;
+    REON::AssetId sourceId;
+    REON::AssetTypeId type;
     BuildReason reason;
 
     bool doImport = true;
