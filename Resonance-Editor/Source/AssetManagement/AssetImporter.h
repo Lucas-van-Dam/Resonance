@@ -18,6 +18,7 @@ struct ImportCache
 {
     std::unordered_map<AssetId, ImportedModel> modelCache;
     std::unordered_map<AssetId, ImportedTexture> textureCache;
+    std::unordered_map<AssetId, ImportedMaterial> materialCache;
     //std::unordered_map<AssetId, 
 };
 

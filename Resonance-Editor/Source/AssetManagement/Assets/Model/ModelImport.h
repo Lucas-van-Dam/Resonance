@@ -46,6 +46,7 @@ struct ImportedMaterial
     float normalScalar;
     glm::vec4 emissiveFactor;
     bool doubleSided;
+    bool flipNormals;
 
     AssetId baseColorTex;
     AssetId normalTex;

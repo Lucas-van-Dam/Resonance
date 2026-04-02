@@ -64,7 +64,7 @@ void VulkanContext::endFrame()
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
     presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &m_GuiPresentedSemaphores[currentFrame];
+    presentInfo.pWaitSemaphores = &m_GuiPresentedSemaphores[m_ImageIndex];
 
     VkSwapchainKHR swapChains[] = {m_SwapChain};
     presentInfo.swapchainCount = 1;
@@ -152,13 +152,13 @@ uint32_t VulkanContext::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlag
     REON_CORE_ERROR("Failed to find suitable memory type");
 }
 
-VulkanBuffer VulkanContext::createBuffer(BufferCreateInfo createInfo, const void* initial) const
+BufferHandle VulkanContext::createBuffer(BufferCreateInfo createInfo, const void* initial) const
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferInfo.size = createInfo.size;
     bufferInfo.usage = createInfo.usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; //TODO: see if this can be optimised to use concurrent anywhere
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // TODO: see if this can be optimised to use concurrent anywhere
 
     VmaMemoryUsage memUsage = VMA_MEMORY_USAGE_AUTO;
     VmaAllocationCreateFlags createFlags = 0;
@@ -224,6 +224,8 @@ VulkanBuffer VulkanContext::createBuffer(BufferCreateInfo createInfo, const void
     auto buf = VulkanBuffer(this, vkBuffer, allocation,
                             createInfo.persistentlyMapped ? vmaAllocInfo : VmaAllocationInfo{}, createInfo);
 
+    auto bufHandle = std::make_shared<VulkanBuffer>(std::move(buf));
+
     if (initial != nullptr)
     {
         if (createInfo.memoryHint == BufferMemoryHint::GpuOnly)
@@ -235,20 +237,20 @@ VulkanBuffer VulkanContext::createBuffer(BufferCreateInfo createInfo, const void
             createInfoTemp.persistentlyMapped = false;
             createInfoTemp.size = createInfo.size;
 
-            VulkanBuffer stagingBuffer = createBuffer(createInfoTemp, initial);
+            BufferHandle stagingBuffer = createBuffer(createInfoTemp, initial);
 
-            copyBuffer(stagingBuffer, buf, createInfoTemp.size);
+            copyBuffer(stagingBuffer, bufHandle, createInfoTemp.size);
         }
         else
         {
-            buf.Write(initial, createInfo.size); 
+            bufHandle->Write(initial, createInfo.size);
         }
     }
 
-    return buf;
+    return bufHandle;
 }
 
-void VulkanContext::copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size) const
+void VulkanContext::copyBuffer(BufferHandle& srcBuffer, BufferHandle& dstBuffer, VkDeviceSize size) const
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -256,7 +258,7 @@ void VulkanContext::copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer,
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size = size;
-    vkCmdCopyBuffer(commandBuffer, srcBuffer.GetVkBuffer(), dstBuffer.GetVkBuffer(), 1, &copyRegion);
+    vkCmdCopyBuffer(commandBuffer, srcBuffer->GetVkBuffer(), dstBuffer->GetVkBuffer(), 1, &copyRegion);
 
     endSingleTimeCommands(commandBuffer);
 }
@@ -297,83 +299,36 @@ void VulkanContext::endSingleTimeCommands(VkCommandBuffer commandBuffer) const
     vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
 }
 
-void VulkanContext::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout,
-                                          VkImageLayout newLayout, uint32_t mipLevels) const
+static inline VkImageAspectFlags formatToAspectMask(VkFormat format)
 {
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = mipLevels;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.srcAccessMask = 0;
-    barrier.dstAccessMask = 0;
-
-    if (newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    switch (format)
     {
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    case VK_FORMAT_UNDEFINED:
+        return 0;
 
-        if (hasStencilComponent(format))
-        {
-            barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-        }
+    case VK_FORMAT_S8_UINT:
+        return VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    case VK_FORMAT_D16_UNORM_S8_UINT:
+    case VK_FORMAT_D24_UNORM_S8_UINT:
+    case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        return VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    case VK_FORMAT_D16_UNORM:
+    case VK_FORMAT_D32_SFLOAT:
+    case VK_FORMAT_X8_D24_UNORM_PACK32:
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    default:
+        return VK_IMAGE_ASPECT_COLOR_BIT;
     }
-    else
-    {
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    }
-
-    VkPipelineStageFlags sourceStage = 0;
-    VkPipelineStageFlags destinationStage = 0;
-
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
-    {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    }
-    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-    {
-        barrier.srcAccessMask = 0;
-        barrier.dstAccessMask =
-            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    }
-    else
-    {
-        REON_CORE_ERROR("Unsupported layout transition");
-    }
-
-    vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-
-    endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanContext::transitionImageLayout(VulkanImage& image, VkImageLayout newLayout) const 
+void VulkanContext::transitionImageLayout(ImageHandle& image, VkImageLayout newLayout) const
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-    
-    auto oldLayout = image.getImageLayout();
+
+    auto oldLayout = image->getImageLayout();
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -381,10 +336,10 @@ void VulkanContext::transitionImageLayout(VulkanImage& image, VkImageLayout newL
     barrier.newLayout = newLayout;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = image.getVkImage();
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.image = image->getVkImage();
+    barrier.subresourceRange.aspectMask = formatToAspectMask(image->m_imageCreateInfo.format);
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = image.m_imageCreateInfo.levels;
+    barrier.subresourceRange.levelCount = image->m_imageCreateInfo.levels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     barrier.srcAccessMask = 0;
@@ -394,7 +349,7 @@ void VulkanContext::transitionImageLayout(VulkanImage& image, VkImageLayout newL
     {
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
-        if (hasStencilComponent(image.m_imageCreateInfo.format))
+        if (hasStencilComponent(image->m_imageCreateInfo.format))
         {
             barrier.subresourceRange.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
         }
@@ -441,7 +396,7 @@ void VulkanContext::transitionImageLayout(VulkanImage& image, VkImageLayout newL
 
     endSingleTimeCommands(commandBuffer);
 
-    image.setImageLayout(newLayout);
+    image->setImageLayout(newLayout);
 }
 
 void VulkanContext::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const
@@ -461,13 +416,12 @@ void VulkanContext::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t w
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {width, height, 1};
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                           &region);
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanContext::copyBufferToImage(VulkanBuffer& buffer, VkImage image, uint32_t width, uint32_t height) const
+void VulkanContext::copyBufferToImage(BufferHandle& buffer, ImageHandle& image) const
 {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -476,40 +430,16 @@ void VulkanContext::copyBufferToImage(VulkanBuffer& buffer, VkImage image, uint3
     region.bufferRowLength = 0;
     region.bufferImageHeight = 0;
 
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.aspectMask = formatToAspectMask(image->m_imageCreateInfo.format);
     region.imageSubresource.mipLevel = 0;
     region.imageSubresource.baseArrayLayer = 0;
     region.imageSubresource.layerCount = 1;
 
     region.imageOffset = {0, 0, 0};
-    region.imageExtent = {width, height, 1};
+    region.imageExtent = {image->m_imageCreateInfo.width, image->m_imageCreateInfo.height, 1};
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer.GetVkBuffer(), image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                           &region);
-
-    endSingleTimeCommands(commandBuffer);
-}
-
-void VulkanContext::copyBufferToImage(VulkanBuffer& buffer, VulkanImage& image) const
-{
-    VkCommandBuffer commandBuffer = beginSingleTimeCommands();
-
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-
-    region.imageSubresource.aspectMask = formatToAspectMask(image.m_imageCreateInfo.format);
-    region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
-
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {image.m_imageCreateInfo.width, image.m_imageCreateInfo.height, 1};
-
-    vkCmdCopyBufferToImage(commandBuffer, buffer.GetVkBuffer(), image.getVkImage(),
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                           &region);
+    vkCmdCopyBufferToImage(commandBuffer, buffer->GetVkBuffer(), image->getVkImage(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     endSingleTimeCommands(commandBuffer);
 }
@@ -588,7 +518,8 @@ void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBu
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate command buffers");
 }
 
-void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBuffers, size_t amountOfBuffers) const {
+void VulkanContext::createCommandBuffers(std::vector<VkCommandBuffer>& commandBuffers, size_t amountOfBuffers) const
+{
     commandBuffers.resize(amountOfBuffers);
 
     VkCommandBufferAllocateInfo allocInfo{};
@@ -732,57 +663,6 @@ void VulkanContext::createDescriptorPool()
     REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to create descriptor pool")
 }
 
-void VulkanContext::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
-                                VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
-                                VmaAllocation& imageAllocation) const
-{
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = static_cast<uint32_t>(width);
-    imageInfo.extent.height = static_cast<uint32_t>(height);
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = mipLevels;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = format;
-    imageInfo.tiling = tiling;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = usage;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.samples = numSamples;
-
-    VmaAllocationCreateInfo allocInfo{};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-    VkResult res = vmaCreateImage(m_Allocator, &imageInfo, &allocInfo, &image, &imageAllocation, nullptr);
-    REON_CORE_ASSERT(res == VK_SUCCESS, "Failed to allocate image memory");
-}
-
-static inline VkImageAspectFlags formatToAspectMask(VkFormat format)
-{
-    switch (format)
-    {
-    case VK_FORMAT_UNDEFINED:
-        return 0;
-
-    case VK_FORMAT_S8_UINT:
-        return VK_IMAGE_ASPECT_STENCIL_BIT;
-
-    case VK_FORMAT_D16_UNORM_S8_UINT:
-    case VK_FORMAT_D24_UNORM_S8_UINT:
-    case VK_FORMAT_D32_SFLOAT_S8_UINT:
-        return VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    case VK_FORMAT_D16_UNORM:
-    case VK_FORMAT_D32_SFLOAT:
-    case VK_FORMAT_X8_D24_UNORM_PACK32:
-        return VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    default:
-        return VK_IMAGE_ASPECT_COLOR_BIT;
-    }
-}
-
 constexpr static uint32_t VkFormatBytesPerPixel(VkFormat format)
 {
     switch (format)
@@ -867,7 +747,7 @@ constexpr static uint32_t VkFormatBytesPerPixel(VkFormat format)
     }
 }
 
-VulkanImage VulkanContext::createImage(ImageCreateInfo createInfo, const void* initial) const
+ImageHandle VulkanContext::createImage(ImageCreateInfo createInfo, const void* initial) const
 {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -879,7 +759,7 @@ VulkanImage VulkanContext::createImage(ImageCreateInfo createInfo, const void* i
     imageInfo.arrayLayers = createInfo.layers;
     imageInfo.format = createInfo.format;
     imageInfo.tiling = createInfo.tiling;
-    imageInfo.initialLayout = initial == nullptr ? createInfo.initialLayout : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = createInfo.usage;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = createInfo.samples;
@@ -910,7 +790,12 @@ VulkanImage VulkanContext::createImage(ImageCreateInfo createInfo, const void* i
 
     auto img = VulkanImage(this, image, view, allocation, createInfo);
 
-    if (initial != nullptr) {
+    auto imgHandle = std::make_shared<VulkanImage>(std::move(img));
+
+    if (initial != nullptr)
+    {
+        transitionImageLayout(imgHandle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
         BufferCreateInfo createInfoTemp;
         createInfoTemp.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         createInfoTemp.memoryHint = BufferMemoryHint::CpuToGpu;
@@ -918,12 +803,15 @@ VulkanImage VulkanContext::createImage(ImageCreateInfo createInfo, const void* i
         createInfoTemp.persistentlyMapped = false;
         createInfoTemp.size = createInfo.width * createInfo.height * VkFormatBytesPerPixel(createInfo.format);
 
-        VulkanBuffer stagingBuffer = createBuffer(createInfoTemp, initial);
+        BufferHandle stagingBuffer = createBuffer(createInfoTemp, initial);
 
-        copyBufferToImage(stagingBuffer, img);
-
-        transitionImageLayout(img, createInfo.initialLayout);
+        copyBufferToImage(stagingBuffer, imgHandle);
     }
+
+    if (createInfo.initialLayout != imgHandle->getImageLayout())
+        transitionImageLayout(imgHandle, createInfo.initialLayout);
+
+    return imgHandle;
 }
 
 void VulkanContext::createInstance()
@@ -1414,7 +1302,7 @@ void VulkanContext::createSyncObjects()
 {
     m_ImageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     m_RenderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    m_GuiPresentedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    m_GuiPresentedSemaphores.resize(m_SwapChainImages.size());
     m_InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphoreInfo{};
@@ -1423,13 +1311,19 @@ void VulkanContext::createSyncObjects()
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    bool failed = false;
+
+    for (size_t i = 0; i < m_SwapChainImages.size(); i++)
+    {
+        failed |= vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_GuiPresentedSemaphores[i]) != VK_SUCCESS;
+
+        REON_CORE_ASSERT(!failed, "Failed to create sync objects");
+    }
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        bool failed =
-            vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS;
         failed |= vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) != VK_SUCCESS;
-        failed |= vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_GuiPresentedSemaphores[i]) != VK_SUCCESS;
+        failed |= vkCreateSemaphore(m_Device, &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) != VK_SUCCESS;
         failed |= vkCreateFence(m_Device, &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS;
 
         REON_CORE_ASSERT(!failed, "Failed to create sync objects");
@@ -1499,6 +1393,15 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanContext::debugCallback(VkDebugUtilsMessageS
         if (obj.pObjectName)
             objectInfo << " | Name: " << obj.pObjectName;
     }
+
+    std::string_view msg{pCallbackData->pMessage};
+
+    if (msg.find("vkFlushMappedMemoryRanges") != std::string_view::npos)
+    {
+        REON_CORE_WARN("Hiding flush warnings for now");
+        return VK_FALSE;
+    }
+
     switch (messageSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:

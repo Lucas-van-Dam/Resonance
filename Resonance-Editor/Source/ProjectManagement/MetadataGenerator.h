@@ -91,7 +91,7 @@ class MetadataGenerator
         }
 
         return metaData.contains("metaVersion") && metaData.contains("assetType") && metaData.contains("id") &&
-               metaData.contains("source");
+               metaData.contains("sourcePath");
     }
 
     static std::string ToLower(std::string s)

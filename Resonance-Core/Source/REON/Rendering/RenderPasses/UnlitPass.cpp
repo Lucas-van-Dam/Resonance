@@ -110,7 +110,7 @@ namespace REON {
 					data.emissiveFactor = glm::vec4(0.0, 0.0, 0.0, 1.0);
 				}
 
-				mat->flatDataBuffers[currentFrame].Write(&data, sizeof(mat->flatData));
+				mat->flatDataBuffers[currentFrame]->Write(&data, sizeof(mat->flatData));
 
 				vkCmdSetCullMode(m_CommandBuffers[currentFrame], mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
@@ -125,13 +125,13 @@ namespace REON {
 					ObjectRenderData data{};
 					data.model = cmd.owner->getModelMatrix();
 					data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
-                    cmd.owner->objectDataBuffers[context->getCurrentFrame()].Write(&data, sizeof(data));
+                    cmd.owner->objectDataBuffers[context->getCurrentFrame()]->Write(&data, sizeof(data));
 
-					VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
+					VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer->GetVkBuffer()};
 					VkDeviceSize offsets[] = { 0 };
 					vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
-					vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer.GetVkBuffer(), 0,
+					vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer->GetVkBuffer(), 0,
                                          VK_INDEX_TYPE_UINT32);
 
 					vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
@@ -172,23 +172,25 @@ namespace REON {
 			vkDestroyFramebuffer(context->getDevice(), framebuffer, nullptr);
 		}
 		m_Framebuffers.clear();
-		vkDestroyImageView(context->getDevice(), m_ColorImageView, nullptr);
-		vkDestroyImage(context->getDevice(), m_ColorImage, nullptr);
-		vmaFreeMemory(context->getAllocator(), m_ColorImageAllocation);
-		vkDestroyImageView(context->getDevice(), m_DepthImageView, nullptr);
-		vkDestroyImage(context->getDevice(), m_DepthImage, nullptr);
-		vmaFreeMemory(context->getAllocator(), m_DepthImageAllocation);
 
 		createImages(context);
 		createFrameBuffers(context, endImageViews);
 	}
 
 	void UnlitPass::createImages(const VulkanContext* context) {
-		context->createImage(m_Width, m_Height, 1, context->getSampleCount(), VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, m_ColorImage, m_ColorImageAllocation);
-		m_ColorImageView = context->createImageView(m_ColorImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        ImageCreateInfo createInfo{};
+        createInfo.width = m_Width;
+        createInfo.height = m_Height;
+        createInfo.samples = context->getSampleCount();
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        createInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		context->createImage(m_Width, m_Height, 1, context->getSampleCount(), context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_DepthImage, m_DepthImageAllocation);
-		m_DepthImageView = context->createImageView(m_DepthImage, context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+        m_ColorImage = context->createImage(createInfo);
+		
+		createInfo.format = context->findDepthFormat();
+        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+		m_DepthImage = context->createImage(createInfo);
 	}
 
 	VkPipeline UnlitPass::getPipelineFromFlags(const VulkanContext* context, uint32_t flags)
@@ -274,9 +276,7 @@ namespace REON {
 		m_Framebuffers.resize(context->getSwapChainImageViews().size());
 
 		for (size_t i = 0; i < context->getSwapChainImageViews().size(); i++) {
-			std::array<VkImageView, 3> attachments = {
-				m_ColorImageView,
-				m_DepthImageView,
+			std::array<VkImageView, 3> attachments = {m_ColorImage->getVkImageView(), m_DepthImage->getVkImageView(),
 				endImageViews[i]
 			};
 

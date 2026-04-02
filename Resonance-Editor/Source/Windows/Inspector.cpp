@@ -187,14 +187,14 @@ void Inspector::InspectObject(std::shared_ptr<GameObject>& object)
     ImGui::End();
 }
 
-void Inspector::InspectObject(std::filesystem::path assetPath)
+void Inspector::InspectObject(std::filesystem::path assetPath, CookPipeline& cookPipeline)
 {
     ImGui::Begin("Inspector");
     auto extension = assetPath.extension().string();
 
     if (extension == ".gltf" || extension == ".glb")
     {
-        AssetDrawers::DrawInspector_Model(assetPath);
+        AssetDrawers::DrawInspector_Model(assetPath, cookPipeline);
     }
     else if (extension == ".material")
     {

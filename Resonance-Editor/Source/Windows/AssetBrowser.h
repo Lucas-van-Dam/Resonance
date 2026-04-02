@@ -1,5 +1,6 @@
 #pragma once
 #include <ProjectManagement/ProjectManager.h>
+#include <AssetManagement/CookPipeline.h>
 #include <filesystem>
 #include <imgui.h>
 #include <string>
@@ -19,7 +20,7 @@ class AssetBrowser
         m_CurrentDirectory = directory;
     }
 
-    void RenderAssetBrowser();
+    void RenderAssetBrowser(CookPipeline& pipeline);
 
     std::vector<std::string> GetSubdirectories(const std::string& directoryPath);
 

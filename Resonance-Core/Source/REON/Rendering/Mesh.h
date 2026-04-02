@@ -57,8 +57,8 @@ class [[clang::annotate("serialize")]] Mesh : public ResourceBase
 
     std::vector<SubMesh> subMeshes;
 
-    VulkanBuffer m_VertexBuffer;
-    VulkanBuffer m_IndexBuffer;
+    BufferHandle m_VertexBuffer;
+    BufferHandle m_IndexBuffer;
 
     uint32_t vertexCount = 0;
     uint32_t indexCount = 0;

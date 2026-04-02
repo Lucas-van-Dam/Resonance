@@ -61,6 +61,7 @@ std::shared_ptr<ResourceBase> TextureLoader::Load(const AssetKey& key, const Art
     data.samplerData.addressModeW =
         VK_SAMPLER_ADDRESS_MODE_REPEAT; // default to repeat for 3D (TODO: add proper support later)
     data.pixels.resize(static_cast<size_t>(th->dataSize));
+    data.sRGB = th->format == static_cast<uint32_t>(TexPayloadFormat::RGBA8_SRGB);
 
     const std::byte* base = bytes.data();
     if (th->dataOffset + th->dataSize > bytes.size())

@@ -147,7 +147,7 @@ class VulkanContext : public RenderContext
     }
     VkSemaphore getCurrentGuiFinishedRenderingSemaphore() const
     {
-        return m_GuiPresentedSemaphores[currentFrame];
+        return m_GuiPresentedSemaphores[m_ImageIndex];
     }
     VmaAllocator getAllocator() const
     {
@@ -167,19 +167,13 @@ class VulkanContext : public RenderContext
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
                                 uint32_t mipLevels) const;
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
-                     VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkImage& image,
-                     VmaAllocation& imageAllocation) const;
-    VulkanImage createImage(ImageCreateInfo createInfo, const void* initialData = nullptr) const;
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
-                               uint32_t mipLevels) const;
-    void transitionImageLayout(VulkanImage& image, VkImageLayout newLayout) const;
+    ImageHandle createImage(ImageCreateInfo createInfo, const void* initialData = nullptr) const;
+    void transitionImageLayout(ImageHandle& image, VkImageLayout newLayout) const;
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) const;
-    void copyBufferToImage(VulkanBuffer& buffer, VkImage image, uint32_t width, uint32_t height) const;
-    void copyBufferToImage(VulkanBuffer& buffer, VulkanImage& image) const;
+    void copyBufferToImage(BufferHandle& buffer, ImageHandle& image) const;
 
-    VulkanBuffer createBuffer(BufferCreateInfo createInfo, const void* initialData = nullptr) const;
-    void copyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size) const;
+    BufferHandle createBuffer(BufferCreateInfo createInfo, const void* initialData = nullptr) const;
+    void copyBuffer(BufferHandle& srcBuffer, BufferHandle& dstBuffer, VkDeviceSize size) const;
     VkShaderModule createShaderModule(const std::vector<char>& code) const;
     VkFormat findDepthFormat() const;
     void createCommandPool(VkCommandPool& commandPool, uint32_t queueFamilyIndex) const;

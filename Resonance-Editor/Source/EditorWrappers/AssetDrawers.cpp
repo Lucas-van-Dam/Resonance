@@ -6,6 +6,8 @@
 #include <iostream>
 #include "ProjectManagement/MetadataGenerator.h"
 #include <glm/gtc/type_ptr.hpp>
+#include <AssetManagement/Assets/Model/ModelSourceAsset.h>
+#include <AssetManagement/BuildQueue.h>
 
 namespace REON::EDITOR {
 
@@ -51,40 +53,44 @@ namespace REON::EDITOR {
 		//}
 	}
 
-	void AssetDrawers::DrawInspector_Model(std::filesystem::path path)
+	void AssetDrawers::DrawInspector_Model(std::filesystem::path path, CookPipeline& pipeline)
 	{
-		//if (ImGui::Button("Reimport")) {
-		//	if (std::filesystem::exists(path.string() + ".meta")) {
-		//		AssetInfo* info;
-		//		nlohmann::ordered_json j;
-		//		std::ifstream inFile(path.string() + ".meta");
-		//		if (inFile.is_open()) {
-		//			inFile >> j;
-		//			inFile.close();
-		//		}
-		//		//modelOriginPath = j["Origin"].get<std::string>();
-		//		info = AssetRegistry::Instance().GetAssetById(j["Id"].get<std::string>());
-		//		info->path = std::filesystem::relative(path, ProjectManager::GetInstance().GetCurrentProjectPath());
-		//		info->type = path.extension().string();
 
-		//		AssetRegistry::ProcessAsset(*info);
+        static auto& currentPath = path;
+        static auto metaPath = path.string() + ".meta";
+        static ModelSourceAsset sourceAsset = LoadModelSourceAssetFromFile(metaPath);
 
-		//		nlohmann::json metaData;
-		//		metaData["Id"] = info->id;
-		//		metaData["Type"] = info->type;
-		//		metaData["Path"] = info->path.string();
-		//		metaData["Extra Data"] = info->extraInformation;
 
-		//		std::ofstream metaFile(path.string() + ".meta");
-		//		if (metaFile.is_open()) {
-		//			metaFile << metaData.dump(4);
-		//			metaFile.close();
-		//		}
-		//	}
-		//	else {
-		//		MetadataGenerator::CreateMetadataFile(path, ProjectManager::GetInstance().GetCurrentProjectPath());
-		//	}
-		//}
+		if (path != currentPath)
+        {
+            metaPath = path.string() + ".meta";
+            sourceAsset = LoadModelSourceAssetFromFile(metaPath);
+		}
+         
+
+		if (std::filesystem::exists(metaPath))
+        {
+			ImGui::DragFloat("Scale", &sourceAsset.scale, 0.001f);
+            ImGui::Checkbox("Force Generate Tangents", &sourceAsset.forceGenerateTangents);
+            ImGui::Checkbox("Import Materials", &sourceAsset.importMaterials);
+            ImGui::Checkbox("Import Textures", &sourceAsset.importTextures);
+            ImGui::Checkbox("Flip Normals", &sourceAsset.flipNormals);
+        }
+
+		if (ImGui::Button("Reimport")) {
+            SaveModelSourceAssetToFile(metaPath, sourceAsset);
+
+			BuildJob job;
+            job.reason = BuildReason::ForceRebuild;
+            job.sourceId = sourceAsset.id;
+            job.type = ASSET_MODEL;
+            job.doImport = true;
+
+			BuildQueue queue;
+            queue.Enqueue(job);
+			
+			pipeline.CookAll(queue);
+		}
 	}
 
 }

@@ -35,10 +35,12 @@ std::vector<AssetRecord> AssetRegistry::FindBySource(std::filesystem::path p) co
 void AssetRegistry::Upsert(const AssetRecord& record)
 {
     registry_[record.id] = record;
-    pathIndex_[record.sourcePath].push_back(
-        record.id); // TODO: this allows duplicates, we should probably check for existing entries and remove them
-                    // first, plus this could have assets that dont exist anymore, we should probably clean those up at
-                    // some point as well
+
+    if (std::find_if(pathIndex_[record.sourcePath].begin(), pathIndex_[record.sourcePath].end(),
+                     [record](const AssetId& id) { return id == record.id; }) == pathIndex_[record.sourcePath].end())
+    {
+        pathIndex_[record.sourcePath].push_back(record.id);
+    }
 }
 
 void AssetRegistry::Remove(AssetId id)

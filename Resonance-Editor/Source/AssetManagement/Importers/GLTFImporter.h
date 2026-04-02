@@ -20,10 +20,10 @@ class GltfImporter final : public IImporter
 
   private:
     AssetId HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                              ImportContext& ctx);
+                              ImportContext& ctx, bool isSRGB, AssetId texId, AssetId imgId);
     NodeIndex HandleGLTFNode(const tg::Model& model, int nodeId, ImportedModel& impModel, AssetRecord& modelRecord, float scale = 1.0f,
                              uint32_t parentId = UINT32_MAX);
-    AssetId HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel, ImportedNode& impNode);
+    AssetId HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel, ImportedNode& impNode, AssetId id);
 
     std::tuple<glm::vec3, Quaternion, glm::vec3> GetTRSFromGLTFNode(const tg::Node& node);
 
@@ -55,6 +55,8 @@ class GltfImporter final : public IImporter
                              uint32_t offset = 0);
 
     std::vector<AssetId> materialIDs;
+
+    int currentMeshId = 0;
 
     ModelSourceAsset currentModelAsset;
     std::vector<AssetRecord> producedAssets;

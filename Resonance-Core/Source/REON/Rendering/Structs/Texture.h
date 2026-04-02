@@ -1,20 +1,16 @@
 #pragma once
 
 #include "GLFW/glfw3.h"
+#include "REON/Platform/Vulkan/VulkanImage.h"
 #include "REON/ResourceManagement/Resource.h"
-#include "assimp/scene.h"
 #include "stb_image_wrapper.h"
 #include "vma/vk_mem_alloc.h"
 #include "vulkan/vulkan.h"
 
-#include "assimp/Importer.hpp"
-
-#include "REON/Platform/Vulkan/VulkanImage.h"
-
 namespace REON
 {
 
-    enum SamplerWrapMode
+enum SamplerWrapMode
 {
     Repeat = 0,
     MirroredRepeat = 1,
@@ -55,6 +51,7 @@ struct TextureData
     uint32_t height;
     std::vector<uint8_t> pixels;
     SamplerData samplerData;
+    bool sRGB;
 };
 #pragma pack(pop)
 
@@ -71,7 +68,7 @@ class [[clang::annotate("serialize")]] Texture : public ResourceBase
     static std::shared_ptr<Texture> getTextureFromId(const std::string& Id, const std::string& basePath);
 
   private:
-    VulkanImage m_Texture;
+    ImageHandle m_Texture;
     VkSampler m_TextureSampler;
 };
 } // namespace REON

@@ -322,10 +322,15 @@ NormalInfo getNormalInfo(PS_Input input)
     NormalInfo info;
     info.ng = ng;
 #ifdef USE_NORMAL_TEXTURE
-	info.ntex = texture_normal.Sample(texture_sampler_normal, input.tex).rgb * 2.0 - float3(1.0, 1.0, 1.0);
-	info.ntex *= float3(normalScalar, normalScalar, 1.0);
+    info.ntex = texture_normal.Sample(texture_sampler_normal, input.tex).rgb * 2.0 - 1.0;
+    if (u_FlipNormalY != 0)
+    {
+        info.ntex.y = -info.ntex.y;
+    }
+    info.ntex.xy *= normalScalar;
     info.ntex = normalize(info.ntex);
-	info.n = normalize(mul(float3x3(t, b, ng), info.ntex));
+
+    info.n = normalize(t * info.ntex.x + b * info.ntex.y + ng * info.ntex.z);
 #else
     info.n = ng;
 #endif
@@ -403,9 +408,12 @@ float4 main(PS_Input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 
     float3 v = normalize(input.fragViewPos - input.fragPosition);
     NormalInfo normalInfo = getNormalInfo(input);
-    float3 n = normalInfo.n;
+    float3 n = isFrontFacing ? normalInfo.n : -normalInfo.n;
     float3 t = normalInfo.t;
     float3 b = normalInfo.b;
+    
+    
+    //return float4(normalInfo.n.xyz, 1.0f);
 
     float NdotV = clampedDot(n, v);
     float TdotV = clampedDot(t, v);

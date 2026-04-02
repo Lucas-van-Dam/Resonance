@@ -17,7 +17,15 @@ namespace REON {
 		void createPerLightDescriptorSets(const VulkanContext* context);
 		void createPerObjectDescriptorSets(const VulkanContext* context, std::shared_ptr<Renderer> renderer);
 
-		std::vector<VkImageView> getShadowViews() const { return m_DepthImageViews; }
+		std::vector<VkImageView> getShadowViews() const 
+		{
+            std::vector<VkImageView> views;
+            for (auto& img : m_DepthImages)
+            {
+                views.push_back(img->getVkImageView());
+			}
+			return views;
+		}
 		VkSampler getShadowSampler() const { return m_DepthImageSampler; }
 
 		void cleanup(const VulkanContext* context);
@@ -37,12 +45,10 @@ namespace REON {
 		VkDescriptorSetLayout m_PerLightDescriptorSetLayout;
 		VkDescriptorSetLayout m_PerObjectDescriptorSetLayout;
 		std::vector<VkDescriptorSet> m_PerLightDescriptorSets;
-		std::vector<VulkanBuffer> m_PerLightBuffers;
+        std::vector<BufferHandle> m_PerLightBuffers;
 		VkPipelineLayout m_PipelineLayout;
 		VkPipeline m_GraphicsPipeline;
-		std::vector<VkImage> m_DepthImages;
-		std::vector<VmaAllocation> m_DepthImageAllocations;
-		std::vector<VkImageView> m_DepthImageViews;
+		std::vector<ImageHandle> m_DepthImages;
 		std::vector<VkFramebuffer> m_Framebuffers;
 		VkSampler m_DepthImageSampler;
 

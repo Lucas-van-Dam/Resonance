@@ -38,6 +38,8 @@ std::shared_ptr<ResourceBase> MaterialLoader::Load(const AssetKey& key, const Ar
 
     mat->setDoubleSided(th->flags & MAT_DOUBLE_SIDED);
 
+    mat->flatData.normalYScale = (th->flags & MAT_FLIP_NORMALS) ? 1 : 0;
+
     mat->renderingMode = th->flags & MAT_TRANSPARENT ? Transparent : Opaque;
     mat->blendingMode = th->flags & MAT_MODE_BLEND ? Blend : Mask;
 

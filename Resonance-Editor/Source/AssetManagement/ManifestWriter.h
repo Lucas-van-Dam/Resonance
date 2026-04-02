@@ -4,7 +4,7 @@
 #include "REON/AssetManagement/Artifact.h"
 #include "REON/AssetManagement/Asset.h"
 #include "REON/AssetManagement/ManifestFormat.h"
-
+#include "REON/Application.h"
 #include <filesystem>
 
 namespace REON::EDITOR
@@ -14,8 +14,26 @@ class ManifestWriter
   public:
     void Upsert(const std::unordered_map<AssetKey, ArtifactRef, AssetKeyHash>& refs)
     {
-        for (auto& [k, v] : refs)
-            entries_[k] = v;
+        for (const auto& [k, incoming] : refs)
+        {
+            auto it = entries_.find(k);
+
+            ArtifactRef updated = incoming;
+
+            if (it != entries_.end())
+            {
+                updated.revision = it->second.revision + 1;
+
+                it->second = updated;
+
+                Application::Get().GetEngineServices().resources.NotifyResourceChanged(k, updated);
+            }
+            else
+            {
+                updated.revision = 1;
+                entries_.emplace(k, updated);
+            }
+        }
     }
 
     void Remove(const AssetKey& k)

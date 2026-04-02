@@ -31,45 +31,34 @@ enum RenderMode
 struct CameraSwapChainResources
 {
     VkDescriptorSet endDescriptorSet;
-    VkImage endImage;
-    VmaAllocation endImageAllocation;
-    VkImageView endImageView;
+    ImageHandle endImage = nullptr;
     VkFramebuffer framebuffer;
 
-    VkImage colorResolveImage;
-    VmaAllocation colorResolveImageAllocation;
-    VkImageView colorResolveImageView;
+    ImageHandle colorResolveImage = nullptr;
 
-    VkImage depthResolveImage;
-    VmaAllocation depthResolveAllocation;
-    VkImageView depthResolveView;
+    ImageHandle depthResolveImage = nullptr;
 
-    VkImage msaaColorImage;
-    VmaAllocation msaaColorAllocation;
-    VkImageView msaaColorView;
+    ImageHandle msaaColorImage = nullptr;
 
-    VkImage msaaDepthImage;
-    VmaAllocation msaaDepthAllocation;
-    VkImageView msaaDepthView;
+    ImageHandle msaaDepthImage = nullptr;
 };
 
 struct CameraData
 {
-    VulkanBuffer globalBuffer{};
+    BufferHandle globalBuffer = nullptr;
     VkDescriptorSet globalDescriptorSet{VK_NULL_HANDLE};
     VkCommandBuffer commandBuffer{VK_NULL_HANDLE};
 };
 
 static_assert(std::is_move_constructible_v<CameraData>);
 static_assert(std::is_nothrow_move_constructible_v<CameraData>);
-static_assert(!std::is_copy_constructible_v<CameraData>);
 
 struct FrameData
 {
     // Holds the global render data for the current frame per camera
     std::unordered_map<std::shared_ptr<Camera>, CameraData> cameraData;
     VkDescriptorSet lightDescriptorSet{VK_NULL_HANDLE};
-    VulkanBuffer lightDataBuffer{};
+    BufferHandle lightDataBuffer = nullptr;
 
     FrameData() = default;
     FrameData(const FrameData&) = delete;
@@ -186,9 +175,7 @@ class RenderManager
 
     bool resized = false;
 
-    VkImage m_DummyImage;
-    VkImageView m_DummyImageView;
-    VmaAllocation m_DummyImageAllocation;
+    ImageHandle m_DummyImage;
     VkSampler m_DummySampler;
 
     int m_NumImages = 0;

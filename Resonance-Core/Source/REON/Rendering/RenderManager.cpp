@@ -132,7 +132,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
         barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage;
+        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage->getVkImage();
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -145,7 +145,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                              VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage;
+        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage->getVkImage();
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 
@@ -184,7 +184,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
             scissor.extent = {camera->viewportSize.x, camera->viewportSize.y};
             vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-            mat->flatDataBuffers[currentFrame].Write(&mat->flatData, sizeof(mat->flatData));
+            mat->flatDataBuffers[currentFrame]->Write(&mat->flatData, sizeof(mat->flatData));
 
             vkCmdSetCullMode(commandBuffer, mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
 
@@ -203,13 +203,13 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                 data.transposeInverseModel = cmd.owner->getTransposeInverseModelMatrix();
                 data.jointCount = cmd.jointCount;
                 data.paletteOffset = cmd.joinOffset;
-                cmd.owner->objectDataBuffers[m_Context->getCurrentFrame()].Write(&data, sizeof(data));
+                cmd.owner->objectDataBuffers[m_Context->getCurrentFrame()]->Write(&data, sizeof(data));
 
-                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
+                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer->GetVkBuffer()};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-                vkCmdBindIndexBuffer(commandBuffer, mesh->m_IndexBuffer.GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(commandBuffer, mesh->m_IndexBuffer->GetVkBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
                 vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_OpaquePipelineLayout, 0,
                                         descriptorSets.size(), descriptorSets.data(), 0, nullptr);
@@ -224,7 +224,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
         barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage;
+        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].colorResolveImage->getVkImage();
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -237,7 +237,7 @@ void RenderManager::RenderOpaques(std::shared_ptr<Camera> camera)
                              VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
         barrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage;
+        barrier.image = m_SwapChainResourcesByCamera[camera][currentImageIndex].depthResolveImage->getVkImage();
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
         barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -298,7 +298,6 @@ void RenderManager::GenerateShadows()
     GenerateAdditionalShadows();
 }
 
-static_assert(std::is_default_constructible_v<VulkanBuffer>);
 static_assert(std::is_move_constructible_v<VulkanBuffer>);
 static_assert(std::is_move_assignable_v<VulkanBuffer>);
 
@@ -451,9 +450,9 @@ void RenderManager::setGlobalData(std::shared_ptr<Camera> camera)
     }
     data.lightCount = glm::min(static_cast<int>(lightData.size()), REON_MAX_LIGHTS);
 
-    m_FrameData[m_Context->getCurrentFrame()].cameraData.at(camera).globalBuffer.Write(&data, sizeof(data));
+    m_FrameData[m_Context->getCurrentFrame()].cameraData.at(camera).globalBuffer->Write(&data, sizeof(data));
 
-    m_FrameData[m_Context->getCurrentFrame()].lightDataBuffer.Write(lights.data(), lights.size() * sizeof(LightData));
+    m_FrameData[m_Context->getCurrentFrame()].lightDataBuffer->Write(lights.data(), lights.size() * sizeof(LightData));
 
     //std::vector<glm::mat4> mats;
 
@@ -485,6 +484,11 @@ void RenderManager::prepareDrawCommands(int currentFrame)
                 createOpaqueMaterialDescriptorSets(cmd.material.Lock());
             }
 
+            if (cmd.material.Lock()->descriptorSets.empty())
+            {
+                createOpaqueMaterialDescriptorSets(cmd.material.Lock());
+            }
+
             m_DrawCommandsByShaderMaterial[shaderID][materialID].push_back(cmd);
         }
     }
@@ -509,38 +513,20 @@ void RenderManager::createDummyResources()
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load("Assets/Textures/1x1White.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
 
     REON_CORE_ASSERT(pixels, "Failed to load texture image");
 
-    //VkBuffer stagingBuffer;
-    //VmaAllocation stagingBufferAllocation;
+    ImageCreateInfo createInfo;
+    createInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    createInfo.width = texWidth;
+    createInfo.height = texHeight;
+    createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    BufferCreateInfo createInfo;
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    createInfo.cpuAccess = CpuAccessPattern::SequentialWrite;
-    createInfo.memoryHint = BufferMemoryHint::CpuToGpu;
-    createInfo.size = imageSize;
-
-    VulkanBuffer stagingBuffer = m_Context->createBuffer(createInfo, pixels);
+    m_DummyImage = m_Context->createImage(createInfo, pixels);
 
     stbi_image_free(pixels);
-
-    m_Context->createImage(
-        texWidth, texHeight, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, m_DummyImage,
-        m_DummyImageAllocation);
-
-    m_Context->transitionImageLayout(m_DummyImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1);
-    m_Context->copyBufferToImage(stagingBuffer, m_DummyImage, static_cast<uint32_t>(texWidth),
-                                 static_cast<uint32_t>(texHeight));
-
-    // generateMipmaps(m_TextureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, m_MipLevels);
-    m_Context->transitionImageLayout(m_DummyImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
-
-    m_DummyImageView = m_Context->createImageView(m_DummyImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
 
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -631,7 +617,7 @@ void RenderManager::createEndBufferSet(std::shared_ptr<Camera> camera)
 
         VkDescriptorImageInfo endImageInfo{};
         endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImageView;
+        endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImage->getVkImageView();
         endImageInfo.sampler = m_EndSampler;
 
         std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -663,9 +649,9 @@ void RenderManager::createCameraResources(std::shared_ptr<Camera> camera)
     std::vector<VkImageView> opaqueImageViews;
     for (int i = 0; i < m_Context->getAmountOfSwapChainImages(); ++i)
     {
-        endImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
-        depthImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveView);
-        opaqueImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
+        endImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImage->getVkImageView());
+        depthImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveImage->getVkImageView());
+        opaqueImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImage->getVkImageView());
     }
 
     m_TransparentPass.init(m_Context, camera, endImageViews, depthImageViews, opaqueImageViews);
@@ -713,33 +699,30 @@ void RenderManager::createOpaqueImages(std::shared_ptr<Camera> camera)
     {
         auto& camResources = m_SwapChainResourcesByCamera[camera][i];
 
-        m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, m_Context->getSampleCount(),
-                               VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                               VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                               camResources.msaaColorImage, camResources.msaaColorAllocation);
-        camResources.msaaColorView = m_Context->createImageView(
-            camResources.msaaColorImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        ImageCreateInfo createInfo;
+        createInfo.width = camera->viewportSize.x;
+        createInfo.height = camera->viewportSize.y;
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        createInfo.samples = m_Context->getSampleCount();
+        createInfo.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-        m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, m_Context->getSampleCount(),
-                               m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL,
-                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, camResources.msaaDepthImage,
-                               camResources.msaaDepthAllocation);
-        camResources.msaaDepthView = m_Context->createImageView(
-            camResources.msaaDepthImage, m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+        camResources.msaaColorImage = m_Context->createImage(createInfo);
 
-        m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                               VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                               camResources.colorResolveImage, camResources.colorResolveImageAllocation);
-        camResources.colorResolveImageView = m_Context->createImageView(
-            camResources.colorResolveImage, VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        createInfo.format = m_Context->findDepthFormat();
+        createInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-        m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                               m_Context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL,
-                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                               camResources.depthResolveImage, camResources.depthResolveAllocation);
-        camResources.depthResolveView = m_Context->createImageView(
-            camResources.depthResolveImage, m_Context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+        camResources.msaaDepthImage = m_Context->createImage(createInfo);
+
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        createInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+        createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        camResources.colorResolveImage = m_Context->createImage(createInfo);
+
+        createInfo.format = m_Context->findDepthFormat();
+        createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        camResources.depthResolveImage = m_Context->createImage(createInfo);
     }
 }
 
@@ -751,14 +734,13 @@ void RenderManager::createEndImages(std::shared_ptr<Camera> camera)
 
     for (int i = 0; i < swapChainImageCount; i++)
     {
-        m_Context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                               VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                               m_SwapChainResourcesByCamera[camera][i].endImage,
-                               m_SwapChainResourcesByCamera[camera][i].endImageAllocation);
-        m_SwapChainResourcesByCamera[camera][i].endImageView =
-            m_Context->createImageView(m_SwapChainResourcesByCamera[camera][i].endImage, VK_FORMAT_R16G16B16A16_SFLOAT,
-                                       VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        ImageCreateInfo createInfo{};
+        createInfo.width = camera->viewportSize.x;
+        createInfo.height = camera->viewportSize.y;
+        createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        m_SwapChainResourcesByCamera[camera][i].endImage = m_Context->createImage(createInfo);
     }
 }
 
@@ -874,10 +856,11 @@ void RenderManager::createOpaqueFrameBuffers(std::shared_ptr<Camera> camera)
 
     for (size_t i = 0; i < m_Context->getSwapChainImageViews().size(); i++)
     {
-        std::array<VkImageView, 4> attachments = {m_SwapChainResourcesByCamera[camera][i].msaaColorView,
-                                                  m_SwapChainResourcesByCamera[camera][i].msaaDepthView,
-                                                  m_SwapChainResourcesByCamera[camera][i].colorResolveImageView,
-                                                  m_SwapChainResourcesByCamera[camera][i].depthResolveView};
+        std::array<VkImageView, 4> attachments = {
+            m_SwapChainResourcesByCamera[camera][i].msaaColorImage->getVkImageView(),
+            m_SwapChainResourcesByCamera[camera][i].msaaDepthImage->getVkImageView(),
+            m_SwapChainResourcesByCamera[camera][i].colorResolveImage->getVkImageView(),
+            m_SwapChainResourcesByCamera[camera][i].depthResolveImage->getVkImageView()};
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1034,12 +1017,12 @@ void RenderManager::createOpaqueGlobalDescriptorSets(std::shared_ptr<Camera> cam
         m_FrameData[i].cameraData.at(camera).globalDescriptorSet = allSets[i];
 
         VkDescriptorBufferInfo globalBufferInfo{};
-        globalBufferInfo.buffer = m_FrameData[i].cameraData.at(camera).globalBuffer.GetVkBuffer();
+        globalBufferInfo.buffer = m_FrameData[i].cameraData.at(camera).globalBuffer->GetVkBuffer();
         globalBufferInfo.offset = 0;
         globalBufferInfo.range = sizeof(GlobalRenderData);
 
         VkDescriptorBufferInfo lightBufferInfo{};
-        lightBufferInfo.buffer = m_FrameData[i].lightDataBuffer.GetVkBuffer();
+        lightBufferInfo.buffer = m_FrameData[i].lightDataBuffer->GetVkBuffer();
         lightBufferInfo.offset = 0;
         lightBufferInfo.range = sizeof(LightData) * REON_MAX_LIGHTS;
 
@@ -1145,47 +1128,49 @@ void RenderManager::createOpaqueMaterialDescriptorSets(std::shared_ptr<Material>
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo materialBufferInfo{};
-        materialBufferInfo.buffer = material->flatDataBuffers[i].GetVkBuffer();
+        materialBufferInfo.buffer = material->flatDataBuffers[i]->GetVkBuffer();
         materialBufferInfo.offset = 0;
         materialBufferInfo.range = sizeof(FlatData);
 
         VkDescriptorImageInfo albedoImageInfo{};
         const auto& albedoTexture = material->albedoTexture.Lock();
         albedoImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        albedoImageInfo.imageView = albedoTexture ? albedoTexture->getTextureView() : m_DummyImageView;
+        albedoImageInfo.imageView = albedoTexture ? albedoTexture->getTextureView() : m_DummyImage->getVkImageView();
         albedoImageInfo.sampler = albedoTexture ? albedoTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo normalImageInfo{};
         const auto& normalTexture = material->normalTexture.Lock();
         normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        normalImageInfo.imageView = normalTexture ? normalTexture->getTextureView() : m_DummyImageView;
+        normalImageInfo.imageView = normalTexture ? normalTexture->getTextureView() : m_DummyImage->getVkImageView();
         normalImageInfo.sampler = normalTexture ? normalTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo roughnessMetallicImageInfo{};
         const auto& roughnessMetallicTexture = material->metallicRoughnessTexture.Lock();
         roughnessMetallicImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         roughnessMetallicImageInfo.imageView =
-            roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImageView;
+            roughnessMetallicTexture ? roughnessMetallicTexture->getTextureView() : m_DummyImage->getVkImageView();
         roughnessMetallicImageInfo.sampler =
             roughnessMetallicTexture ? roughnessMetallicTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo emissiveImageInfo{};
         const auto& emissiveTexture = material->emissiveTexture.Lock();
         emissiveImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        emissiveImageInfo.imageView = emissiveTexture ? emissiveTexture->getTextureView() : m_DummyImageView;
+        emissiveImageInfo.imageView =
+            emissiveTexture ? emissiveTexture->getTextureView() : m_DummyImage->getVkImageView();
         emissiveImageInfo.sampler = emissiveTexture ? emissiveTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo specularImageInfo{};
         const auto& specularTexture = material->specularTexture.Lock();
         specularImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        specularImageInfo.imageView = specularTexture ? specularTexture->getTextureView() : m_DummyImageView;
+        specularImageInfo.imageView =
+            specularTexture ? specularTexture->getTextureView() : m_DummyImage->getVkImageView();
         specularImageInfo.sampler = specularTexture ? specularTexture->getSampler() : m_DummySampler;
 
         VkDescriptorImageInfo specularColorImageInfo{};
         const auto& specularColorTexture = material->specularColorTexture.Lock();
         specularColorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         specularColorImageInfo.imageView =
-            specularColorTexture ? specularColorTexture->getTextureView() : m_DummyImageView;
+            specularColorTexture ? specularColorTexture->getTextureView() : m_DummyImage->getVkImageView();
         specularColorImageInfo.sampler = specularColorTexture ? specularColorTexture->getSampler() : m_DummySampler;
 
         std::array<VkWriteDescriptorSet, 7> descriptorWrites{};
@@ -1269,7 +1254,7 @@ void RenderManager::createOpaqueObjectDescriptorSets(const std::shared_ptr<Rende
     for (size_t i = 0; i < m_Context->MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo objectBufferInfo{};
-        objectBufferInfo.buffer = renderer->objectDataBuffers[i].GetVkBuffer();
+        objectBufferInfo.buffer = renderer->objectDataBuffers[i]->GetVkBuffer();
         objectBufferInfo.offset = 0;
         objectBufferInfo.range = sizeof(ObjectRenderData);
 
@@ -1670,9 +1655,6 @@ void RenderManager::cleanup()
     // vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_EndDescriptorSets.size(),
     // m_EndDescriptorSets.data());
 
-    vkDestroyImage(m_Context->getDevice(), m_DummyImage, nullptr);
-    vmaFreeMemory(m_Context->getAllocator(), m_DummyImageAllocation);
-    vkDestroyImageView(m_Context->getDevice(), m_DummyImageView, nullptr);
     vkDestroySampler(m_Context->getDevice(), m_DummySampler, nullptr);
 
     // vkFreeDescriptorSets(m_Context->getDevice(), m_Context->getDescriptorPool(), m_GlobalDescriptorSets.size(),
@@ -1700,30 +1682,6 @@ void RenderManager::setMainLight(std::shared_ptr<Light> light)
 
 void RenderManager::deleteForResize(std::shared_ptr<Camera> camera)
 {
-    for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++)
-    {
-        auto& resource = m_SwapChainResourcesByCamera[camera][i];
-        vkDestroyImage(m_Context->getDevice(), resource.msaaColorImage, nullptr);
-        vmaFreeMemory(m_Context->getAllocator(), resource.msaaColorAllocation);
-        vkDestroyImageView(m_Context->getDevice(), resource.msaaColorView, nullptr);
-
-        vkDestroyImage(m_Context->getDevice(), resource.msaaDepthImage, nullptr);
-        vmaFreeMemory(m_Context->getAllocator(), resource.msaaDepthAllocation);
-        vkDestroyImageView(m_Context->getDevice(), resource.msaaDepthView, nullptr);
-
-        vkDestroyImage(m_Context->getDevice(), resource.colorResolveImage, nullptr);
-        vmaFreeMemory(m_Context->getAllocator(), resource.colorResolveImageAllocation);
-        vkDestroyImageView(m_Context->getDevice(), resource.colorResolveImageView, nullptr);
-
-        vkDestroyImage(m_Context->getDevice(), resource.endImage, nullptr);
-        vmaFreeMemory(m_Context->getAllocator(), resource.endImageAllocation);
-        vkDestroyImageView(m_Context->getDevice(), resource.endImageView, nullptr);
-
-        vkDestroyImage(m_Context->getDevice(), resource.depthResolveImage, nullptr);
-        vmaFreeMemory(m_Context->getAllocator(), resource.depthResolveAllocation);
-        vkDestroyImageView(m_Context->getDevice(), resource.depthResolveView, nullptr);
-    }
-
     for (size_t i = 0; i < m_Context->getAmountOfSwapChainImages(); i++)
     {
         vkDestroyFramebuffer(m_Context->getDevice(), m_SwapChainResourcesByCamera[camera][i].framebuffer, nullptr);
@@ -1754,7 +1712,7 @@ void RenderManager::SetRenderDimensions(std::shared_ptr<Camera> camera, int widt
     {
         VkDescriptorImageInfo endImageInfo{};
         endImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImageView;
+        endImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].endImage->getVkImageView();
         endImageInfo.sampler = m_EndSampler;
 
         std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
@@ -1766,9 +1724,9 @@ void RenderManager::SetRenderDimensions(std::shared_ptr<Camera> camera, int widt
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pImageInfo = &endImageInfo;
 
-        endImageViewsByCamera[i] = m_SwapChainResourcesByCamera[camera][i].endImageView;
-        opaqueResolveImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImageView);
-        depthResolveViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveView);
+        endImageViewsByCamera[i] = m_SwapChainResourcesByCamera[camera][i].endImage->getVkImageView();
+        opaqueResolveImageViews.push_back(m_SwapChainResourcesByCamera[camera][i].colorResolveImage->getVkImageView());
+        depthResolveViews.push_back(m_SwapChainResourcesByCamera[camera][i].depthResolveImage->getVkImageView());
 
         vkUpdateDescriptorSets(m_Context->getDevice(), static_cast<uint32_t>(descriptorWrites.size()),
                                descriptorWrites.data(), 0, nullptr);

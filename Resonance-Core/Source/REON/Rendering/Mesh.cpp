@@ -45,7 +45,7 @@ void Mesh::setupBuffers()
     bufCreateInfo.persistentlyMapped = false;
     bufCreateInfo.size = bufferSize;
 
-    VulkanBuffer stagingBuffer = context->createBuffer(bufCreateInfo, m_Vertices.data());
+    BufferHandle stagingBuffer = context->createBuffer(bufCreateInfo, m_Vertices.data());
 
     bufCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
     bufCreateInfo.cpuAccess = CpuAccessPattern::None;

@@ -106,7 +106,7 @@ PS_Input main(VS_Input input)
 // World-space normal/tangent
     output.normal = normalize(mul(transposeInverseModel, float4(localN, 0.0f)).xyz);
 
-    float3 tangent = normalize(mul(transposeInverseModel, float4(localT4.xyz, 0.0f)).xyz);
+    float3 tangent = normalize(mul((float3x3) model, localT4.xyz));
 
 // Orthonormalize tangent against normal
     tangent = normalize(tangent - dot(tangent, output.normal) * output.normal);

@@ -12,7 +12,12 @@ std::unordered_map<AssetTypeId, std::unique_ptr<IImporter>> CookPipeline::m_Impo
 
 CookPipeline::CookPipeline() : importCtx(cache, AssetRegistry::Instance()) {}
 
-bool CookPipeline::CookAll(const CookOptions& options, BuildQueue& queue)
+void CookPipeline::SetOptions(CookOptions options) 
+{
+    this->options = options;
+}
+
+bool CookPipeline::CookAll(BuildQueue& queue)
 {
     BuildJob job;
     while (queue.TryDequeue(job))
@@ -29,7 +34,7 @@ bool CookPipeline::CookAll(const CookOptions& options, BuildQueue& queue)
             const AssetRecord* record = AssetRegistry::Instance().FindById(job.sourceId);
             if (it->second->CanImport(record->sourcePath.extension()))
             {
-                ImportResult result = it->second->Import(record->sourcePath, importCtx);
+                ImportResult result = it->second->Import(options.projectRoot / record->sourcePath, importCtx);
                 for (const auto& asset : result.producedAssets)
                 {
                     AssetRegistry::Instance().Upsert(asset);
@@ -84,6 +89,14 @@ bool CookPipeline::CookAll(const CookOptions& options, BuildQueue& queue)
                 }
             }
         }
+        else if (job.type == ASSET_MATERIAL)
+        {
+            const AssetRecord* record = AssetRegistry::Instance().FindById(job.sourceId);
+
+
+            const auto& output = MaterialBinWriter::WriteMaterialBin(mat, options.projectRoot / options.cookedRoot /
+                                                                              (mat.id.to_string() + ".matbin"));
+        }
 
         manifestWriter.Upsert(cookOutput.artifacts);
 
@@ -92,5 +105,21 @@ bool CookPipeline::CookAll(const CookOptions& options, BuildQueue& queue)
     manifestWriter.Save(options.projectRoot / options.cookedRoot / "manifest.bin");
 
     return true;
+}
+bool CookPipeline::runImport(const BuildJob& job, const AssetRecord& record, BuildQueue& queue)
+{
+    auto it = m_Importers.find(job.type);
+    if (it == m_Importers.end())
+    {
+        REON_ERROR("No importer registered for asset type: {}, skipping", job.type);
+        return false;
+    }
+
+    if (record.sourcePath.empty())
+    {
+        REON_ERROR("Asset {} has no source path for import", job.sourceId.to_string());
+        return false;
+    }
+
 }
 } // namespace REON::EDITOR

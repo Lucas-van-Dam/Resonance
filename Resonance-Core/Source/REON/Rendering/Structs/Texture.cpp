@@ -22,7 +22,7 @@ Texture::Texture(const TextureData& data)
     ImageCreateInfo createInfo;
     createInfo.width = data.width;
     createInfo.height = data.height;
-    createInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    createInfo.format = data.sRGB ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
     createInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     createInfo.initialLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     createInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
@@ -66,7 +66,7 @@ Texture::~Texture()
 
 VkImageView Texture::getTextureView() const
 {
-    return m_Texture.getVkImageView();
+    return m_Texture->getVkImageView();
 }
 
 VkSampler Texture::getSampler() const

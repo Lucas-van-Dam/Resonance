@@ -112,7 +112,7 @@ void TransparentPass::render(
             scissor.extent = {camera->viewportSize.x, camera->viewportSize.y};
             vkCmdSetScissor(cameraData.commandBuffer, 0, 1, &scissor);
 
-            mat->flatDataBuffers[currentFrame].Write(&mat->flatData, sizeof(mat->flatData));
+            mat->flatDataBuffers[currentFrame]->Write(&mat->flatData, sizeof(mat->flatData));
 
             vkCmdSetCullMode(cameraData.commandBuffer,
                              mat->getDoubleSided() ? VK_CULL_MODE_NONE : VK_CULL_MODE_BACK_BIT);
@@ -130,13 +130,13 @@ void TransparentPass::render(
                 ObjectRenderData data{};
                 data.model = cmd.owner->getModelMatrix();
                 data.transposeInverseModel = glm::transpose(glm::inverse(data.model));
-                cmd.owner->objectDataBuffers[context->getCurrentFrame()].Write(&data, sizeof(data));
+                cmd.owner->objectDataBuffers[context->getCurrentFrame()]->Write(&data, sizeof(data));
 
-                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
+                VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer->GetVkBuffer()};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(cameraData.commandBuffer, 0, 1, vertexBuffers, offsets);
 
-                vkCmdBindIndexBuffer(cameraData.commandBuffer, mesh->m_IndexBuffer.GetVkBuffer(), 0,
+                vkCmdBindIndexBuffer(cameraData.commandBuffer, mesh->m_IndexBuffer->GetVkBuffer(), 0,
                                      VK_INDEX_TYPE_UINT32);
 
                 vkCmdBindDescriptorSets(cameraData.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -210,7 +210,7 @@ void TransparentPass::render(
     vkCmdSetScissor(cameraData.compositeCommandBuffer, 0, 1, &scissor);
 
     glm::vec2 frameBufferSize(camera->viewportSize.x, camera->viewportSize.y);
-    swapChainResources.frameInfoBuffer.Write(&frameBufferSize, sizeof(glm::vec2));
+    swapChainResources.frameInfoBuffer->Write(&frameBufferSize, sizeof(glm::vec2));
 
     vkCmdBindDescriptorSets(cameraData.compositeCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                             m_CompositePipelineLayout, 0, 1, &swapChainResources.compositeDescriptorSet, 0, nullptr);
@@ -257,14 +257,14 @@ void TransparentPass::resize(const VulkanContext* context, std::shared_ptr<Camer
 
         VkDescriptorImageInfo accumImageInfo{};
         accumImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        accumImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].colorAccumView;
+        accumImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].colorAccumTarget->getVkImageView();
 
         VkDescriptorImageInfo revealImageInfo{};
         revealImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        revealImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].alphaAccumView;
+        revealImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget->getVkImageView();
 
         VkDescriptorBufferInfo frameBufferInfo{};
-        frameBufferInfo.buffer = m_SwapChainResourcesByCamera[camera][i].frameInfoBuffer.GetVkBuffer();
+        frameBufferInfo.buffer = m_SwapChainResourcesByCamera[camera][i].frameInfoBuffer->GetVkBuffer();
         frameBufferInfo.offset = 0;
         frameBufferInfo.range = sizeof(glm::vec2);
 
@@ -328,40 +328,29 @@ void TransparentPass::createImages(const VulkanContext* context, std::shared_ptr
 
     m_SwapChainResourcesByCamera[camera].resize(swapChainImageCount);
 
-    for (int i = 0; i < swapChainImageCount; i++)
-    {
-        context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                             m_SwapChainResourcesByCamera[camera][i].colorAccumTarget,
-                             m_SwapChainResourcesByCamera[camera][i].colorAccumAllocation);
-        m_SwapChainResourcesByCamera[camera][i].colorAccumView =
-            context->createImageView(m_SwapChainResourcesByCamera[camera][i].colorAccumTarget,
-                                     VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-    }
+    ImageCreateInfo createInfo{};
+    createInfo.width = camera->viewportSize.x;
+    createInfo.height = camera->viewportSize.y;
+    createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     for (int i = 0; i < swapChainImageCount; i++)
     {
-        context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                             VK_FORMAT_R16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                             m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget,
-                             m_SwapChainResourcesByCamera[camera][i].alphaAccumAllocation);
-        m_SwapChainResourcesByCamera[camera][i].alphaAccumView =
-            context->createImageView(m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget, VK_FORMAT_R16_SFLOAT,
-                                     VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        m_SwapChainResourcesByCamera[camera][i].colorAccumTarget = context->createImage(createInfo);
     }
+
+    createInfo.format = VK_FORMAT_R16_SFLOAT;
 
     for (int i = 0; i < swapChainImageCount; i++)
     {
-        context->createImage(camera->viewportSize.x, camera->viewportSize.y, 1, VK_SAMPLE_COUNT_1_BIT,
-                             VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_TILING_OPTIMAL,
-                             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                             m_SwapChainResourcesByCamera[camera][i].compositeTarget,
-                             m_SwapChainResourcesByCamera[camera][i].compositeAllocation);
-        m_SwapChainResourcesByCamera[camera][i].compositeView =
-            context->createImageView(m_SwapChainResourcesByCamera[camera][i].compositeTarget,
-                                     VK_FORMAT_R16G16B16A16_SFLOAT, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+        m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget = context->createImage(createInfo);
+    }
+
+    createInfo.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+
+    for (int i = 0; i < swapChainImageCount; i++)
+    {
+        m_SwapChainResourcesByCamera[camera][i].compositeTarget = context->createImage(createInfo);
     }
 }
 
@@ -486,9 +475,9 @@ void TransparentPass::createFrameBuffers(const VulkanContext* context, std::shar
 {
     for (size_t i = 0; i < context->getAmountOfSwapChainImages(); i++)
     {
-        std::array<VkImageView, 3> attachments = {m_SwapChainResourcesByCamera[camera][i].colorAccumView,
-                                                  m_SwapChainResourcesByCamera[camera][i].alphaAccumView,
-                                                  depthImageViews[i]};
+        std::array<VkImageView, 3> attachments = {
+            m_SwapChainResourcesByCamera[camera][i].colorAccumTarget->getVkImageView(),
+            m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget->getVkImageView(), depthImageViews[i]};
 
         VkFramebufferCreateInfo framebufferInfo{};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -894,14 +883,14 @@ void TransparentPass::createDescriptorSets(const VulkanContext* context, std::sh
 
         VkDescriptorImageInfo accumImageInfo{};
         accumImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        accumImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].colorAccumView;
+        accumImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].colorAccumTarget->getVkImageView();
 
         VkDescriptorImageInfo revealImageInfo{};
         revealImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        revealImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].alphaAccumView;
+        revealImageInfo.imageView = m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget->getVkImageView();
 
         VkDescriptorBufferInfo frameBufferInfo{};
-        frameBufferInfo.buffer = m_SwapChainResourcesByCamera[camera][i].frameInfoBuffer.GetVkBuffer();
+        frameBufferInfo.buffer = m_SwapChainResourcesByCamera[camera][i].frameInfoBuffer->GetVkBuffer();
         frameBufferInfo.offset = 0;
         frameBufferInfo.range = sizeof(glm::vec2);
 
@@ -961,18 +950,6 @@ void TransparentPass::cleanForResize(const VulkanContext* context, std::shared_p
 {
     for (int i = 0; i < context->getAmountOfSwapChainImages(); i++)
     {
-        vkDestroyImage(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].colorAccumTarget, nullptr);
-        vmaFreeMemory(context->getAllocator(), m_SwapChainResourcesByCamera[camera][i].colorAccumAllocation);
-        vkDestroyImageView(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].colorAccumView, nullptr);
-
-        vkDestroyImage(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].alphaAccumTarget, nullptr);
-        vmaFreeMemory(context->getAllocator(), m_SwapChainResourcesByCamera[camera][i].alphaAccumAllocation);
-        vkDestroyImageView(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].alphaAccumView, nullptr);
-
-        vkDestroyImage(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].compositeTarget, nullptr);
-        vmaFreeMemory(context->getAllocator(), m_SwapChainResourcesByCamera[camera][i].compositeAllocation);
-        vkDestroyImageView(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].compositeView, nullptr);
-
         vkDestroyFramebuffer(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].framebuffer, nullptr);
         vkDestroyFramebuffer(context->getDevice(), m_SwapChainResourcesByCamera[camera][i].compositeFramebuffer,
                              nullptr);

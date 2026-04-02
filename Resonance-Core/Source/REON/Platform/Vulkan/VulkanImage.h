@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
+#include <memory>
 
 namespace REON
 {
@@ -17,7 +18,7 @@ struct ImageCreateInfo
     VkImageUsageFlags usage = 0;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     VkImageCreateFlags flags = 0;
-    VkImageLayout initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+    VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     VkComponentMapping swizzle = {
         VK_COMPONENT_SWIZZLE_IDENTITY,
         VK_COMPONENT_SWIZZLE_IDENTITY,
@@ -32,7 +33,7 @@ class VulkanContext;
 class VulkanImage
 {
   public:
-    VulkanImage() = default;
+    VulkanImage() = delete;
     VulkanImage(VulkanImage&&) noexcept;
     VulkanImage& operator=(VulkanImage&&) noexcept;
     VulkanImage(const VulkanImage&) = delete;
@@ -59,12 +60,19 @@ class VulkanImage
     friend class VulkanContext;
     VulkanImage(const VulkanContext* context, VkImage image, VkImageView view, VmaAllocation allocation, ImageCreateInfo createInfo);
 
+    void reset();
+
+    void moveFrom(VulkanImage&& other);
+
     const VulkanContext* m_context = nullptr;
-    VkImage m_texture;
-    VkImageView m_textureView;
-    VmaAllocation m_textureAllocation;
-    ImageCreateInfo m_imageCreateInfo;
+    VkImage m_texture = VK_NULL_HANDLE;
+    VkImageView m_textureView = VK_NULL_HANDLE;
+    VmaAllocation m_textureAllocation = nullptr;
+    ImageCreateInfo m_imageCreateInfo{};
 
     VkImageLayout m_currentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 };
+
+using ImageHandle = std::shared_ptr<VulkanImage>;
+
 } // namespace REON

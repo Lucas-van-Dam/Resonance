@@ -430,6 +430,7 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
     {
         ArtifactRef ref{};
         ref.uri = outFile.filename().generic_string();
+        ref.revision = 0;
         ref.offset = mie.dataOffset;
         ref.size = mie.dataSize;
         ref.format = /*MESH_V1*/ 0x1001;
@@ -439,10 +440,10 @@ CookOutput ModelBinWriter::WriteModelBin(const ImportedModel& model, const std::
         assetMap[key] = ref;
     }
 
-    assetMap[AssetKey{ASSET_MODEL, model.modelId}] = {outFile.generic_string(), 0, std::filesystem::file_size(outFile),
+    assetMap[AssetKey{ASSET_MODEL, model.modelId}] = {outFile.generic_string(), 0, 0, std::filesystem::file_size(outFile),
                                                       0x2001};
     if (model.rig.has_value())
-        assetMap[AssetKey{ASSET_RIG, model.rig.value().rigId}] = {outFile.generic_string(), chunks[3].offset, chunks[3].size,
+        assetMap[AssetKey{ASSET_RIG, model.rig.value().rigId}] = {outFile.generic_string(), 0, chunks[3].offset, chunks[3].size,
                                                                   0x3001};
 
     return {0, {}, {}, assetMap};

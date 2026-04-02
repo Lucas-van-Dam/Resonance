@@ -376,7 +376,7 @@ void EditorLayer::OnImGuiRender()
 
     if (!m_AssetBrowser.getSelectedFile().empty())
     {
-        Inspector::InspectObject(m_AssetBrowser.getSelectedFile());
+        Inspector::InspectObject(m_AssetBrowser.getSelectedFile(), cookPipeline);
     }
     else
     {
@@ -387,7 +387,7 @@ void EditorLayer::OnImGuiRender()
 
     SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(),
                                          scene->selectedObject);
-    m_AssetBrowser.RenderAssetBrowser();
+    m_AssetBrowser.RenderAssetBrowser(cookPipeline);
 }
 
 void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
@@ -482,7 +482,8 @@ void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
         }
     }
 
-    cookPipeline.CookAll({event.GetProjectDirectory().string(), "EngineCache"}, m_BuildQueue);
+    cookPipeline.SetOptions({event.GetProjectDirectory().string(), "EngineCache"});
+    cookPipeline.CookAll(m_BuildQueue);
 
     Application::Get().Init(event.GetProjectDirectory().string() + "\\EngineCache\\manifest.bin");
 

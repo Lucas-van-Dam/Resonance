@@ -10,18 +10,12 @@ namespace REON {
 		VkFramebuffer framebuffer;
 		VkFramebuffer compositeFramebuffer;
 
-		VulkanBuffer frameInfoBuffer;
+		BufferHandle frameInfoBuffer;
 		VkDescriptorSet compositeDescriptorSet;
 
-		VkImage colorAccumTarget;
-		VmaAllocation colorAccumAllocation;
-		VkImageView colorAccumView;
-		VkImage alphaAccumTarget;
-		VmaAllocation alphaAccumAllocation;
-		VkImageView alphaAccumView;
-		VkImage compositeTarget;
-		VmaAllocation compositeAllocation;
-		VkImageView compositeView;
+		ImageHandle colorAccumTarget;
+        ImageHandle alphaAccumTarget;
+        ImageHandle compositeTarget;
 	};
 
 	struct FrameInfo {

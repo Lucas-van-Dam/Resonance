@@ -96,7 +96,6 @@ namespace REON::EDITOR {
                                  [](const AssetRecord& record) { return record.type == ASSET_MODEL; });
                     ModelLoader::LoadModelFromFile(it->id,
                                                    SceneManager::Get()->GetCurrentScene());
-					Model::ConstructGameObjectFromModelFile(ProjectManager::GetInstance().GetCurrentProjectPath() + "\\" + filePath, SceneManager::Get()->GetCurrentScene());
 				}
 			}
 			ImGui::EndDragDropTarget();
@@ -106,5 +105,4 @@ namespace REON::EDITOR {
 
 		ImGui::End();
 	}
-
 }

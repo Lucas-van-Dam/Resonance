@@ -44,13 +44,9 @@ namespace REON {
 		std::vector<VkFramebuffer> m_Framebuffers;
 		VkPipelineLayout m_PipelineLayout = VK_NULL_HANDLE;
 
-		VkImage m_ColorImage = VK_NULL_HANDLE;
-		VkImageView m_ColorImageView = VK_NULL_HANDLE;
-		VmaAllocation m_ColorImageAllocation = VK_NULL_HANDLE;
+		ImageHandle m_ColorImage;
 
-		VkImage m_DepthImage = VK_NULL_HANDLE;
-		VkImageView m_DepthImageView = VK_NULL_HANDLE;
-		VmaAllocation m_DepthImageAllocation = VK_NULL_HANDLE;
+		ImageHandle m_DepthImage;
 
 		std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts;
 	};

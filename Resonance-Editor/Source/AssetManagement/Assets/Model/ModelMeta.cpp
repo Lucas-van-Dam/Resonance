@@ -6,7 +6,7 @@ namespace REON::EDITOR
 {
 static void InitModelMeta(nlohmann::json& meta)
 {
-    meta["importSettings"] = {{"scale", 1.0}, {"generateTangents", true}};
+    meta["importSettings"] = {{"scale", 1.0}, {"forceGenerateTangents", true}};
 
     meta["stableIds"] = nlohmann::json::object();
     meta["outputs"] = {{"meshes", nlohmann::json::array()},

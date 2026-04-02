@@ -1,5 +1,6 @@
 #pragma once
 #include <filesystem>
+#include <AssetManagement/CookPipeline.h>
 
 namespace REON::EDITOR {
 
@@ -7,7 +8,7 @@ namespace REON::EDITOR {
 	{
 	public:
 		static void DrawInspector_Material(std::filesystem::path path);
-		static void DrawInspector_Model(std::filesystem::path path);
+		static void DrawInspector_Model(std::filesystem::path path, CookPipeline& pipeline);
 	};
 
 }

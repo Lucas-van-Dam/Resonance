@@ -83,12 +83,10 @@ class [[clang::annotate("serialize")]] Renderer : public ComponentBase<Renderer>
     bool drawCommandsDirty = true;
 
     std::vector<VkDescriptorSet> objectDescriptorSets;
-    std::vector<VulkanBuffer> objectDataBuffers{};
+    std::vector<BufferHandle> objectDataBuffers{};
 
     std::vector<VkDescriptorSet> shadowObjectDescriptorSets;
-    std::vector<VulkanBuffer> shadowObjectDataBuffers{};
-
-    static_assert(std::is_default_constructible_v<std::vector<VulkanBuffer>>);
+    std::vector<BufferHandle> shadowObjectDataBuffers;
 
   private:
     glm::mat4 m_ModelMatrix{};

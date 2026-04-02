@@ -80,7 +80,7 @@ class [[clang::annotate("serialize")]] Material : public ResourceBase
     RenderingModes renderingMode = Opaque;
     BlendingModes blendingMode = Blend;
 
-    std::vector<VulkanBuffer> flatDataBuffers;
+    std::vector<BufferHandle> flatDataBuffers;
     std::vector<VkDescriptorSet> descriptorSets;
 
   private:

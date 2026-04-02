@@ -15,7 +15,8 @@ enum MatFlags : uint32_t
     MAT_DOUBLE_SIDED = 1 << 0,
     MAT_TRANSPARENT = 1 << 1,
     MAT_MODE_BLEND = 1 << 2, // Only one of the Blend, Mask modes allowed, and only if MAT_TRANSPARENT
-    MAT_MODE_MASK = 1 << 3
+    MAT_MODE_MASK = 1 << 3,
+    MAT_FLIP_NORMALS = 1 << 4,
 };
 
 constexpr uint32_t MAT_MAGIC = MakeFourCC('M', 'A', 'T', 'B');

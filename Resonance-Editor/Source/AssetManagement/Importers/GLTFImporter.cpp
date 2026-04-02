@@ -15,8 +15,34 @@ bool GltfImporter::CanImport(std::filesystem::path ext) const
     return ext == ".gltf" || ext == ".glb";
 }
 
+static void getTexAndImageId(AssetId& texId, AssetId& imgId, ModelSourceAsset& asset, int& currentId)
+{
+    if (asset.textureIds.size() > currentId)
+    {
+        texId = asset.textureIds[currentId];
+    }
+    else
+    {
+        texId = MakeRandomAssetId();
+        asset.textureIds.push_back(texId);
+    }
+    if (asset.imageIds.size() > currentId)
+    {
+        imgId = asset.imageIds[currentId];
+    }
+    else
+    {
+        imgId = MakeRandomAssetId();
+        asset.imageIds.push_back(imgId);
+    }
+    currentId++;
+}
+
 ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 {
+    producedAssets.clear();
+    currentMeshId = 0;
+
     tg::Model model;
     tg::TinyGLTF loader;
     std::string err;
@@ -81,12 +107,19 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
         REON_INFO("\t{}", khrExtension);
     }
 
+    int currentId = 0;
+
     if (currentModelAsset.importMaterials)
     {
-        for (auto& srcMat : model.materials)
+        bool ReassignIds = model.materials.size() != currentModelAsset.materialIds.size();
+        for (int i = 0; i < model.materials.size(); ++i)
         {
+            auto& srcMat = model.materials[i];
             ImportedMaterial mat{};
-            mat.id = MakeRandomAssetId();
+            if (ReassignIds)
+                mat.id = MakeRandomAssetId();
+            else
+                mat.id = currentModelAsset.materialIds[i];
 
             mat.debugName = (srcMat.name.empty() ? "Material_" + mat.id.to_string() : srcMat.name);
 
@@ -123,6 +156,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
             mat.emissiveFactor.w = srcMat.alphaCutoff;
 
             mat.doubleSided = srcMat.doubleSided;
+            mat.flipNormals = currentModelAsset.flipNormals;
 
             auto pbrData = srcMat.pbrMetallicRoughness;
 
@@ -132,8 +166,11 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
             if (pbrData.baseColorTexture.index >= 0)
             {
-                mat.baseColorTex =
-                    HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index], importedModel, ctx);
+                AssetId imgId;
+                AssetId texId;
+                getTexAndImageId(texId, imgId, currentModelAsset, currentId);
+                mat.baseColorTex = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index],
+                                                     importedModel, ctx, true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.baseColorTex);
                 flags |= AlbedoTexture;
                 if (pbrData.baseColorTexture.texCoord != 0)
@@ -187,8 +224,11 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
             if (srcMat.emissiveTexture.index >= 0)
             {
-                mat.emissiveTex =
-                    HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], importedModel, ctx);
+                AssetId imgId;
+                AssetId texId;
+                getTexAndImageId(texId, imgId, currentModelAsset, currentId);
+                mat.emissiveTex = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], importedModel,
+                                                    ctx, true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.emissiveTex);
                 flags |= EmissiveTexture;
                 if (srcMat.emissiveTexture.texCoord != 0)
@@ -197,8 +237,11 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
             if (pbrData.metallicRoughnessTexture.index >= 0)
             {
+                AssetId imgId;
+                AssetId texId;
+                getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.mrTex = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index],
-                                              importedModel, ctx);
+                                              importedModel, ctx, false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.mrTex);
                 flags |= MetallicRoughnessTexture;
                 if (pbrData.metallicRoughnessTexture.texCoord != 0)
@@ -207,8 +250,11 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
             if (srcMat.normalTexture.index >= 0)
             {
-                mat.normalTex =
-                    HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], importedModel, ctx);
+                AssetId imgId;
+                AssetId texId;
+                getTexAndImageId(texId, imgId, currentModelAsset, currentId);
+                mat.normalTex = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], importedModel, ctx,
+                                                  false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.normalTex);
                 flags |= NormalTexture;
                 mat.normalScalar = srcMat.normalTexture.scale;
@@ -319,6 +365,21 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
 
     ctx.cache.modelCache[importedModel.modelId] = importedModel;
     producedAssets.push_back(modelRecord);
+
+    auto lastWriteTime = std::filesystem::last_write_time(metaPath);
+    auto buildKey = std::chrono::duration_cast<std::chrono::milliseconds>(lastWriteTime.time_since_epoch()).count();
+    currentModelAsset.lastBuildKey = buildKey;
+
+    if (currentModelAsset.materialIds.size() != importedModel.materials.size())
+    {
+        for (auto& mat : importedModel.materials)
+        {
+            currentModelAsset.materialIds.push_back(mat.id);
+        }
+    }
+
+    SaveModelSourceAssetToFile(metaPath, currentModelAsset);
+
     return {producedAssets};
 }
 
@@ -343,7 +404,15 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
 
     if (meshId >= 0 && meshId < model.meshes.size())
     {
-        data.meshId = HandleGLTFMesh(model, model.meshes[meshId], impModel, data);
+        AssetId id;
+        if (currentModelAsset.meshIds.size() > currentMeshId)
+            id = currentModelAsset.meshIds[currentMeshId];
+        else
+        {
+            id = MakeRandomAssetId();
+            currentModelAsset.meshIds.push_back(id);
+        }
+        data.meshId = HandleGLTFMesh(model, model.meshes[meshId], impModel, data, id);
         modelRecord.assetDeps.push_back(data.meshId);
     }
 
@@ -374,10 +443,10 @@ NodeIndex GltfImporter::HandleGLTFNode(const tg::Model& model, int nodeId, Impor
 }
 
 AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel,
-                                     ImportedNode& impNode)
+                                     ImportedNode& impNode, AssetId id)
 {
     ImportedMesh meshData{};
-    meshData.id = MakeRandomAssetId();
+    meshData.id = id;
     meshData.debugName = mesh.name;
 
     AssetRecord meshRecord{};
@@ -421,6 +490,13 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
             if (attribute.first.compare("POSITION") == 0)
             {
                 ReadAccessorVec3(model, accessor, meshData.positions);
+                if (currentModelAsset.scale != 1.0f)
+                {
+                    for (auto& pos : meshData.positions)
+                    {
+                        pos *= currentModelAsset.scale;
+                    }
+                }
             }
             else if (attribute.first.compare("NORMAL") == 0)
             {
@@ -496,7 +572,7 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
         meshData.subMeshes.push_back(subMesh);
     }
 
-    if (currentModelAsset.generateTangents)
+    if (meshData.tangents.empty() || currentModelAsset.forceGenerateTangents)
     {
         TangentCalculator::CalculateTangents(meshData.positions, meshData.uv0, meshData.normals, meshData.tangents,
                                              meshData.indices);
@@ -510,7 +586,7 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
 }
 
 AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                                        ImportContext& ctx)
+                                        ImportContext& ctx, bool isSRGB, AssetId texId, AssetId imgId)
 {
     const auto& image = model.images[texture.source];
 
@@ -518,15 +594,15 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     ImportedImage importedImage{};
 
     AssetRecord textureRecord{};
-
-    importedImage.id = MakeRandomAssetId();
+    importedImage.id = imgId;
     importedImage.debugName = image.name;
     importedImage.width = image.width;
     importedImage.height = image.height;
     importedImage.rgba8 = image.image;
     importedImage.channels = image.component;
+    importedImage.srgb = isSRGB;
 
-    importedTexture.id = MakeRandomAssetId();
+    importedTexture.id = texId;
     importedTexture.debugName = texture.name;
     importedTexture.imageId = importedImage.id;
 

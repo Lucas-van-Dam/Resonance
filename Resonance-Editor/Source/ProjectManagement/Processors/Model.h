@@ -1,10 +1,5 @@
 #pragma once
 
-#include "assimp/DefaultLogger.hpp"
-#include "assimp/Logger.hpp"
-#include "assimp/Importer.hpp"
-#include "assimp/postprocess.h"
-#include "assimp/scene.h"
 #include "REON/GameHierarchy/GameObject.h"
 #include <glm/glm.hpp>
 #include "REON/Math/Quaternion.h"
@@ -12,8 +7,6 @@
 #include "REON/Rendering/Mesh.h"
 #include "nlohmann/json.hpp"
 
-struct aiNode;
-struct aiMesh;
 
 namespace REON {
     class Shader;

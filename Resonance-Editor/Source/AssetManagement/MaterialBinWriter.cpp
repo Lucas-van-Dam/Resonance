@@ -15,6 +15,7 @@ CookOutput MaterialBinWriter::WriteMaterialBin(const ImportedMaterial& mat, cons
     flags |= mat.doubleSided ? MAT_DOUBLE_SIDED : 0;
     flags |= mat.renderingMode == Transparent ? MAT_TRANSPARENT : 0;
     flags |= mat.renderingMode == Transparent ? mat.blendingMode == Blend ? MAT_MODE_BLEND : MAT_MODE_MASK : 0;
+    flags |= mat.flipNormals ? MAT_FLIP_NORMALS : 0;
 
     header.flags = flags;
 

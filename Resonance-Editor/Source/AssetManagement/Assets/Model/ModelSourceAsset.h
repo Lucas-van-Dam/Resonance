@@ -1,10 +1,11 @@
 #pragma once
 
-#include <string>
-#include <filesystem>
-#include <vector>
-#include <unordered_map>
 #include "REON/AssetManagement/Asset.h"
+
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace REON::EDITOR
 {
@@ -16,15 +17,17 @@ struct ModelSourceAsset
 
     // Import settings
     float scale = 1.0f;
-    bool generateTangents = true;
+    bool forceGenerateTangents = false;
     bool mergeMeshes = false;
     bool importMaterials = true;
     bool importTextures = true;
+    bool flipNormals = true;
 
     // Outputs (sub-assets created by this import)
     std::vector<AssetId> meshIds;
     std::vector<AssetId> materialIds;
     std::vector<AssetId> textureIds;
+    std::vector<AssetId> imageIds;
 
     std::filesystem::path cookedArtifact; // path to engine cache file
 
@@ -63,15 +66,16 @@ inline ModelSourceAsset LoadModelSourceAssetFromFile(const std::filesystem::path
     {
         const auto& s = j["importSettings"];
         out.scale = s.value("scale", out.scale);
-        out.generateTangents = s.value("generateTangents", out.generateTangents);
+        out.forceGenerateTangents = s.value("forceGenerateTangents", out.forceGenerateTangents);
         out.mergeMeshes = s.value("mergeMeshes", out.mergeMeshes);
         out.importMaterials = s.value("importMaterials", out.importMaterials);
         out.importTextures = s.value("importTextures", out.importTextures);
+        out.flipNormals = s.value("flipNormals", out.flipNormals);
     }
     else
     {
         out.scale = j.value("scale", out.scale);
-        out.generateTangents = j.value("generateTangents", out.generateTangents);
+        out.forceGenerateTangents = j.value("forceGenerateTangents", out.forceGenerateTangents);
         out.mergeMeshes = j.value("mergeMeshes", out.mergeMeshes);
         out.importMaterials = j.value("importMaterials", out.importMaterials);
         out.importTextures = j.value("importTextures", out.importTextures);
@@ -156,7 +160,7 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
 
     // Generic header
     j["metaVersion"] = 1;
-    j["assetType"] = "ModelSource";
+    j["assetType"] = ASSET_MODEL;
     j["id"] = a.id.to_string();
     j["name"] = a.name;
     j["sourcePath"] = a.sourcePath.generic_string();
@@ -164,10 +168,11 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
     // Settings (nested, preferred)
     j["importSettings"] = {
         {"scale", a.scale},
-        {"generateTangents", a.generateTangents},
+        {"forceGenerateTangents", a.forceGenerateTangents},
         {"mergeMeshes", a.mergeMeshes},
         {"importMaterials", a.importMaterials},
         {"importTextures", a.importTextures},
+        {"flipNormals", a.flipNormals},
     };
 
     // Outputs
@@ -224,4 +229,4 @@ inline void SaveModelSourceAssetToFile(const std::filesystem::path& metaPath, co
     }
 }
 
-}
+} // namespace REON::EDITOR

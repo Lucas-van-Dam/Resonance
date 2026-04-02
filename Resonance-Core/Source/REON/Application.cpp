@@ -61,7 +61,7 @@ Application::~Application()
     vkDeviceWaitIdle(static_cast<VulkanContext*>(m_Context)->getDevice());
     for (Layer* layer : m_LayerStack)
         layer->OnCleanup();
-    // SceneManager::Get()->Destroy();
+    SceneManager::Get()->Destroy();
     //ResourceManager::GetInstance().Destroy();
     m_Context->cleanup();
 }

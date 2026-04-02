@@ -4,6 +4,8 @@
 #include <functional>
 #include "ReflectionSystem.h"
 #include "Reon.h"
+#include <AssetManagement/CookPipeline.h>
+
 namespace REON::EDITOR {
 	class Inspector
 	{
@@ -20,7 +22,7 @@ namespace REON::EDITOR {
 		// Render fields dynamically based on reflection data
 		static void InspectObject(std::shared_ptr<GameObject>& object);
 
-		static void InspectObject(std::filesystem::path assetPath);
+		static void InspectObject(std::filesystem::path assetPath, CookPipeline& cookPipeline);
 
 	private:
 		// Static registry for handlers, maps type names to handler functions

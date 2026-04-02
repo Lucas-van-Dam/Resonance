@@ -11,7 +11,6 @@
 #include "REON/Rendering/Structs/LightData.h"
 
 #include <REON/ResourceManagement/ResourceManager.h>
-#include <assimp/pbrmaterial.h>
 #include <glm/gtx/matrix_decompose.hpp>
 
 namespace REON::EDITOR

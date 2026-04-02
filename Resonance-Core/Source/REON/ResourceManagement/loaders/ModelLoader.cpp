@@ -160,8 +160,8 @@ bool ModelLoader::LoadModelFromFile(AssetId id, std::shared_ptr<Scene> scene)
             scene->renderManager->AddAnimator(animator);
         }
         const auto& root = BuildNodeRecursive(roots[0], nodes, scene, nullptr, animator);
-        root->AddComponent<Animator>(animator);
-
+        if (animator)
+            root->AddComponent<Animator>(animator);
     }
     return true;
 }

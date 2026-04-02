@@ -50,7 +50,6 @@ IncludeDir["GLAD"] = "vendor/GLAD/include"
 IncludeDir["ImGui"] = "vendor/imgui"
 IncludeDir["glm"] = "vendor/glm"
 IncludeDir["stb_image"] = "vendor/stb_image"
-IncludeDir["assimp"] = "vendor/assimp/include"
 IncludeDir["ImGuizmo"] = "vendor/ImGuizmo"
 IncludeDir["json"] = "vendor/json/include"
 IncludeDir["Tracy"] = "vendor/Tracy"
@@ -62,7 +61,6 @@ IncludeDir["stduuid"] = "vendor/stduuid/include"
 include "Resonance-Core/vendor/GLFW/premake5.lua"
 include "Resonance-Core/vendor/GLAD/premake5.lua"
 --include "Resonance-Core/vendor/imgui/premake5.lua"
-include "Resonance-Core/vendor/assimp/premake5.lua"
 
 -- if _ACTION and _ACTION:match("^vs") then
 --     require("vstudio")

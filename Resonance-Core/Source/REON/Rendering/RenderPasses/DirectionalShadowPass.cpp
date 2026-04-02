@@ -47,7 +47,7 @@ namespace REON {
 		barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = m_DepthImages[currentImageIndex];
+		barrier.image = m_DepthImages[currentImageIndex]->getVkImage();
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = 1;
@@ -82,7 +82,7 @@ namespace REON {
 		scissor.extent = { MAIN_SHADOW_WIDTH, MAIN_SHADOW_HEIGHT };
 		vkCmdSetScissor(m_CommandBuffers[currentFrame], 0, 1, &scissor);
 
-		m_PerLightBuffers[currentFrame].Write(&mainLightViewProj, sizeof(mainLightViewProj));
+		m_PerLightBuffers[currentFrame]->Write(&mainLightViewProj, sizeof(mainLightViewProj));
 
 		for (const auto& renderer : renderers) {
 
@@ -100,13 +100,13 @@ namespace REON {
 
 				std::array<VkDescriptorSet, 2> descriptorSets{ m_PerLightDescriptorSets[currentFrame], cmd.owner->shadowObjectDescriptorSets[context->getCurrentFrame()] };
 				auto modelMatrix = cmd.owner->getModelMatrix();
-				cmd.owner->shadowObjectDataBuffers[context->getCurrentFrame()].Write(&modelMatrix, sizeof(glm::mat4));
+				cmd.owner->shadowObjectDataBuffers[context->getCurrentFrame()]->Write(&modelMatrix, sizeof(glm::mat4));
 
-				VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer.GetVkBuffer()};
+				VkBuffer vertexBuffers[] = {mesh->m_VertexBuffer->GetVkBuffer()};
 				VkDeviceSize offsets[] = { 0 };
 				vkCmdBindVertexBuffers(m_CommandBuffers[currentFrame], 0, 1, vertexBuffers, offsets);
 
-				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer.GetVkBuffer(), 0,
+				vkCmdBindIndexBuffer(m_CommandBuffers[currentFrame], mesh->m_IndexBuffer->GetVkBuffer(), 0,
                                      VK_INDEX_TYPE_UINT32);
 
 				vkCmdBindDescriptorSets(m_CommandBuffers[currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, descriptorSets.size(), descriptorSets.data(), 0, nullptr);
@@ -125,7 +125,7 @@ namespace REON {
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		barrier.image = m_DepthImages[currentImageIndex];
+		barrier.image = m_DepthImages[currentImageIndex]->getVkImage();
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = 1;
@@ -163,9 +163,6 @@ namespace REON {
 	void DirectionalShadowPass::cleanup(const VulkanContext* context)
 	{
 		for (int i = 0; i < context->getAmountOfSwapChainImages(); i++) {
-			vkDestroyImage(context->getDevice(), m_DepthImages[i], nullptr);
-			vmaFreeMemory(context->getAllocator(), m_DepthImageAllocations[i]);
-			vkDestroyImageView(context->getDevice(), m_DepthImageViews[i], nullptr);
 			vkDestroyFramebuffer(context->getDevice(), m_Framebuffers[i], nullptr);
 		}
 
@@ -201,12 +198,15 @@ namespace REON {
 		size_t swapChainImageCount = context->getAmountOfSwapChainImages();
 
 		m_DepthImages.resize(swapChainImageCount);
-		m_DepthImageViews.resize(swapChainImageCount);
-		m_DepthImageAllocations.resize(swapChainImageCount);
+
+		ImageCreateInfo createInfo{};
+        createInfo.width = MAIN_SHADOW_WIDTH;
+        createInfo.height = MAIN_SHADOW_HEIGHT;
+        createInfo.format = context->findDepthFormat();
+        createInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
 		for (int i = 0; i < swapChainImageCount; i++) {
-			context->createImage(MAIN_SHADOW_WIDTH, MAIN_SHADOW_HEIGHT, 1, VK_SAMPLE_COUNT_1_BIT, context->findDepthFormat(), VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, m_DepthImages[i], m_DepthImageAllocations[i]);
-			m_DepthImageViews[i] = context->createImageView(m_DepthImages[i], context->findDepthFormat(), VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+            m_DepthImages[i] = context->createImage(createInfo);
 		}
 
 		VkSamplerCreateInfo samplerInfo{};
@@ -286,7 +286,7 @@ namespace REON {
 
 		for (size_t i = 0; i < context->getSwapChainImageViews().size(); i++) {
 			std::array<VkImageView, 1> attachments = {
-				m_DepthImageViews[i],
+                m_DepthImages[i]->getVkImageView(),
 			};
 
 			VkFramebufferCreateInfo framebufferInfo{};
@@ -511,7 +511,7 @@ namespace REON {
 
 		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo globalBufferInfo{};
-			globalBufferInfo.buffer = m_PerLightBuffers[i].GetVkBuffer();
+			globalBufferInfo.buffer = m_PerLightBuffers[i]->GetVkBuffer();
 			globalBufferInfo.offset = 0;
 			globalBufferInfo.range = sizeof(glm::mat4);
 
@@ -544,7 +544,7 @@ namespace REON {
 
 		for (size_t i = 0; i < context->MAX_FRAMES_IN_FLIGHT; i++) {
 			VkDescriptorBufferInfo objectBufferInfo{};
-			objectBufferInfo.buffer = renderer->shadowObjectDataBuffers[i].GetVkBuffer();
+			objectBufferInfo.buffer = renderer->shadowObjectDataBuffers[i]->GetVkBuffer();
 			objectBufferInfo.offset = 0;
 			objectBufferInfo.range = sizeof(glm::mat4);
 

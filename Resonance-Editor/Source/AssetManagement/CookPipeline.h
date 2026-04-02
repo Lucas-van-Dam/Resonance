@@ -20,8 +20,10 @@ class CookPipeline
 {
   public:
     CookPipeline();
-    bool CookAll(const CookOptions&, BuildQueue&);
+    void SetOptions(CookOptions options);
+    bool CookAll(BuildQueue&);
     bool CookDirty(const CookOptions&);
+    bool runImport(const BuildJob& job, const AssetRecord& record, BuildQueue& queue);
 
     static void RegisterImporter(AssetTypeId type, std::unique_ptr<IImporter> importer)
     {
@@ -34,5 +36,6 @@ class CookPipeline
     ImportCache cache;
     ImportContext importCtx;
     ManifestWriter manifestWriter;
+    CookOptions options;
 };
 } // namespace REON::EDITOR

@@ -35,7 +35,7 @@ class VulkanContext;
 class VulkanBuffer
 {
   public:
-    VulkanBuffer() = default;
+    VulkanBuffer() = delete;
     VulkanBuffer(VulkanBuffer&&) noexcept;
     VulkanBuffer& operator=(VulkanBuffer&&) noexcept;
     VulkanBuffer(const VulkanBuffer&) = delete;
@@ -67,4 +67,7 @@ class VulkanBuffer
     VmaAllocationInfo m_allocInfo{};
     BufferCreateInfo m_createInfo{};
 };
+
+using BufferHandle = std::shared_ptr<VulkanBuffer>;
+
 } // namespace REON
