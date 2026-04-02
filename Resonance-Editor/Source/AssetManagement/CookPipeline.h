@@ -1,11 +1,10 @@
 #pragma once
 
+#include "AssetImporter.h"
 #include "BuildQueue.h"
+#include "ManifestWriter.h"
 
 #include <filesystem>
-#include "AssetImporter.h"
-
-#include "ManifestWriter.h"
 
 namespace REON::EDITOR
 {
@@ -24,6 +23,7 @@ class CookPipeline
     bool CookAll(BuildQueue&);
     bool CookDirty(const CookOptions&);
     bool runImport(const BuildJob& job, const AssetRecord& record, BuildQueue& queue);
+    bool cookAsset(const BuildJob& job, const AssetRecord& record, CookOutput& out);
 
     static void RegisterImporter(AssetTypeId type, std::unique_ptr<IImporter> importer)
     {
@@ -31,7 +31,11 @@ class CookPipeline
     }
 
   private:
-      //importer map
+    CookOutput CookModel(const AssetRecord& record);
+    CookOutput CookTexture(const AssetRecord& record);
+    CookOutput CookMaterial(const AssetRecord& record);
+
+    // importer map
     static std::unordered_map<AssetTypeId, std::unique_ptr<IImporter>> m_Importers;
     ImportCache cache;
     ImportContext importCtx;

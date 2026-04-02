@@ -117,6 +117,8 @@ void Renderer::RebuildDrawCommands()
 
         drawCommands.push_back(cmd);
     }
+
+    drawCommandsDirty = false;
 }
 void Renderer::MarkDrawCommandsDirty()
 {

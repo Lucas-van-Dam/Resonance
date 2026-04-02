@@ -18,7 +18,7 @@ struct EngineServices
     void Init(const std::filesystem::path& cookedRoot, const std::filesystem::path& manifestPath)
     {
         auto tempResolver = std::make_shared<ManifestAssetResolver>();
-        tempResolver->LoadFromFile(manifestPath);
+        tempResolver->StartWatchingFile(manifestPath);
 
         auto blobs = std::make_shared<DiskBlobReader>(cookedRoot);
 

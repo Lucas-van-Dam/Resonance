@@ -3,6 +3,8 @@
 #include "DrawFuncs.h"
 #include "imgui.h"
 
+#include <AssetManagement/AssetRegistry.h>
+#include <AssetManagement/Assets/Material/MaterialSerializer.h>
 #include <Commands/CommandManager.h>
 #include <Commands/PropertyChangeCommand.h>
 #include <ProjectManagement/ProjectManager.h>
@@ -66,7 +68,7 @@ void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<Renderer> renderer
         ImGui::SetColumnWidth(0, 100.0f);
         ImGui::Text("Mesh");
         ImGui::NextColumn();
-        ImGui::Button(renderer->mesh.Key().id.to_string().c_str(), ImVec2(-1,0));
+        ImGui::Button(renderer->mesh.Key().id.to_string().c_str(), ImVec2(-1, 0));
         ImGui::Columns(1);
 
         ImGui::Columns(2, "Materials");
@@ -83,7 +85,17 @@ void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<Renderer> renderer
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_BROWSER_ITEM"))
                 {
-                    std::string filePath((char*)payload->Data);
+                    std::filesystem::path filePath((char*)payload->Data);
+
+                    if (filePath.extension() == ".mat")
+                    {
+                        auto source = MaterialSerializer::Load(ProjectManager::GetInstance().GetCurrentProjectPath() +
+                                                               "/" + filePath.string())
+                                          .value();
+                        auto matId = source.id;
+                        auto material = Application::Get().GetEngineServices().resources.GetOrLoad<Material>(matId);
+                        renderer->SetMaterial(i, material);
+                    }
                 }
                 ImGui::EndDragDropTarget();
             }

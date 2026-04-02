@@ -1,4 +1,6 @@
 #include "AssetBrowser.h"
+#include <AssetManagement/Assets/Material/MaterialSourceData.h>
+#include <AssetManagement/Assets/Material/MaterialSerializer.h>
 
 namespace REON::EDITOR
 {
@@ -81,7 +83,8 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID))
             {
                 auto path = std::filesystem::relative(entry.path(), m_RootDirectory.parent_path());
-                ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", path.string().c_str(), path.string().size() + 1);
+                ImGui::SetDragDropPayload("ASSET_BROWSER_ITEM", path.string().c_str(),
+                                          path.string().size() + 1);
                 ImGui::Text("Dragging: %s", name.c_str());
                 ImGui::EndDragDropSource();
             }
@@ -104,27 +107,17 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
             // write bin file
             auto id = MakeRandomAssetId();
 
-            nlohmann::json metaData;
-            metaData["metaVersion"] = 1;
-            metaData["assetType"] = ASSET_MATERIAL;
-            metaData["id"] = id;
-            metaData["sourcePath"] = m_CurrentDirectory / "DefaultMaterial.mat";
+            MaterialSourceData data{};
+            data.id = id;
 
-            ImportedMaterial mat;
-            
-            std::ofstream file(m_CurrentDirectory / "DefaultMaterial.mat");
-            if (file.is_open())
-            {
-                file << metaData.dump(4);
-                file.close();
-            }
+            MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.mat", data);
 
             AssetRegistry::Instance().Upsert(
-                AssetRecord{id, ASSET_MATERIAL, m_CurrentDirectory / "DefaultMaterial.mat", "DefaultMaterial.mat"});
+                AssetRecord{.id = id, .type = ASSET_MATERIAL, .origin = Native, .sourcePath = m_CurrentDirectory / "DefaultMaterial.mat", .logicalName = "DefaultMaterial.mat"});
 
 
             BuildJob job;
-            job.doImport = true;
+            job.doImport = false;
             job.sourceId = id;
             job.type = ASSET_MATERIAL;
             job.reason = BuildReason::SourceChanged;

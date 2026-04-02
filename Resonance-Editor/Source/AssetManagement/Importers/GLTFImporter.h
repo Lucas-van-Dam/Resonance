@@ -16,11 +16,11 @@ class GltfImporter final : public IImporter
 {
   public:
     bool CanImport(std::filesystem::path ext) const override;
-    ImportResult Import(std::filesystem::path src, ImportContext& ctx) override;
+    ImportResult Import(std::filesystem::path src) override;
 
   private:
     AssetId HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                              ImportContext& ctx, bool isSRGB, AssetId texId, AssetId imgId);
+                              bool isSRGB, AssetId texId, AssetId imgId);
     NodeIndex HandleGLTFNode(const tg::Model& model, int nodeId, ImportedModel& impModel, AssetRecord& modelRecord, float scale = 1.0f,
                              uint32_t parentId = UINT32_MAX);
     AssetId HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mesh, ImportedModel& impModel, ImportedNode& impNode, AssetId id);

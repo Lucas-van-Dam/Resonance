@@ -7,7 +7,7 @@ namespace REON::EDITOR {
 	class AssetDrawers
 	{
 	public:
-		static void DrawInspector_Material(std::filesystem::path path);
+        static void DrawInspector_Material(std::filesystem::path path, CookPipeline& pipeline);
 		static void DrawInspector_Model(std::filesystem::path path, CookPipeline& pipeline);
 	};
 

@@ -6,6 +6,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <AssetManagement/ImportedSourceStore.h>
 
 namespace REON::EDITOR
 {
@@ -38,7 +39,7 @@ static void getTexAndImageId(AssetId& texId, AssetId& imgId, ModelSourceAsset& a
     currentId++;
 }
 
-ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
+ImportResult GltfImporter::Import(std::filesystem::path src)
 {
     producedAssets.clear();
     currentMeshId = 0;
@@ -97,6 +98,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
     modelRecord.type = ASSET_MODEL;
     modelRecord.sourcePath = importedModel.sourcePath;
     modelRecord.logicalName = currentModelAsset.name;
+    modelRecord.origin = AssetOrigin::ImportedRootAsset;
 
     materialIDs.clear();
 
@@ -128,6 +130,8 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
             matRecord.logicalName = mat.debugName;
             matRecord.sourcePath = importedModel.sourcePath;
             matRecord.type = ASSET_MATERIAL;
+            matRecord.parentSourceId = importedModel.modelId;
+            matRecord.origin = AssetOrigin::ImportedSubAsset;
 
             materialIDs.push_back(mat.id);
 
@@ -170,7 +174,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
                 AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.baseColorTex = HandleGLTFTexture(model, model.textures[pbrData.baseColorTexture.index],
-                                                     importedModel, ctx, true, texId, imgId);
+                                                     importedModel, true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.baseColorTex);
                 flags |= AlbedoTexture;
                 if (pbrData.baseColorTexture.texCoord != 0)
@@ -228,7 +232,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
                 AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.emissiveTex = HandleGLTFTexture(model, model.textures[srcMat.emissiveTexture.index], importedModel,
-                                                    ctx, true, texId, imgId);
+                                                    true, texId, imgId);
                 matRecord.assetDeps.push_back(mat.emissiveTex);
                 flags |= EmissiveTexture;
                 if (srcMat.emissiveTexture.texCoord != 0)
@@ -241,7 +245,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
                 AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
                 mat.mrTex = HandleGLTFTexture(model, model.textures[pbrData.metallicRoughnessTexture.index],
-                                              importedModel, ctx, false, texId, imgId);
+                                              importedModel, false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.mrTex);
                 flags |= MetallicRoughnessTexture;
                 if (pbrData.metallicRoughnessTexture.texCoord != 0)
@@ -253,7 +257,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
                 AssetId imgId;
                 AssetId texId;
                 getTexAndImageId(texId, imgId, currentModelAsset, currentId);
-                mat.normalTex = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], importedModel, ctx,
+                mat.normalTex = HandleGLTFTexture(model, model.textures[srcMat.normalTexture.index], importedModel,
                                                   false, texId, imgId);
                 matRecord.assetDeps.push_back(mat.normalTex);
                 flags |= NormalTexture;
@@ -363,7 +367,7 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
         importedModel.skins.push_back(std::move(impSkin));
     }
 
-    ctx.cache.modelCache[importedModel.modelId] = importedModel;
+    //TODO: persist import data on disk
     producedAssets.push_back(modelRecord);
 
     auto lastWriteTime = std::filesystem::last_write_time(metaPath);
@@ -379,6 +383,8 @@ ImportResult GltfImporter::Import(std::filesystem::path src, ImportContext& ctx)
     }
 
     SaveModelSourceAssetToFile(metaPath, currentModelAsset);
+
+    ImportedSourceStore::SaveModel(importedModel.modelId, importedModel);
 
     return {producedAssets};
 }
@@ -454,6 +460,8 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
     meshRecord.logicalName = meshData.debugName;
     meshRecord.sourcePath = impModel.sourcePath;
     meshRecord.type = ASSET_MESH;
+    meshRecord.origin = AssetOrigin::ImportedSubAsset;
+    meshRecord.parentSourceId = impModel.modelId;
 
     std::vector<AssetId> matIDsPerMesh;
 
@@ -586,7 +594,7 @@ AssetId GltfImporter::HandleGLTFMesh(const tg::Model& model, const tg::Mesh& mes
 }
 
 AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Texture& texture, ImportedModel& impModel,
-                                        ImportContext& ctx, bool isSRGB, AssetId texId, AssetId imgId)
+                                        bool isSRGB, AssetId texId, AssetId imgId)
 {
     const auto& image = model.images[texture.source];
 
@@ -610,6 +618,8 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     textureRecord.logicalName = importedTexture.debugName;
     textureRecord.sourcePath = impModel.sourcePath;
     textureRecord.type = ASSET_TEXTURE;
+    textureRecord.origin = ImportedSubAsset;
+    textureRecord.parentSourceId = impModel.modelId;
 
     // I know its ugly, but whatever, ill change it later
     if (texture.sampler >= 0)
@@ -694,7 +704,6 @@ AssetId GltfImporter::HandleGLTFTexture(const tg::Model& model, const tg::Textur
     impModel.textures.push_back(importedTexture);
     producedAssets.push_back(textureRecord);
     return importedTexture.id;
-    // ctx.cache.textureCache[importedTexture.id] = importedTexture;
 }
 
 std::tuple<glm::vec3, Quaternion, glm::vec3> GltfImporter::GetTRSFromGLTFNode(const tg::Node& node)
