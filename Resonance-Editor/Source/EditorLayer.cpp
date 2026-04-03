@@ -223,7 +223,7 @@ void EditorLayer::OnImGuiRender()
     if (ClearSelection && ImGui::IsMouseClicked(0))
     {
         scene->selectedObject = nullptr;
-        m_AssetBrowser.clearSelectedFile();
+        m_editorSession->m_AssetBrowser.clearSelectedFile();
     }
 
     if (ImGui::Begin("Scene", nullptr,
@@ -375,9 +375,9 @@ void EditorLayer::OnImGuiRender()
         ImGui::End();
     }
 
-    if (!m_AssetBrowser.getSelectedFile().empty())
+    if (!m_editorSession->m_AssetBrowser.getSelectedFile().empty())
     {
-        Inspector::InspectObject(m_AssetBrowser.getSelectedFile(), cookPipeline);
+        Inspector::InspectObject(m_editorSession->m_AssetBrowser.getSelectedFile(), m_editorSession->cookPipeline);
     }
     else
     {
@@ -388,7 +388,7 @@ void EditorLayer::OnImGuiRender()
 
     SceneHierarchy::RenderSceneHierarchy(REON::SceneManager::Get()->GetCurrentScene()->GetRootObjects(),
                                          scene->selectedObject);
-    m_AssetBrowser.RenderAssetBrowser(cookPipeline);
+    m_editorSession->m_AssetBrowser.RenderAssetBrowser(m_editorSession->cookPipeline);
 }
 
 void EditorLayer::ProcessKeyPress(const REON::KeyPressedEvent& event)
@@ -483,13 +483,13 @@ void EditorLayer::OnProjectLoaded(const ProjectOpenedEvent& event)
         }
     }
 
-    cookPipeline.SetOptions({event.GetProjectDirectory().string(), "EngineCache"});
-    cookPipeline.CookAll(m_BuildQueue);
+    m_editorSession->cookPipeline.SetOptions({event.GetProjectDirectory().string(), "EngineCache"});
+    m_editorSession->cookPipeline.CookAll(m_editorSession->m_BuildQueue);
 
     REON::Application::Get().Init(event.GetProjectDirectory().string() + "\\EngineCache\\manifest.bin");
 
     Inspector::Initialize();
-    m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
+    m_editorSession->m_AssetBrowser.SetRootDirectory(event.GetProjectDirectory().string() + "/Assets");
     m_ProjectLoaded = true;
 }
 
@@ -507,7 +507,11 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
             REON::AssetId assetId = jsonData["id"].get<REON::AssetId>();
             REON::AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
 
-            AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId, .type = assetType, .origin = Native, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
+            AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId,
+                                                         .type = assetType,
+                                                         .origin = Native,
+                                                         .sourcePath = assetPath,
+                                                         .logicalName = assetPath.filename().string()});
         }
         else
         {
@@ -529,8 +533,11 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
 
                 REON::AssetId assetId = jsonData["id"].get<REON::AssetId>();
                 REON::AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
-                AssetRegistry::Instance().Upsert(
-                    AssetRecord{.id = assetId, .type = assetType, .origin = ImportedRootAsset, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
+                AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId,
+                                                             .type = assetType,
+                                                             .origin = ImportedRootAsset,
+                                                             .sourcePath = assetPath,
+                                                             .logicalName = assetPath.filename().string()});
             }
             else
             {
@@ -545,7 +552,7 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
         }
     }
 
-    //compute bulid key from file timestamp
+    // compute bulid key from file timestamp
     auto lastWriteTime = fs::last_write_time(assetPath);
     auto buildKey = std::chrono::duration_cast<std::chrono::milliseconds>(lastWriteTime.time_since_epoch()).count();
     if (buildKey != jsonData["build"]["lastBuildKey"].get<long long>())
@@ -555,8 +562,8 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
         job.reason = BuildReason::SourceChanged;
         job.sourceId = jsonData["id"].get<REON::AssetId>();
         job.type = jsonData["assetType"].get<uint32_t>();
-        m_BuildQueue.Enqueue(job);
+        m_editorSession->m_BuildQueue.Enqueue(job);
     }
 }
 void EditorLayer::CheckAssetsRegistered() {}
-} // namespace REON::EDITOR
+} // namespace REON_EDITOR

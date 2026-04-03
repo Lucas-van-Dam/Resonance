@@ -9,8 +9,7 @@
 #include "Windows/AssetBrowser.h"
 #include "Windows/Inspector.h"
 #include "Windows/SceneHierarchy.h"
-#include "AssetManagement/BuildQueue.h"
-#include "AssetManagement/CookPipeline.h"
+
 
 #include <ProjectManagement/EditorSession.h>
 
@@ -30,7 +29,6 @@ class EditorLayer : public REON::Layer
     ~EditorLayer() override
     {
         // REON_INFO("EditorLayer destructor called for address: {}", static_cast<void*>(this));
-        m_SelectedObject.reset();
     }
 
     virtual void OnAttach() override;
@@ -51,8 +49,6 @@ class EditorLayer : public REON::Layer
     void CheckAssetsRegistered();
 
   private:
-    std::shared_ptr<REON::GameObject> m_SelectedObject;
-
     enum class GizmoType
     {
         Translate,
@@ -71,12 +67,6 @@ class EditorLayer : public REON::Layer
 
     REON::CallbackID m_KeyPressedCallbackID;
     REON::CallbackID m_ProjectOpenedCallbackID;
-
-    AssetBrowser m_AssetBrowser;
-
-    CookPipeline cookPipeline;
-
-    BuildQueue m_BuildQueue;
 
     std::unique_ptr<EditorSession> m_editorSession;
 
