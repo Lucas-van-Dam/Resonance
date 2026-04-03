@@ -196,7 +196,7 @@ void Inspector::InspectObject(std::filesystem::path assetPath, CookPipeline& coo
     {
         AssetDrawers::DrawInspector_Model(assetPath, cookPipeline);
     }
-    else if (extension == ".mat")
+    else if (extension == ".material")
     {
         AssetDrawers::DrawInspector_Material(assetPath, cookPipeline);
     }

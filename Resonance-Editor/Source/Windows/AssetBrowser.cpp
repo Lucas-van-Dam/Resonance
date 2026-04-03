@@ -103,20 +103,17 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
     {
         if (ImGui::MenuItem("Material"))
         {
-            // Create .mat file
+            // Create .material file
             // write bin file
             auto id = REON::MakeRandomAssetId();
 
             MaterialSourceData data{};
             data.id = id;
 
-            MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.mat", data);
+            MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.material", data);
 
-            AssetRegistry::Instance().Upsert(AssetRecord{.id = id,
-                                                         .type = REON::ASSET_MATERIAL,
-                                                         .origin = Native,
-                                                         .sourcePath = m_CurrentDirectory / "DefaultMaterial.mat",
-                                                         .logicalName = "DefaultMaterial.mat"});
+            AssetRegistry::Instance().Upsert(
+                AssetRecord{.id = id, .type = REON::ASSET_MATERIAL, .origin = Native, .sourcePath = m_CurrentDirectory / "DefaultMaterial.material", .logicalName = "DefaultMaterial.material"});
 
             BuildJob job;
             job.doImport = false;

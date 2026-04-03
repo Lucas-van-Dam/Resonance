@@ -87,7 +87,7 @@ void ComponentDrawers::DrawInspector_Renderer(std::shared_ptr<REON::Renderer> re
                 {
                     std::filesystem::path filePath((char*)payload->Data);
 
-                    if (filePath.extension() == ".mat")
+                    if (filePath.extension() == ".material")
                     {
                         auto source = MaterialSerializer::Load(ProjectManager::GetInstance().GetCurrentProjectPath() +
                                                                "/" + filePath.string())

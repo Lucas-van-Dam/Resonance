@@ -39,6 +39,13 @@ class AssetScanner
                     supportedExtensions.find(filename) != supportedExtensions.end())
                 {
                     assets.push_back(entry.path());
+                    continue;
+                }
+                if (primaryAssetExtensions.find(extension) != primaryAssetExtensions.end() ||
+                    primaryAssetExtensions.find(filename) != primaryAssetExtensions.end())
+                {
+                    assets.push_back(entry.path());
+                    continue;
                 }
             }
         }
