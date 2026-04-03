@@ -103,7 +103,7 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
     {
         if (ImGui::MenuItem("Material"))
         {
-            // Create .mat file
+            // Create .material file
             // write bin file
             auto id = MakeRandomAssetId();
 
