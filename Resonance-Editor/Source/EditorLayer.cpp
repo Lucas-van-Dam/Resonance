@@ -496,6 +496,8 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
 {
     nlohmann::json jsonData;
 
+    bool isNative = false; // TODO: return like an AssetInfo struct or something instead of just path to make this cleaner
+
     if (AssetScanner::primaryAssetExtensions.find(assetPath.extension().string()) !=
         AssetScanner::primaryAssetExtensions.end())
     {
@@ -506,7 +508,12 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
             AssetId assetId = jsonData["id"].get<AssetId>();
             AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
 
-            AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId, .type = assetType, .origin = Native, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
+            AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId,
+                                                         .type = assetType,
+                                                         .origin = Native,
+                                                         .sourcePath = assetPath,
+                                                         .logicalName = assetPath.filename().string()});
+            isNative = true;
         }
         else
         {
@@ -528,8 +535,11 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
 
                 AssetId assetId = jsonData["id"].get<AssetId>();
                 AssetTypeId assetType = jsonData["assetType"].get<uint32_t>();
-                AssetRegistry::Instance().Upsert(
-                    AssetRecord{.id = assetId, .type = assetType, .origin = ImportedRootAsset, .sourcePath = assetPath, .logicalName = assetPath.filename().string()});
+                AssetRegistry::Instance().Upsert(AssetRecord{.id = assetId,
+                                                             .type = assetType,
+                                                             .origin = ImportedRootAsset,
+                                                             .sourcePath = assetPath,
+                                                             .logicalName = assetPath.filename().string()});
             }
             else
             {
@@ -544,16 +554,30 @@ void EditorLayer::RegisterAsset(const std::filesystem::path& assetPath, const st
         }
     }
 
-    //compute bulid key from file timestamp
+    // compute bulid key from file timestamp
     auto lastWriteTime = fs::last_write_time(assetPath);
     auto buildKey = std::chrono::duration_cast<std::chrono::milliseconds>(lastWriteTime.time_since_epoch()).count();
-    if (buildKey != jsonData["build"]["lastBuildKey"].get<long long>())
+    if (jsonData.contains("build") && jsonData["build"].contains("lastBuildKey"))
     {
-        REON_INFO("Asset {} has changed since last build, marking for reimport", assetPath.string());
+        if (buildKey != jsonData["build"]["lastBuildKey"].get<long long>())
+        {
+            REON_INFO("Asset {} has changed since last build, marking for reimport", assetPath.string());
+            BuildJob job;
+            job.reason = BuildReason::SourceChanged;
+            job.sourceId = jsonData["id"].get<AssetId>();
+            job.type = jsonData["assetType"].get<uint32_t>();
+            job.doImport = !isNative;
+            m_BuildQueue.Enqueue(job);
+        }
+    }
+    else
+    {
+        REON_INFO("Asset {} has no build key, marking for import", assetPath.string());
         BuildJob job;
-        job.reason = BuildReason::SourceChanged;
+        job.reason = BuildReason::MissingCooked;
         job.sourceId = jsonData["id"].get<AssetId>();
         job.type = jsonData["assetType"].get<uint32_t>();
+        job.doImport = !isNative;
         m_BuildQueue.Enqueue(job);
     }
 }
