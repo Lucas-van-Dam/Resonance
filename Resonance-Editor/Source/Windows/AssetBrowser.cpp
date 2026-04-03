@@ -110,10 +110,10 @@ void AssetBrowser::RenderAssetBrowser(CookPipeline& pipeline)
             MaterialSourceData data{};
             data.id = id;
 
-            MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.mat", data);
+            MaterialSerializer::Save(m_CurrentDirectory / "DefaultMaterial.material", data);
 
             AssetRegistry::Instance().Upsert(
-                AssetRecord{.id = id, .type = ASSET_MATERIAL, .origin = Native, .sourcePath = m_CurrentDirectory / "DefaultMaterial.mat", .logicalName = "DefaultMaterial.mat"});
+                AssetRecord{.id = id, .type = ASSET_MATERIAL, .origin = Native, .sourcePath = m_CurrentDirectory / "DefaultMaterial.material", .logicalName = "DefaultMaterial.material"});
 
 
             BuildJob job;
